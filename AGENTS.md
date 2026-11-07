@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Aturan kerja AI agent awvd: Bun-only, determinisme, data, TTS, larangan Remotion, alur PR dan CI.`
+- Changeset: `Menambahkan bagian Lisensi dan Aset: larangan menyalin produk berlisensi membatasi, dependensi permisif, pencatatan aset, atribusi mulberry32.`
 
 awvd adalah renderer video MP4 dari kode web (lihat [README.md](README.md)). Pusat informasi dan pedoman eksekusi ada di `ahliweb/personal-coding` (skill `video-terprogram`, `eksekusi-terkelola`, dan standar dokumen formal DL-037).
 
@@ -21,7 +21,18 @@ awvd adalah renderer video MP4 dari kode web (lihat [README.md](README.md)). Pus
 9. **Perbarui README** (dan CHANGELOG) bila API runtime atau flag CLI berubah; dokumen yang basi adalah cacat.
 10. Jangan menyatakan rilis atau tag yang belum ada.
 
+## Lisensi dan Aset
+
+- Dilarang membaca untuk menyalin atau mengadaptasi kode produk sejenis yang lisensinya membatasi (Remotion, dan repo tanpa lisensi).
+- Dependensi baru wajib berlisensi permisif (MIT/Apache-2.0/BSD/ISC). Dependensi copyleft perlu keputusan pemilik. Cek lisensi sebelum `bun add`.
+- Setiap aset pihak ketiga dicatat di `templates/<nama>/ASET.md` (sumber, lisensi, tanggal).
+- Pertahankan atribusi mulberry32 di `scripts/runtime.js`.
+
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Menambahkan bagian Lisensi dan Aset.
 
 ### 2026-11-07 - v1.0.0
 

@@ -175,6 +175,8 @@
   }
 
   // ------------------------------------------------------------------- acak
+  // Atribusi: algoritma PRNG mulberry32 oleh Tommy Ettinger (2017), didedikasikan ke
+  // domain publik (CC0-style); hash string memakai FNV-1a (domain publik).
   // PRNG mulberry32 ber-seed. Seed sama -> urutan sama.
   function acak(seed) {
     var a = (typeof seed === "string" ? hashString(seed) : seed | 0) >>> 0;
