@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: alur render, konsep komposisi, protokol window.video/renderFrame, aturan determinisme, peran upstream, dan pemakaian di repo proyek.`
+- Changeset: `Protokol renderer diperbarui: semua permintaan non-lokal diblokir (kode keluar 3), setiap @font-face dimuat eksplisit sebelum frame pertama; aturan determinisme memuat larangan sumber luar.`
 
 Dokumen ini menjelaskan cara awvd bekerja: dari komposisi web sampai MP4, kontrak antara komposisi dan renderer, aturan yang menjaga hasil tetap deterministik, serta peran awvd sebagai upstream bagi repo proyek video. Referensi rinci ada di [api-runtime.md](api-runtime.md) dan [cli.md](cli.md).
 
@@ -53,14 +53,16 @@ sequenceDiagram
     participant R as render.mjs
     participant H as Halaman komposisi
     participant F as ffmpeg
+    R->>H: pasang pemblokiran jaringan (hanya file:, data:, about:, blob:)
     R->>H: suntik window.videoProps sebelum skrip halaman berjalan
     R->>H: buka halaman (file:// atau URL)
     H-->>R: window.video siap (batas 15 detik)
-    R->>H: tunggu document.fonts.ready dan semua gambar
+    R->>H: muat setiap @font-face, lalu tunggu document.fonts.ready dan semua gambar
     loop setiap frame n
         R->>H: await renderFrame(n)
         H-->>R: DOM digambar ulang untuk n
         R->>F: screenshot PNG ke stdin
+        Note over R: ada permintaan diblokir? render gagal, kode keluar 3
     end
     R->>F: tutup stdin, tunggu encode selesai
 ```
@@ -71,7 +73,7 @@ sequenceDiagram
 | `window.video` | komposisi ke renderer | `{ width, height, fps, durationInFrames, renderFrame(n) }`. Renderer menunggu paling lama 15 detik; tanpa itu render gagal dengan kode keluar `1`. Keempat angka harus positif. |
 | `renderFrame(n)` | renderer memanggil | Membulatkan `n`, menolak di luar `0..durationInFrames-1`, dan berjalan berurutan (satu pada satu waktu). Boleh `async`; renderer menunggu hasilnya. |
 
-Langkah renderer sesudah `window.video` siap: viewport diatur ke `width` x `height` komposisi; renderer menunggu `document.fonts.ready` dan semua `<img>` (render gagal bila ada gambar rusak); tiap frame ditangkap sebagai PNG lewat CDP dengan faktor `--skala` (layout tetap, raster dibuat ulang tajam); PNG dialirkan ke stdin ffmpeg tanpa berkas sementara. Mode `--still N` memanggil `renderFrame(N)` satu kali dan menyimpan PNG.
+Langkah renderer sesudah `window.video` siap: viewport diatur ke `width` x `height` komposisi; renderer memuat eksplisit setiap `@font-face` (`FontFace.load()` untuk semua `document.fonts`; render gagal bila ada yang gagal dimuat), menunggu `document.fonts.ready` dan semua `<img>` (render gagal bila ada gambar rusak); tiap frame ditangkap sebagai PNG lewat CDP dengan faktor `--skala` (layout tetap, raster dibuat ulang tajam); PNG dialirkan ke stdin ffmpeg tanpa berkas sementara. Mode `--still N` memanggil `renderFrame(N)` satu kali dan menyimpan PNG.
 
 Mode URL untuk pratinjau dan debug (tanpa query, halaman diam menunggu renderer): `?preview`, `?frame=N`, `?props={...}`. Rinciannya ada di [api-runtime.md](api-runtime.md#mode-url).
 
@@ -83,7 +85,8 @@ Dua render dari komposisi dan props yang sama harus menghasilkan frame identik (
 - Jangan pakai `Date.now()`, `performance.now()`, `setTimeout`/`setInterval`, atau `requestAnimationFrame` untuk menggerakkan animasi.
 - Jangan pakai `Math.random()`; pakai `acak(seed)`.
 - Jangan pakai CSS animation atau transition; runtime menyuntikkan aturan yang mematikannya.
-- Font dan gambar harus termuat sebelum frame pertama; renderer menunggu `document.fonts.ready` dan semua `<img>`, dan gagal bila ada gambar rusak.
+- Font dan gambar harus termuat sebelum frame pertama; renderer memuat eksplisit setiap `@font-face`, menunggu `document.fonts.ready` dan semua `<img>`, dan gagal bila ada gambar atau font rusak.
+- Tidak ada sumber luar: semua permintaan selain `file:`, `data:`, `about:`, dan `blob:` (HTTP, HTTPS, WebSocket, `fetch`, `sendBeacon`) diblokir dan menggagalkan render dengan kode keluar `3` beserta daftar URL-nya. Aset berupa berkas lokal yang tercatat ([aset.md](aset.md)); rinciannya di [cli.md](cli.md#jaringan-dan-font).
 - Frame klip digambar ke `<canvas>` lewat `klipGambar` (bukan `<img>`, yang kadang tertangkap dengan frame sebelumnya). Teramati di Chromium mesin pengembangan: kotak berlatar dengan `border-radius` pada posisi pecahan (mis. caption `inline-block` di tengah) menghasilkan 1-2 piksel tepi yang berubah antar-run pada render berurutan; latar bersudut siku atau posisi bulat tidak. Templat `klip-tertanam` memakai latar caption bersudut siku dan lolos uji frame identik.
 
 ## Peran repo: upstream
@@ -151,6 +154,10 @@ Prasyarat (Bun, `ffmpeg`, Chromium untuk Playwright) sama dengan [Mulai cepat di
 - Panduan video formal untuk pemerintah dan swasta mengikuti standar dokumen formal internal AhliWeb; awvd menjadi alat render videonya.
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Protokol renderer: pemblokiran semua permintaan non-lokal (kode keluar `3`) dan pemuatan eksplisit setiap `@font-face` sebelum frame pertama ditambahkan ke diagram urutan, langkah renderer, dan aturan determinisme.
 
 ### 2026-11-07 - v1.0.0
 

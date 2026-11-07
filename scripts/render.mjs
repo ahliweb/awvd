@@ -7,14 +7,21 @@
  *        [--dari N] [--sampai M] [--skala 1] [--crf 18]
  *        [--audio musik.mp3] [--kenyaringan web|siaran|mati]
  *        [--subtitle teks.vtt|.srt] [--bahasa ind]
- *        [--still N] [--browser /path/chrome]
+ *        [--still N] [--browser /path/chrome] [--izinkan-jaringan]
  *
  * Alur: Chromium headless (playwright-core, tanpa unduh browser) -> per frame
  * window.video.renderFrame(n) -> screenshot PNG -> pipe ke stdin ffmpeg.
- * Tidak ada file sementara per frame. Karya asli repo ini.
+ * Tidak ada file sementara per frame.
+ *
+ * Jaringan: semua permintaan selain file:, data:, about:, dan blob: (HTTP, HTTPS,
+ * WebSocket, sendBeacon, ...) diblokir dan dicatat; render gagal dengan kode keluar 3
+ * beserta daftar URL-nya, supaya hasil tidak bergantung pada sumber luar. Komposisi
+ * yang dibuka lewat http(s) hanya boleh meminta asalnya sendiri. --izinkan-jaringan
+ * mematikan pemblokiran (hanya untuk pratinjau, bukan rilis).
+ * Karya asli repo ini.
  */
 import { parseArgs } from "node:util";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -31,7 +38,8 @@ const PETUNJUK = `Pemakaian:
   bun render.mjs <komposisi.html|URL> --out hasil.mp4 [opsi]
 Opsi: --props JSON | --props-file F, --dari N, --sampai M, --skala X, --crf N,
       --audio F, --kenyaringan web|siaran|mati, --subtitle F(.vtt|.srt),
-      --bahasa KODE, --still N, --browser PATH`;
+      --bahasa KODE, --still N, --browser PATH, --izinkan-jaringan
+Jaringan diblokir secara bawaan (kode keluar 3 bila ada permintaan non-lokal).`;
 
 let args;
 try {
@@ -51,6 +59,7 @@ try {
       bahasa: { type: "string", default: "ind" },
       still: { type: "string" },
       browser: { type: "string" },
+      "izinkan-jaringan": { type: "boolean", default: false },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -234,6 +243,69 @@ function bangunFfmpeg({ fps, dari, w, h, filterKenyaringan }) {
   return a;
 }
 
+// ---------------------------------------------------------------- jaringan
+// Hanya skema lokal (file, data, about, blob) yang lolos tanpa dicegat. Selebihnya (http, https, ws, wss, ftp, ...)
+// dicegat context.route / routeWebSocket, dibatalkan, dan dicatat. Uji lokal: route saja
+// tidak menutup WebSocket, jadi keduanya dipasang.
+const BATAS_DAFTAR_BLOKIR = 20;
+const izinkanJaringan = o["izinkan-jaringan"];
+const diblokir = new Map(); // "METODE url" -> { metode, url, jenis }
+
+function hostAsal(arg) {
+  if (!/^https?:\/\//i.test(arg)) return null;
+  try { return new URL(arg).host; } catch { return null; }
+}
+
+function samaAsal(asalKomposisi, url) {
+  if (!asalKomposisi) return false;
+  try {
+    const u = new URL(url);
+    return /^(?:https?|wss?):$/.test(u.protocol) && u.host === asalKomposisi;
+  } catch {
+    return false;
+  }
+}
+
+class JaringanDiblokir extends Error {
+  constructor() {
+    super(pesanJaringan());
+    this.kode = 3;
+  }
+}
+
+function pesanJaringan() {
+  const daftar = [...diblokir.values()];
+  const baris = daftar.slice(0, BATAS_DAFTAR_BLOKIR).map((d) => `  ${d.metode} ${d.url} (${d.jenis})`);
+  if (daftar.length > BATAS_DAFTAR_BLOKIR) baris.push(`  ... dan ${daftar.length - BATAS_DAFTAR_BLOKIR} lainnya`);
+  return `${daftar.length} permintaan jaringan diblokir (hanya file:, data:, about:, blob: yang diizinkan):\n${baris.join("\n")}\n` +
+    "Pakai aset lokal yang tercatat (bun run aset); --izinkan-jaringan hanya untuk pratinjau, bukan rilis.";
+}
+
+function periksaJaringan() {
+  if (!izinkanJaringan && diblokir.size) throw new JaringanDiblokir();
+}
+
+async function pasangPemblokiranJaringan(context, asalKomposisi) {
+  const catat = (metode, url, jenis) => {
+    const kunci = `${metode} ${url}`;
+    if (!diblokir.has(kunci)) diblokir.set(kunci, { metode, url, jenis });
+  };
+  await context.route(/^(?!(?:file|data|about|blob):)/i, (route) => {
+    const req = route.request();
+    if (samaAsal(asalKomposisi, req.url())) return route.continue();
+    catat(req.method(), req.url(), req.resourceType());
+    return route.abort("blockedbyclient");
+  });
+  await context.routeWebSocket(/.*/, (ws) => {
+    if (samaAsal(asalKomposisi, ws.url())) {
+      ws.connectToServer();
+      return;
+    }
+    catat("WS", ws.url(), "websocket");
+    ws.close({ code: 1008, reason: "diblokir awvd" });
+  });
+}
+
 // ------------------------------------------------------------------------ main
 const t0 = Date.now();
 const url = urlKomposisi(positionals[0]);
@@ -253,9 +325,17 @@ let ffmpeg = null;
 let kodeKeluar = 0;
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+  if (izinkanJaringan) {
+    console.error("peringatan: --izinkan-jaringan aktif; permintaan jaringan tidak diblokir, hasil bisa tidak deterministik dan jangan dipakai untuk rilis");
+  } else {
+    await pasangPemblokiranJaringan(context, hostAsal(positionals[0]));
+  }
   const page = await context.newPage();
   page.on("pageerror", (e) => console.error(`[halaman] galat: ${e.message}`));
-  page.on("console", (m) => { if (m.type() === "error") console.error(`[halaman] ${m.text()}`); });
+  page.on("console", (m) => {
+    // pemblokiran jaringan sudah dilaporkan lengkap di akhir; jangan dobel dengan galat sumber per permintaan
+    if (m.type() === "error" && !(!izinkanJaringan && /ERR_BLOCKED_BY_CLIENT/.test(m.text()))) console.error(`[halaman] ${m.text()}`);
+  });
   await page.addInitScript((p) => { window.videoProps = p; }, props);
   try {
     await page.goto(url, { waitUntil: "load", timeout: 30000 });
@@ -284,9 +364,17 @@ try {
   }
   await page.setViewportSize({ width: cfg.width, height: cfg.height });
 
-  // tunggu font dan gambar siap sebelum frame pertama
-  await page.evaluate(async () => {
+  // Muat eksplisit setiap @font-face sebelum frame pertama. `document.fonts.ready` saja tidak
+  // memuat face yang belum dipakai DOM awal, sehingga elemen berfont yang dibuat di render()
+  // bisa tertangkap dengan font cadangan lalu bergeser (uji lokal: lebar 168,6 px -> 189,8 px).
+  const fontGagal = await page.evaluate(async () => {
+    const muka = [...document.fonts];
+    const hasil = await Promise.allSettled(muka.map((f) => f.load()));
     await document.fonts.ready;
+    const gagalMuat = muka
+      .filter((f, i) => hasil[i].status === "rejected" || f.status === "error")
+      .map((f) => `${f.family} (bobot ${f.weight}, gaya ${f.style})`);
+    // tunggu gambar siap
     const imgs = [...document.images];
     for (const v of document.querySelectorAll("video[poster]")) {
       const im = new Image();
@@ -298,7 +386,10 @@ try {
       im.addEventListener("error", ok, { once: true });
     }))));
     await Promise.all(imgs.map((im) => (im.decode ? im.decode().catch(() => {}) : null)));
+    return gagalMuat;
   });
+  periksaJaringan(); // pesan "diblokir" lebih jelas daripada "gambar/font gagal dimuat"
+  if (fontGagal.length) throw new Error(`font gagal dimuat: ${fontGagal.join(", ")}. Periksa url() di @font-face (berkas lokal, format didukung Chromium).`);
   const rusak = await page.evaluate(() => [...document.images].filter((i) => !i.naturalWidth).map((i) => i.currentSrc || i.src));
   if (rusak.length) throw new Error(`gambar gagal dimuat: ${rusak.join(", ")}`);
 
@@ -306,13 +397,23 @@ try {
   // Tangkap via CDP: PNG lossless, optimizeForSpeed mengurangi kompresi (lebih cepat, berkas lebih besar).
   const cdp = await context.newCDPSession(page);
   const ambil = async (n) => {
-    await page.evaluate((f) => window.video.renderFrame(f), n);
+    await page.evaluate(async (f) => {
+      await window.video.renderFrame(f);
+      // jaring pengaman: face yang baru ditambahkan di dalam render() dimuat sebelum tangkapan
+      const fs = document.fonts;
+      if (fs.size) {
+        const belum = [...fs].filter((x) => x.status === "unloaded" || x.status === "loading");
+        if (belum.length) await Promise.allSettled(belum.map((x) => x.load()));
+        if (fs.status === "loading") await fs.ready;
+      }
+    }, n);
     const { data } = await cdp.send("Page.captureScreenshot", {
       format: "png",
       optimizeForSpeed: true,
       // skala lewat clip.scale: layout tetap w x h, raster dibuat ulang tajam pada ukuran akhir
       clip: { x: 0, y: 0, width: cfg.width, height: cfg.height, scale: skala },
     });
+    periksaJaringan();
     return Buffer.from(data, "base64");
   };
 
@@ -368,6 +469,8 @@ try {
       }
     }
     if (tty) process.stderr.write("\n");
+    await page.evaluate(() => 0); // putaran ulang: pastikan catatan permintaan frame terakhir sudah masuk
+    periksaJaringan();
     await ffmpeg.stdin.end();
     const kode = await ffmpeg.exited;
     const pesanFfmpeg = (await stderrFfmpeg).trim();
@@ -390,11 +493,24 @@ try {
     }
   }
 } catch (e) {
-  console.error(`render.mjs: ${e.message}`);
-  kodeKeluar = 1;
+  if (!izinkanJaringan && diblokir.size) {
+    // permintaan yang diblokir hampir selalu penyebab utama; galat lain hanya dampaknya
+    console.error(`render.mjs: ${pesanJaringan()}`);
+    if (!(e instanceof JaringanDiblokir)) console.error(`galat yang menyertai: ${e.message}`);
+    kodeKeluar = 3;
+  } else {
+    console.error(`render.mjs: ${e.message}`);
+    kodeKeluar = 1;
+  }
 } finally {
   if (ffmpeg && ffmpeg.exitCode === null) {
-    try { ffmpeg.kill(); } catch {}
+    // SIGKILL: ffmpeg menahan stdin terbuka dan tidak keluar karena SIGTERM; keluarannya memang dibuang
+    try { ffmpeg.kill("SIGKILL"); } catch {}
+    await ffmpeg.exited.catch(() => {});
+  }
+  // keluaran setengah jadi hasil render yang gagal karena jaringan tidak boleh tersisa sebagai video rusak
+  if (kodeKeluar === 3 && ffmpeg) {
+    try { unlinkSync(o.out); } catch {}
   }
   await browser.close().catch(() => {});
 }

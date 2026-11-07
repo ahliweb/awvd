@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.0.0`
+- Version: `v2.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Struktur dokumentasi berubah: isi rinci README dipindah ke folder docs/ (arsitektur, API runtime, CLI, pemeriksaan mutu, konsep, SOP, video tertanam dan audio, aksesibilitas, batasan, lisensi, pedoman produksi, log keputusan); README menjadi ringkasan dengan indeks dokumentasi.`
+- Changeset: `Fitur aset: perintah bun run aset, templat aset-contoh, indeks docs/aset.md, dan pemblokiran jaringan renderer di ringkasan; versi dokumen docs/ diperbarui.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -54,7 +54,8 @@ Server statis apa pun juga bisa dipakai. Satu frame saja: `?frame=60`. Props pra
 - `bun run sop <sop.json> --out DIR`: SOP menjadi dokumen dan bahan video ([docs/sop.md](docs/sop.md)).
 - `bun run klip <sumber.json> --fps N` dan `bun run audio <rencana.json> --fps N --out ...`: video di dalam video dan timeline audio ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md)).
 - `bun run konsep -- <subperintah>`: konsep video, pilihan jenis video dan alur produksi ([docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md)).
-- `bun run uji`: uji unit runtime, uji periksa, uji SOP, uji klip, uji konsep, lalu sembilan uji renderer (properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran); sekitar dua setengah menit. `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
+- `bun run aset tambah|impor|periksa`: aset (gambar, logo, ikon, SVG, font, audio) dengan manifest `aset.json`, validasi lisensi, pembersih SVG, dan atribusi ([docs/aset.md](docs/aset.md)). Render memblokir semua permintaan jaringan non-lokal (kode keluar 3; [docs/cli.md](docs/cli.md#jaringan-dan-font)).
+- `bun run uji`: uji unit runtime, uji periksa, uji SOP, uji klip, uji konsep, uji aset (`bun run uji:aset`), lalu sembilan uji renderer (properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran); sekitar tiga menit. `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
 
 ## Dokumentasi
 
@@ -62,20 +63,21 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.0.0` |
-| [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, determinisme, peran upstream | `v1.0.0` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.1.0` |
+| [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.1.0` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.0.0` |
-| [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, encode, kenyaringan | `v1.0.0` |
+| [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.1.0` |
+| [docs/aset.md](docs/aset.md) | `bun run aset`: manifest `aset.json`, matriks lisensi, SVG, resolusi, sRGB, atribusi | `v1.0.0` |
 | [docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md) | `bun run periksa`: pemeriksaan, ambang, kilatan | `v1.0.0` |
 | [docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md) | `bun run konsep`: 13 jenis video, 5 alur, tingkat bukti | `v1.0.0` |
 | [docs/sop.md](docs/sop.md) | SOP sebagai dokumen cetak dan bahan video | `v1.0.0` |
 | [docs/video-tertanam-audio.md](docs/video-tertanam-audio.md) | Klip tertanam dan timeline audio | `v1.0.0` |
-| [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, peta fitur aksesibilitas | `v1.0.0` |
-| [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.0.0` |
-| [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, tanggung jawab aset | `v1.0.0` |
+| [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, teks alternatif aset, peta fitur aksesibilitas | `v1.1.0` |
+| [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.1.0` |
+| [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, tanggung jawab aset, matriks lisensi aset | `v1.1.0` |
 | [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.0.0` |
-| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.0.0` |
-| [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.5.0` |
+| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.1.0` |
+| [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.6.0` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
 
 ## Struktur repo
@@ -88,11 +90,13 @@ scripts/sop.mjs         generator SOP (dokumen cetak + bahan video); sop-alir.js
 scripts/klip.mjs        validasi manifest sumber dan ekstraksi frame klip
 scripts/audio.mjs       perakit timeline audio
 scripts/konsep.mjs      konsep video: jenis, alur, brief, persetujuan
+scripts/aset.mjs        aset: tambah, impor, periksa (manifest aset.json); aset-lib.js: logika bersama,
+                        aset-svg.js: pemeriksa dan pembersih SVG berdaftar-izin, browser.js: cari Chromium
 scripts/preset-jenis.js salinan preset untuk browser (DIHASILKAN dari data/jenis-video.json)
-scripts/uji*.mjs        uji otomatis (runtime, periksa, sop, klip, konsep, renderer)
+scripts/uji*.mjs        uji otomatis (runtime, periksa, sop, klip, konsep, aset, renderer)
 data/                   jenis-video.json (13 jenis) dan alur-produksi.json (5 alur)
 templates/<nama>/       komposisi contoh generik + ASET.md (catatan aset pihak ketiga):
-                        contoh-dasar, sop, klip-tertanam, konsep-contoh
+                        contoh-dasar, sop, klip-tertanam, konsep-contoh, aset-contoh
 docs/                   dokumentasi rinci (indeks: docs/README.md)
 .github/                workflow CI uji dan template pull request
 .claude/agents/         subagent pelaksana (kompleks, sederhana) untuk orchestrator
@@ -116,6 +120,10 @@ Belum ada rilis bertag. Versi paket `0.1.0`, dan semua perubahan dicatat di [CHA
 awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion maupun repositori skill-nya; pihak ketiga dan tanggung jawab pengguna atas aset (font, musik, gambar, footage, klip, suara TTS) ada di [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md).
 
 ## Changelog
+
+### 2026-11-07 - v2.1.0
+
+- Fitur aset: perintah `bun run aset` di Perintah utama, `scripts/aset*.{mjs,js}` dan `templates/aset-contoh` di Struktur repo, serta indeks dokumentasi memuat `docs/aset.md` dan versi dokumen yang berubah. Render memblokir permintaan jaringan non-lokal.
 
 ### 2026-11-07 - v2.0.0
 

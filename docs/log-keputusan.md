@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Log keputusan baseline KP-001 sampai KP-018, dirangkum dari CHANGELOG.md, AGENTS.md, dan dokumen awvd, dengan rujukan nomor PR GitHub awvd (#1 sampai #12).`
+- Changeset: `Menambahkan KP-025 sampai KP-028: pemblokiran jaringan renderer, manifest aset.json fail-closed, SVG berdaftar-izin, dan konversi sRGB lewat Chromium.`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -17,6 +17,11 @@ flowchart TD
     KP13[KP-013 audio pemegang suara] -->|narasi beku<br/>jadi masukan| KP14[KP-014 narasi WAV beku]
     KP6[KP-006 awvd hanya upstream] -->|versi dikunci| KP7[KP-007 kunci SHA]
     KP6 -->|SOP nyata di<br/>repo proyek| KP10[KP-010 SOP format PermenPAN-RB]
+    KP11 -->|diperluas ke semua jenis aset| KP26[KP-026 manifest aset.json]
+    KP26 --> KP27[KP-027 SVG berdaftar-izin]
+    KP26 --> KP28[KP-028 sRGB lewat Chromium]
+    KP3 --> KP25[KP-025 jaringan diblokir]
+    KP25 -->|aset hanya lokal| KP26
     KP15[KP-015 preset bertingkat bukti] -->|konflik lint caption| KP16[KP-016 preset sosial 20 cps]
 ```
 
@@ -40,8 +45,16 @@ flowchart TD
 | KP-016 | Preset `sosial` memakai batas 20 cps (batas dewasa Netflix), bukan angka TikTok "5-10 kata per detik"; teks hook TikTok diperlakukan sebagai judul pendek, bukan caption ucapan. | 2026-11-07 | Menunggu konfirmasi pemilik | Lint caption (Netflix Timed Text Style Guide) bertentangan dengan anjuran TikTok for Business; angka optimum bahasa Indonesia belum diverifikasi. Rumusan batas cps terbaru ada di [pedoman-produksi.md](pedoman-produksi.md). | #12 |
 | KP-017 | Dokumentasi rinci dipindah dari README ke folder `docs/`; README menjadi ringkas dan memuat indeks. Setiap dokumen di `docs/` memuat Metadata, Changelog, dan terdaftar di [README.md](README.md) (indeks docs) serta indeks README akar. | 2026-11-07 | Berlaku | README yang panjang menjadi sumber konflik merge di setiap PR; dokumen terpisah per topik mengurangi tumpang tindih perubahan dan memudahkan peta pemicu di AGENTS.md. | #13 |
 | KP-018 | Repo ini tidak memakai Release Changeset (`.changeset/`); perubahan software dicatat di `CHANGELOG.md` bagian `[Unreleased]`, versi dokumen dipisah dari versi software, dan rilis bertag belum ada (keputusan di tangan pemilik). | 2026-11-07 | Berlaku | awvd adalah alat CLI internal tanpa deployment; Document Changeset, Release Changeset, dan Changelog adalah tiga hal berbeda dan tidak dicampur. | #2, #3 |
+| KP-025 | Renderer memblokir semua permintaan jaringan selain `file:`, `data:`, `about:`, `blob:` (HTTP, HTTPS, WebSocket) secara bawaan; render gagal dengan kode keluar 3 beserta daftar URL; `--izinkan-jaringan` (mati bawaan) hanya untuk pratinjau; komposisi yang dibuka lewat http(s) boleh meminta asalnya sendiri. | 2026-11-07 | Berlaku | Uji lokal: renderer lama meneruskan `<img>`, CSS `url()`, `fetch`, `sendBeacon`, dan WebSocket ke server luar, sehingga render bisa bocor ke layanan luar dan tidak deterministik. `context.route` saja tidak menutup WebSocket, jadi `routeWebSocket` dipasang juga. Kegagalan keras dipilih daripada peringatan karena hotlink membuat hasil bergantung pada sumber yang bisa berubah; trade-off: komposisi lama yang memuat sumber luar kini gagal (pakai aset lokal atau `--izinkan-jaringan`). Kode keluar 3 dipisah dari 1 agar skrip pemanggil dapat membedakannya. Memengaruhi repo proyek. | PR fitur aset (nomor menyusul) |
+| KP-026 | Aset dicatat di satu manifest `aset.json` (skema 1) berjenis (gambar, logo, ikon, svg, font, audio) dengan validasi fail-closed sebelum Chromium (kode keluar 2): lisensi dari daftar izin per jenis, `sha256`, berkas lokal di `aset/`, TASL lengkap, bukti, serta aturan khusus (OFL, merek, hak potret, hasil AI, ShareAlike). awvd tidak mengunduh aset dari URL. | 2026-11-07 | Berlaku | Memperluas pola manifest sumber klip (KP-011) agar semua aset melewati satu gerbang yang sama dan bukti lisensi tersimpan bersama aset. Validator hanya memeriksa kelengkapan dan kecocokan dengan matriks lisensi; tinjauan hukum (merek, lambang, hak potret, musik, hasil AI) tetap manusia. Bukan nasihat hukum. | PR fitur aset (nomor menyusul) |
+| KP-027 | SVG diperiksa dan dibersihkan dengan pemeriksa berdaftar-izin buatan sendiri (`scripts/aset-svg.js`), tanpa dependensi; SVG berbahaya ditolak, bukan diperbaiki, bila rusak secara struktural. | 2026-11-07 | Berlaku | SVG inline menjalankan skrip dan memuat sumber luar, dan komposisi sering menyisipkan SVG inline. Daftar-larang mudah dilewati (escape CSS, entitas, namespace); daftar-izin fail-closed lebih aman. Tanpa DOM di Bun, pustaka seperti DOMPurify membutuhkan DOM tambahan (dependensi baru). Batasan: belum diuji dengan korpus XSS publik dan bukan pengganti pustaka matang untuk SVG tak tepercaya dari internet. | PR fitur aset (nomor menyusul) |
+| KP-028 | Konversi gambar ke sRGB dan normalisasi orientasi EXIF dilakukan lewat Chromium yang sama dengan renderer (`aset tambah --konversi`), bukan alat tambahan; keluaran PNG tanpa profil. | 2026-11-07 | Berlaku | Chromium sudah dikelola warna sedangkan ffmpeg 6 mengabaikan ICC dan orientasi EXIF; konversi sekali saat impor membuat piksel di disk sama dengan yang dirender. Tanpa dependensi baru. Trade-off: hasil bergantung build Chromium (selisih 1 pada satu kanal dimungkinkan), alpha melewati kanvas pra-kali, dan PNG lebih besar daripada JPEG asal. | PR fitur aset (nomor menyusul) |
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Menambahkan KP-025 (pemblokiran jaringan renderer), KP-026 (manifest `aset.json` fail-closed), KP-027 (SVG berdaftar-izin), dan KP-028 (konversi sRGB lewat Chromium).
 
 ### 2026-11-07 - v1.0.0
 

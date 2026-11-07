@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.5.0`
+- Version: `v1.6.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumentasi rinci dipindah dari README ke folder docs/: peta pemicu, bidang dokumentasi, dan rujukan silang menunjuk dokumen docs/; menambahkan aturan dokumen baru di docs/ (Metadata, Changelog, pendaftaran indeks) dan paralelisme per dokumen.`
+- Changeset: `Fitur aset: area saling bergantung scripts/aset*, peta pemicu aset dan pemblokiran jaringan renderer, serta risiko tinggi untuk perubahan aturan jaringan dan pemuatan font di render.mjs.`
 
 awvd adalah renderer video MP4 dari kode web (lihat [README.md](README.md)). Aturan di dokumen ini menurunkan **pedoman internal AhliWeb** (tidak publik): eksekusi terkelola orchestrator (skill `eksekusi-terkelola`), standar dokumen (skill `standar-dokumen-repo`), standar koordinasi kontributor, standar dokumen formal, dan prosedur pemakaian awvd (skill `video-terprogram`). Nomor keputusan `DL-0xx` merujuk decision log internal tersebut. Isi yang dibutuhkan agent sudah dituangkan di sini, jadi agent di repo ini tidak perlu mengakses pedoman internal.
 
@@ -84,8 +84,8 @@ Aturan:
 
 ### Penerapan di awvd
 
-- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
-- Perubahan pada determinisme, protokol `window.video`/`renderFrame`, atau pipa ffmpeg tergolong risiko tinggi: delegasikan ke `pelaksana-kompleks` dengan effort `high`, atau kerjakan langsung oleh Opus.
+- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`; `scripts/aset.mjs` bersama `scripts/aset-lib.js`, `scripts/aset-svg.js`, dan `docs/aset.md`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
+- Perubahan pada determinisme, protokol `window.video`/`renderFrame`, pipa ffmpeg, pemblokiran jaringan atau pemuatan font di `render.mjs`, dan pemeriksa SVG (`scripts/aset-svg.js`) tergolong risiko tinggi: delegasikan ke `pelaksana-kompleks` dengan effort `high`, atau kerjakan langsung oleh Opus.
 - Perintah verifikasi yang wajib ada di setiap brief: `bun run uji`.
 - Papan koordinasi: belum ada (dicek 2026-11-07). Penggantinya `gh pr list --state open`; usulkan papan ke pemilik bila kontributor aktif lebih dari satu.
 
@@ -191,6 +191,8 @@ README akar hanya ringkasan dan indeks. Dokumentasi rinci ada di folder [`docs/`
 | Konsep video, jenis, alur, preset (`scripts/konsep.mjs`, `data/`) | `docs/konsep-jenis-alur.md`; `docs/pedoman-produksi.md` bila dasar riset berubah |
 | SOP (`scripts/sop.mjs`, `templates/sop/`) | `docs/sop.md` |
 | Klip tertanam atau timeline audio (`scripts/klip.mjs`, `scripts/audio.mjs`) | `docs/video-tertanam-audio.md` |
+| Aset (`scripts/aset.mjs`, `aset-lib.js`, `aset-svg.js`, `templates/aset-contoh/`), matriks lisensi aset | `docs/aset.md`; `docs/lisensi-kepatuhan.md` bila matriks lisensi berubah; `templates/<nama>/ASET.md` |
+| Pemblokiran jaringan atau pemuatan font di `render.mjs` | `docs/cli.md` §Jaringan dan font; `docs/arsitektur.md` §Protokol window.video dan renderFrame; `docs/batasan.md` |
 | Fitur aksesibilitas | `docs/aksesibilitas.md` |
 | Template baru atau berubah | README §Struktur repo; `templates/<nama>/ASET.md` |
 | Uji atau CI | README §Perintah utama dan §Struktur repo (daftar uji dan opsi `bun run uji`); §Git dan PR bila check wajib berubah |
@@ -260,6 +262,10 @@ flowchart TD
 Template PR di `.github/pull_request_template.md` memuat checklist ini.
 
 ## Changelog
+
+### 2026-11-07 - v1.6.0
+
+- Fitur aset: `scripts/aset.mjs` bersama `aset-lib.js`, `aset-svg.js`, dan `docs/aset.md` ditambahkan ke area yang tidak boleh paralel; peta pemicu memuat aset serta pemblokiran jaringan dan pemuatan font renderer; perubahan keduanya dan pemeriksa SVG tergolong risiko tinggi.
 
 ### 2026-11-07 - v1.5.0
 

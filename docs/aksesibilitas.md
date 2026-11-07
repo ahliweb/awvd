@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: subtitle lunak, sidecar, kontras, kontrol pratinjau; ditambah peta fitur aksesibilitas yang sudah ada di runtime dan alat QC.`
+- Changeset: `Menambahkan teks alternatif aset (teksAlternatif, peran dekoratif) dan resolusi aset ke tabel fitur.`
 
 Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 
@@ -25,11 +25,17 @@ Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 | Area aman layar | `areaAman` | [api-runtime.md](api-runtime.md) |
 | Kilatan fotosensitif | Pemeriksa kilatan di `bun run periksa` (penyaringan konservatif, bukan sertifikasi) | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) |
 | Batas subtitle (baris, cps, durasi cue) | Lint subtitle di `bun run periksa --subtitle` | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) |
+| Teks alternatif gambar, logo, dan SVG | Bidang `teksAlternatif` wajib di `aset.json` kecuali `peran: "dekoratif"` (WCAG 1.1.1); teks di dalam gambar hanya untuk logotype (WCAG 1.4.5); `aset-props.json` meneruskannya ke komposisi | [aset.md](aset.md) |
+| Ketajaman aset | Pemeriksa resolusi menolak aset yang akan di-upscale (buram) pada skala render yang dipakai | [aset.md](aset.md) |
 | Penonton tanpa suara | Field `audiens.tanpaSuara` dan `caption.burnIn` di `konsep.json` | [konsep-jenis-alur.md](konsep-jenis-alur.md) |
 
 PDF SOP bertag (outline, bahasa `id`, tabel `th scope`) tetapi **tidak** mengklaim PDF/UA; lihat [sop.md](sop.md).
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Menambahkan teks alternatif aset dan pemeriksaan resolusi aset ke tabel Fitur yang tersedia.
 
 ### 2026-11-07 - v1.0.0
 
