@@ -583,6 +583,260 @@ daftar("pasangFont: FontFace dari entri font, idempoten, galat bila gagal atau b
   }
 });
 
+// ---- pemetaan waktu klip (#33): trim, speed, ramp, reverse, freeze
+daftar("waktu klip: ekspor petaWaktuKlip, frameSumber, kecepatanPermil", () => {
+  for (const k of ["petaWaktuKlip", "frameSumber", "kecepatanPermil"]) {
+    tegas(typeof api[k] === "function", `${k} tidak diekspor`);
+    tegas(globalThis.window[k] === api[k], `${k} bukan global`);
+  }
+  samaDengan([1.5, 0.29, 3.333, 1, 0.001].map(api.kecepatanPermil), [1500, 290, 3333, 1000, 1], "kecepatanPermil");
+  for (const buruk of [0, -1, 1.0001, NaN, Infinity, "2", 1001, null]) {
+    melempar(() => api.kecepatanPermil(buruk), `kecepatanPermil(${String(buruk)})`);
+  }
+});
+
+daftar("waktu klip: speed konstan (2x memetakan frame genap, 0,5x menduplikasi, batas lantai)", () => {
+  const { petaWaktuKlip: peta, frameSumber } = api;
+  samaDengan(peta({ kecepatan: 2 }, 5), [0, 2, 4, 6, 8], "2x durasi 5");
+  samaDengan(peta({ kecepatan: 2 }, 50).every((v, f) => v === 2 * f && v % 2 === 0), true, "2x selalu genap");
+  samaDengan(peta({ kecepatan: 0.5 }, 5), [0, 0, 1, 1, 2], "0,5x");
+  samaDengan(peta({ kecepatan: 1 }, 5), [0, 1, 2, 3, 4], "1x identitas");
+  samaDengan(peta({}, 5), [0, 1, 2, 3, 4], "tanpa waktu = 1x");
+  samaDengan(peta(undefined, 3), [0, 1, 2], "waktu undefined = 1x");
+  samaDengan(peta({ kecepatan: 1.5 }, 5), [0, 1, 3, 4, 6], "1,5x");
+  // Math.floor(100 * 0.29) === 28 (galat float); permil harus 29
+  tegas(Math.floor(100 * 0.29) === 28, "demonstrasi galat float tidak berlaku lagi");
+  tegas(peta({ kecepatan: 0.29 }, 101)[100] === 29, "0,29x di frame 100 harus 29");
+  tegas(frameSumber({ kecepatan: 0.29 }, 100) === 29, "frameSumber 0,29x di frame 100 harus 29");
+  tegas(frameSumber({ kecepatan: 0.57 }, 100) === 57, "0,57x di frame 100 harus 57");
+  // trim: dari menggeser titik masuk
+  tegas(frameSumber({ kecepatan: 2 }, 3, { dari: 10 }) === 16, "trim dari=10, 2x, frame 3");
+  tegas(frameSumber({}, 0, { dari: 25 }) === 25, "frame 0 = dari");
+  // identik dengan indeksFrameKlip untuk kecepatan konstan
+  for (const kec of [0.25, 0.5, 1, 1.5, 2, 3.333]) {
+    for (let f = 0; f < 40; f++) {
+      tegas(frameSumber({ kecepatan: kec }, f) === api.indeksFrameKlip({ jumlah: 100000 }, f, { kecepatan: kec }), `sama dengan indeksFrameKlip (kec=${kec}, f=${f})`);
+    }
+  }
+});
+
+daftar("waktu klip: reverse dan freeze di batas", () => {
+  const { petaWaktuKlip: peta, frameSumber } = api;
+  samaDengan(peta({ kecepatan: 2, balik: true }, 5), [8, 6, 4, 2, 0], "reverse 2x");
+  samaDengan(peta({ balik: true }, 4), [3, 2, 1, 0], "reverse 1x");
+  samaDengan(peta({ balik: true }, 1), [0], "reverse durasi 1");
+  tegas(frameSumber({ balik: true }, 0, { durasi: 4, dari: 10 }) === 13, "reverse: frame pertama = dari + terakhir maju");
+  tegas(frameSumber({ balik: true }, 3, { durasi: 4, dari: 10 }) === 10, "reverse: frame terakhir = dari");
+  melempar(() => frameSumber({ balik: true }, 0), "reverse tanpa durasi");
+  melempar(() => frameSumber({ balik: true }, 4, { durasi: 4 }), "frameLokal = durasi");
+  samaDengan(peta({ bekukan: true }, 4), [0, 0, 0, 0], "freeze");
+  samaDengan(peta({ bekukan: true }, 1), [0], "freeze durasi 1");
+  tegas(frameSumber({ bekukan: true }, 99, { dari: 7 }) === 7, "freeze menahan dari");
+  samaDengan(peta({ bekukan: true, kecepatan: 3 }, 3), [0, 0, 0], "freeze mengabaikan kecepatan");
+  melempar(() => peta({ bekukan: true, balik: true }, 3), "freeze + reverse");
+  // reverse = maju dibalik, untuk banyak kecepatan dan durasi; batas pertama/terakhir
+  for (const kec of [0.1, 0.25, 0.5, 1, 1.5, 1.75, 2, 3.333, 10]) {
+    for (const d of [1, 2, 7, 30]) {
+      const m = peta({ kecepatan: kec }, d), b = peta({ kecepatan: kec, balik: true }, d);
+      samaDengan(m.slice().reverse(), b, `reverse = maju dibalik (kec=${kec}, d=${d})`);
+      tegas(b[d - 1] === 0 && b[0] === m[d - 1], `batas reverse (kec=${kec}, d=${d})`);
+      for (let f = 0; f < d; f++) tegas(frameSumber({ kecepatan: kec, balik: true }, f, { durasi: d }) === b[f], `frameSumber reverse (kec=${kec}, d=${d}, f=${f})`);
+    }
+  }
+});
+
+daftar("waktu klip: ramp monoton, deterministik, easing", () => {
+  const { petaWaktuKlip: peta, frameSumber } = api;
+  const naik = [{ pada: 0, nilai: 1 }, { pada: 30, nilai: 3 }];
+  const r1 = peta({ kecepatan: naik }, 31), r2 = peta({ kecepatan: naik }, 31);
+  samaDengan(r1, r2, "ramp deterministik");
+  for (let i = 1; i < r1.length; i++) tegas(r1[i] >= r1[i - 1], `ramp monoton di ${i}`);
+  tegas(r1[0] === 0 && r1[30] === 59, `ramp 1x -> 3x selama 31 frame berakhir di 59 (dapat ${r1[30]})`);
+  // ramp turun
+  const turun = peta({ kecepatan: [{ pada: 0, nilai: 3 }, { pada: 39, nilai: 0.5 }] }, 40);
+  for (let i = 1; i < turun.length; i++) tegas(turun[i] >= turun[i - 1], "ramp turun monoton");
+  // ramp datar = konstan
+  samaDengan(peta({ kecepatan: [{ pada: 0, nilai: 2 }, { pada: 9, nilai: 2 }] }, 12), peta({ kecepatan: 2 }, 12), "ramp datar = konstan");
+  // ramp hanya mulai di tengah: tahan nilai pertama sebelum, nilai terakhir sesudah
+  const tengah = peta({ kecepatan: [{ pada: 5, nilai: 1 }, { pada: 10, nilai: 2 }] }, 20);
+  samaDengan(tengah.slice(0, 6), [0, 1, 2, 3, 4, 5], "ramp: sebelum keyframe pertama menahan nilainya");
+  tegas(tengah[19] - tengah[18] === 2, "ramp: sesudah keyframe terakhir menahan nilainya");
+  // easing: nama, bezier [x1,y1,x2,y2], dan fungsi tetap monoton
+  const adaEasing = [
+    "masukQuad", "keluarQuad", "masukKeluarCubic", "standar", "perlambat", [0.25, 0.1, 0.25, 1], (t) => t * t,
+  ];
+  for (const e of adaEasing) {
+    const kf = [{ pada: 0, nilai: 1, easing: e }, { pada: 30, nilai: 4 }];
+    const r = peta({ kecepatan: kf }, 31);
+    for (let i = 1; i < r.length; i++) tegas(r[i] >= r[i - 1], `ramp easing ${String(e)} monoton di ${i}`);
+    samaDengan(r, peta({ kecepatan: kf }, 31), "ramp easing deterministik");
+    for (let f = 0; f < 31; f += 7) tegas(frameSumber({ kecepatan: kf }, f) === r[f], `frameSumber = tabel (easing ${String(e)}, f=${f})`);
+  }
+  // easing "linear" sama dengan tanpa easing
+  samaDengan(peta({ kecepatan: [{ pada: 0, nilai: 1, easing: "linear" }, { pada: 30, nilai: 3 }] }, 31), r1, "easing linear");
+  // ramp + reverse: deret maju dibalik
+  const rb = peta({ kecepatan: naik, balik: true }, 31);
+  samaDengan(rb, r1.slice().reverse(), "ramp + reverse");
+  tegas(frameSumber({ kecepatan: naik, balik: true }, 0, { durasi: 31 }) === 59 && frameSumber({ kecepatan: naik, balik: true }, 30, { durasi: 31 }) === 0, "ramp + reverse di batas");
+  // kunci tegas: hasil tidak bergantung pada pemanggilan sebelumnya (tanpa keadaan)
+  tegas(frameSumber({ kecepatan: naik }, 30) === 59, "frameSumber ramp frame 30");
+  tegas(frameSumber({ kecepatan: naik }, 10) === r1[10], "frameSumber ramp frame 10 (urutan panggilan bebas)");
+  tegas(frameSumber({ kecepatan: naik }, 30) === 59, "frameSumber ramp frame 30 lagi");
+});
+
+daftar("waktu klip: validasi masukan (gagal keras)", () => {
+  const { petaWaktuKlip: peta, frameSumber } = api;
+  melempar(() => peta({ kecepatan: 0 }, 5), "kecepatan 0");
+  melempar(() => peta({ kecepatan: -2 }, 5), "kecepatan negatif");
+  melempar(() => peta({ kecepatan: 1.2345 }, 5), "lebih dari 3 desimal");
+  melempar(() => peta({ kecepatan: "2" }, 5), "kecepatan string");
+  melempar(() => peta({ speed: 2 }, 5), "bidang tak dikenal");
+  melempar(() => peta({ balik: 1 }, 5), "balik bukan boolean");
+  melempar(() => peta({ habis: "lompat" }, 5), "habis tak valid");
+  melempar(() => peta("2x", 5), "waktu bukan objek");
+  melempar(() => peta([], 5), "waktu larik");
+  for (const d of [0, -1, 1.5, NaN, "5", undefined]) melempar(() => peta({}, d), `durasi ${String(d)}`);
+  melempar(() => peta({ kecepatan: [{ pada: 0, nilai: 1 }] }, 5), "ramp 1 keyframe");
+  melempar(() => peta({ kecepatan: [{ pada: 3, nilai: 1 }, { pada: 3, nilai: 2 }] }, 5), "pada tidak naik tegas");
+  melempar(() => peta({ kecepatan: [{ pada: 0, nilai: 1 }, { pada: 1.5, nilai: 2 }] }, 5), "pada pecahan");
+  melempar(() => peta({ kecepatan: [{ pada: -1, nilai: 1 }, { pada: 3, nilai: 2 }] }, 5), "pada negatif");
+  melempar(() => peta({ kecepatan: [{ pada: 0, nilai: 0 }, { pada: 3, nilai: 2 }] }, 5), "nilai ramp 0");
+  melempar(() => peta({ kecepatan: [{ pada: 0, nilai: 1 }, { pada: 3, nilai: 1, easing: "linear" }] }, 5), "easing di keyframe terakhir");
+  melempar(() => peta({ kecepatan: [{ pada: 0, nilai: 1, easing: "tidakAda" }, { pada: 3, nilai: 2 }] }, 5), "easing tak dikenal");
+  melempar(() => peta({ kecepatan: [{ pada: 0, nilai: 1, easing: "bezier" }, { pada: 3, nilai: 2 }] }, 5), "easing 'bezier' tanpa parameter");
+  melempar(() => peta({ kecepatan: [{ pada: 0, nilai: 1, easing: [0, 0, 1] }, { pada: 3, nilai: 2 }] }, 5), "bezier 3 angka");
+  melempar(() => peta({ kecepatan: [{ pada: 0, nilai: 1, easing: (t) => -5 * t }, { pada: 3, nilai: 2 }] }, 5), "easing yang membuat kecepatan <= 0");
+  for (const f of [-1, 0.5, NaN, "1", undefined]) melempar(() => frameSumber({}, f), `frameLokal ${String(f)}`);
+  melempar(() => frameSumber({}, 0, { dari: -1 }), "dari negatif");
+  melempar(() => frameSumber({}, 0, { dari: 1.5 }), "dari pecahan");
+  melempar(() => frameSumber({}, 0, { durasi: 0 }), "durasi 0");
+});
+
+daftar("waktu klip: integrasi indeksFrameKlip dan jalurFrameKlip (perilaku lama tetap)", () => {
+  const { indeksFrameKlip: idx, jalurFrameKlip: jalur } = api;
+  const klip = { jumlah: 10, folder: "klip/a", ekstensi: "jpg", digit: 4 };
+  // perilaku lama tidak berubah (tanpa opsi.waktu)
+  samaDengan([idx(klip, -1), idx(klip, 0), idx(klip, 9), idx(klip, 15), idx(klip, 15, { ulang: true }), idx(klip, 3, { kecepatan: 2 }), idx(klip, 2.5, { kecepatan: 2 })], [-1, 0, 9, 9, 5, 6, 5], "indeksFrameKlip lama");
+  // jalur baru
+  samaDengan([idx(klip, 0, { waktu: { kecepatan: 2 } }), idx(klip, 4, { waktu: { kecepatan: 2 } })], [0, 8], "waktu: 2x");
+  tegas(idx(klip, -1, { waktu: { kecepatan: 2 } }) === -1, "waktu: negatif = belum mulai");
+  tegas(idx(klip, 2, { waktu: { kecepatan: 2 }, dari: 3 }) === 7, "waktu: trim dari=3");
+  tegas(idx(klip, 0, { waktu: { balik: true }, durasi: 6, dari: 2 }) === 7, "waktu: reverse frame pertama");
+  tegas(idx(klip, 5, { waktu: { balik: true }, durasi: 6, dari: 2 }) === 2, "waktu: reverse frame terakhir");
+  tegas(idx(klip, 8, { waktu: { bekukan: true }, dari: 4 }) === 4, "waktu: freeze");
+  tegas(idx(klip, 3, { waktu: { kecepatan: [{ pada: 0, nilai: 1 }, { pada: 4, nilai: 3 }] } }) === 4, "waktu: ramp frame 3 (posisi 4500 permil)");
+  // habis: tolak (bawaan), tahan, ulang
+  const w = (habis) => ({ kecepatan: 2, habis });
+  melempar(() => idx(klip, 5, { waktu: { kecepatan: 2 } }), "habis bawaan = tolak");
+  melempar(() => idx(klip, 5, { waktu: w("tolak") }), "habis tolak");
+  tegas(idx(klip, 4, { waktu: { kecepatan: 2 } }) === 8, "tepat sebelum batas tidak ditolak");
+  tegas(idx(klip, 5, { waktu: w("tahan") }) === 9, "habis tahan");
+  tegas(idx(klip, 6, { waktu: w("ulang") }) === 2, "habis ulang (12 mod 10)");
+  // konflik opsi dan masukan buruk
+  melempar(() => idx(klip, 0, { waktu: {}, kecepatan: 2 }), "waktu + opsi.kecepatan");
+  melempar(() => idx(klip, 0, { waktu: {}, ulang: true }), "waktu + opsi.ulang");
+  melempar(() => idx(klip, 0.5, { waktu: {} }), "frameLokal pecahan dengan waktu");
+  melempar(() => idx(klip, 0, { waktu: { balik: true } }), "reverse tanpa durasi");
+  melempar(() => idx(klip, 0, { waktu: { kecepatan: 0 } }), "kecepatan 0 lewat indeksFrameKlip");
+  // jalurFrameKlip dan klipGambar ikut karena opsi diteruskan
+  tegas(jalur(klip, 4, { waktu: { kecepatan: 2 } }) === "klip/a/0008.jpg", "jalurFrameKlip dengan waktu");
+  tegas(jalur(klip, -1, { waktu: { kecepatan: 2 } }) === null, "jalurFrameKlip belum mulai");
+});
+
+// Acuan bebas (BigInt) untuk uji properti: tidak berbagi kode dengan runtime.
+function acuanMaju(durasi, v) { // v(j) permil; posisi kumulatif; offset = lantai(posisi / 1000)
+  const o = []; let pos = 0n;
+  for (let f = 0; f < durasi; f++) { o.push(Number(pos / 1000n)); pos += BigInt(v(f)); }
+  return o;
+}
+function acuanLinier(m0, m1, p0, p1) { // v(j) linear eksak, pembulatan setengah ke atas
+  return (j) => {
+    if (j <= p0) return m0;
+    if (j >= p1) return m1;
+    const n = BigInt(p1 - p0), k = BigInt(j - p0);
+    return Number((2n * (BigInt(m0) * (n - k) + BigInt(m1) * k) + n) / (2n * n));
+  };
+}
+
+daftar("waktu klip: properti ber-seed (acak) untuk monotonitas dan rentang, kecepatan konstan", () => {
+  const { petaWaktuKlip: peta, frameSumber } = api;
+  const r = acak("peta-waktu-konstan");
+  const lantai = (a, b) => Math.floor(r() * (b - a + 1)) + a;
+  for (let i = 0; i < 400; i++) {
+    const m = lantai(1, 10000), kec = m / 1000, d = lantai(1, 150), dari = lantai(0, 50);
+    const maju = peta({ kecepatan: kec }, d);
+    tegas(maju.length === d && maju[0] === 0, `kasus ${i}: panjang dan awal`);
+    const rujuk = acuanMaju(d, () => m);
+    samaDengan(maju, rujuk, `kasus ${i}: sama dengan acuan BigInt (kec=${kec}, d=${d})`);
+    for (let f = 1; f < d; f++) {
+      tegas(maju[f] >= maju[f - 1], `kasus ${i}: monoton di ${f}`);
+      tegas(maju[f] - maju[f - 1] <= Math.ceil(m / 1000), `kasus ${i}: loncatan <= ceil(kecepatan) di ${f}`);
+    }
+    tegas(maju[d - 1] <= Math.floor(((d - 1) * m) / 1000) && maju[d - 1] >= 0, `kasus ${i}: rentang`);
+    const balik = peta({ kecepatan: kec, balik: true }, d);
+    samaDengan(balik, maju.slice().reverse(), `kasus ${i}: reverse = maju dibalik`);
+    for (let f = 1; f < d; f++) tegas(balik[f] <= balik[f - 1], `kasus ${i}: reverse tak naik di ${f}`);
+    const f = lantai(0, d - 1);
+    tegas(frameSumber({ kecepatan: kec }, f, { dari, durasi: d }) === dari + maju[f], `kasus ${i}: frameSumber maju`);
+    tegas(frameSumber({ kecepatan: kec, balik: true }, f, { dari, durasi: d }) === dari + balik[f], `kasus ${i}: frameSumber reverse`);
+    tegas(frameSumber({ bekukan: true }, f, { dari, durasi: d }) === dari, `kasus ${i}: freeze`);
+  }
+});
+
+daftar("waktu klip: properti ber-seed (acak) untuk ramp linear: monoton, rentang, sama dengan acuan eksak", () => {
+  const { petaWaktuKlip: peta, frameSumber } = api;
+  const r = acak("peta-waktu-ramp");
+  const bulat = (a, b) => Math.floor(r() * (b - a + 1)) + a;
+  for (let i = 0; i < 300; i++) {
+    const d = bulat(2, 120), jumlahKf = bulat(2, 5);
+    let pada = bulat(0, 5);
+    const kf = [];
+    for (let k = 0; k < jumlahKf; k++) { kf.push({ pada, nilai: bulat(100, 10000) / 1000 }); pada += bulat(1, 40); }
+    const peta1 = peta({ kecepatan: kf }, d);
+    // acuan: gabungan segmen linear eksak
+    const v = (j) => {
+      if (j <= kf[0].pada) return Math.round(kf[0].nilai * 1000);
+      const akhir = kf[kf.length - 1];
+      if (j >= akhir.pada) return Math.round(akhir.nilai * 1000);
+      let s = 0;
+      while (kf[s + 1].pada <= j) s++;
+      return acuanLinier(Math.round(kf[s].nilai * 1000), Math.round(kf[s + 1].nilai * 1000), kf[s].pada, kf[s + 1].pada)(j);
+    };
+    samaDengan(peta1, acuanMaju(d, v), `ramp ${i}: sama dengan acuan BigInt ${JSON.stringify(kf)}`);
+    const nilaiMin = Math.min(...kf.map((k) => Math.round(k.nilai * 1000))), nilaiMaks = Math.max(...kf.map((k) => Math.round(k.nilai * 1000)));
+    tegas(peta1[0] === 0, `ramp ${i}: awal 0`);
+    for (let f = 1; f < d; f++) {
+      tegas(peta1[f] >= peta1[f - 1], `ramp ${i}: monoton di ${f}`);
+      tegas(peta1[f] <= Math.floor((f * nilaiMaks) / 1000), `ramp ${i}: batas atas di ${f}`);
+      tegas(peta1[f] >= Math.floor((f * nilaiMin) / 1000), `ramp ${i}: batas bawah di ${f}`);
+    }
+    const balik = peta({ kecepatan: kf, balik: true }, d);
+    samaDengan(balik, peta1.slice().reverse(), `ramp ${i}: reverse`);
+    const f = bulat(0, d - 1);
+    tegas(frameSumber({ kecepatan: kf }, f) === peta1[f], `ramp ${i}: frameSumber maju di ${f}`);
+    tegas(frameSumber({ kecepatan: kf, balik: true }, f, { durasi: d }) === balik[f], `ramp ${i}: frameSumber reverse di ${f}`);
+  }
+});
+
+daftar("waktu klip: properti ber-seed untuk ramp bereasing: monoton dan rentang", () => {
+  const { petaWaktuKlip: peta } = api;
+  const r = acak("peta-waktu-easing");
+  const bulat = (a, b) => Math.floor(r() * (b - a + 1)) + a;
+  const nama = ["masukQuad", "keluarQuad", "masukKeluarQuad", "masukCubic", "keluarCubic", "masukKeluarCubic", "standar", "percepat", "perlambat", [0.4, 0, 0.2, 1]];
+  for (let i = 0; i < 150; i++) {
+    const d = bulat(2, 100), a = bulat(100, 8000), b = bulat(100, 8000), akhir = bulat(1, 60);
+    const kf = [{ pada: 0, nilai: a / 1000, easing: nama[bulat(0, nama.length - 1)] }, { pada: akhir, nilai: b / 1000 }];
+    const t = peta({ kecepatan: kf }, d);
+    samaDengan(t, peta({ kecepatan: kf }, d), `easing ${i}: deterministik`);
+    tegas(t[0] === 0, `easing ${i}: awal`);
+    const lo = Math.min(a, b), hi = Math.max(a, b);
+    for (let f = 1; f < d; f++) {
+      tegas(t[f] >= t[f - 1], `easing ${i}: monoton di ${f}`);
+      tegas(t[f] <= Math.floor((f * hi) / 1000) && t[f] >= Math.floor((f * lo) / 1000), `easing ${i}: rentang di ${f}`);
+    }
+  }
+});
+
 const t0 = Date.now();
 let gagal = 0;
 for (const [nama, fn] of uji) {

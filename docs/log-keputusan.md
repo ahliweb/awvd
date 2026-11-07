@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.12.0`
+- Version: `v1.13.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan KP-048 sampai KP-051 (nomor sementara): adaptor TTS lokal opsional, WAV beku berhash, label suara sintetis dan konten medis, normalisasi teks Indonesia. Sebelumnya: KP-036 sampai KP-039 tentang timing narasi.`
+- Changeset: `Menambahkan KP-052 (nomor sementara): pemetaan waktu klip dengan aritmetika bilangan bulat dan permil. Sebelumnya: KP-048 sampai KP-051 tentang adaptor TTS lokal.`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -91,8 +91,13 @@ flowchart TD
 | KP-049 | WAV TTS dibekukan per kalimat di cache berkunci SHA-256 (teks ternormalisasi, mesin, versi, model, speaker, kecepatan, langkah, perintah); SHA-256 WAV disahkan tiap dibaca dan ketidakcocokan menggagalkan proses; sintesis ulang hanya lewat `--sintesis-ulang`; mesin tidak diperlukan bila cache lengkap. Tiap kalimat dinormalkan ke -16 LUFS dan 48 kHz mono sebelum disambung dengan jeda senyap. | 2026-11-07 | Berlaku | Keluaran Supertonic dan Kokoro tidak identik antar-run dan CLI tidak punya seed (terukur pada riset: korelasi bentuk gelombang -0,03), jadi determinisme (KP-003, KP-037) hanya dapat dijaga dengan membekukan WAV. Selisih kenyaringan antar-suara sampai sekitar 6 LU; angka -16 LUFS mengikuti KP-004. | #69 |
 | KP-050 | Setiap video bersuara TTS wajib berlabel suara sintetis dan label tidak dapat dimatikan: `suara-kredit.json` dan `kredit-suara.txt` (kredit layar, deskripsi, metadata, lisensi). `jenisKonten: "medis"` ditolak untuk mesin dengan `larangMedis` (Supertonic); `kesehatan` dan teks yang tampak medis diperingatkan; konten medis memakai rekaman manusia atau layanan daring untuk konten publik. | 2026-11-07 | Berlaku | Keputusan pemilik 2026-11-07. OpenRAIL-M Supertonic mewajibkan pernyataan konten buatan mesin (butir e) dan melarang nasihat medis (butir l). awvd tidak dapat memaksa tayangan label; yang disediakan bahan label dan penolakan di sisi alat. Daftar kata medis hanya heuristik; edukasi kesehatan umum adalah wilayah abu-abu yang menunggu keputusan pemilik per konten. | #69 |
 | KP-051 | awvd memiliki modul normalisasi teks Indonesia sendiri (`scripts/normalisasi-id.mjs`: tanggal, jam, rupiah, persen, pasal, nomor, URL, surel, satuan, singkatan) yang mengisi `bacaan` otomatis untuk mesin TTS, dan memeriksa leksikon Kokoro: kata di luar leksikon menggagalkan sintesis (atau diperingatkan) alih-alih dilewati diam-diam. | 2026-11-07 | Berlaku | Uji putar-balik ASR riset awvd menunjukkan tanggal, pasal, URL, dan surel terbaca kacau oleh Supertonic, sedangkan angka yang dieja aman; sherpa-onnx 2.x melewati kata di luar leksikon tanpa galat (terbukti: "explains", "officers"). Cakupan normalisasi sengaja sempit dan dapat diperluas lewat `kamus`, bukan kamus lengkap. | #69 |
+| KP-052 | Pemetaan waktu klip (trim, speed konstan dan ramp, reverse, freeze) adalah fungsi murni di `runtime.js` (`petaWaktuKlip`, `frameSumber`, `kecepatanPermil`, opsi `waktu` pada `indeksFrameKlip`) dengan aritmetika bilangan bulat dan permil: `offset(f) = floor(posisi(f) / 1000)`, `posisi(f+1) = posisi(f) + v(f)`, reverse = deret maju dibalik, freeze = frame `dari`, kecepatan maksimal 3 desimal, frame lokal bilangan bulat, dan `habis` bawaan `tolak` (galat). Perilaku `indeksFrameKlip` tanpa `waktu` tidak diubah. Klip dengan waktu bukan identitas harus bisu karena `audio.mjs` tidak meregangkan waktu. | 2026-11-07 | Berlaku | Float menyimpang di batas lantai (`Math.floor(100 * 0.29)` bernilai 28, benar 29) dan indeks frame harus identik di render penuh, rentang, dan paralel (KP-003). Tabel ramp dihitung dari frame 0 tanpa keadaan antar-frame. Interpolasi gerak (optical flow) di luar scope. Rumus sama dengan riset timeline agar validator dan templat memakai satu implementasi. | menyusul |
 
 ## Changelog
+
+### 2026-11-07 - v1.13.0
+
+- Menambahkan KP-052 (nomor sementara; pemetaan waktu klip dengan aritmetika permil).
 
 ### 2026-11-07 - v1.12.0
 
