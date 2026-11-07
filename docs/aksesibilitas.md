@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.4.0`
+- Version: `v1.5.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan caption sinkron voice over (bun run narasi) ke tabel fitur.`
+- Changeset: `Menambahkan mode dan posisi caption burn-in (rencanaCaption, keadaanCaption, captionHtml) ke tabel fitur.`
 
 Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 
@@ -21,6 +21,7 @@ Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 | --- | --- | --- |
 | Caption ucapan di dalam frame | `captionAktif`, `pecahBaris`, `durasiBaca`, `parseVtt`/`parseSrt` | [api-runtime.md](api-runtime.md) |
 | Caption sinkron dengan voice over (cue VTT/SRT dari naskah dan WAV narasi, lint cps profil audiens) | `bun run narasi` | [narasi-caption.md](narasi-caption.md) |
+| Caption burn-in yang tidak menutupi isi penting dan terbaca (lima mode, posisi bawah/atas/auto/dekat penutur, area aman 16:9 dan 9:16, kontras >= 4,5:1 terhadap latar terburuk) | `rencanaCaption`, `keadaanCaption`, `captionHtml`, `areaAmanVertikal`; sorot kata hanya isyarat tambahan (kalimat penuh tetap tampil); caption burn-in tidak dapat disetel pemirsa, jadi sediakan trek lunak | [narasi-caption.md](narasi-caption.md#mode-dan-posisi-caption), [api-runtime.md](api-runtime.md) |
 | Caption sebagai trek lunak | `--subtitle`, `--bahasa` | [cli.md](cli.md) |
 | Kontras teks | `luminansRelatif`, `kontras`, `pilihTeksKontras` (WCAG 2.2 SC 1.4.3); preset jenis tidak boleh menurunkan kontras di bawah 4,5:1 | [api-runtime.md](api-runtime.md), [konsep-jenis-alur.md](konsep-jenis-alur.md) |
 | Area aman layar | `areaAman` | [api-runtime.md](api-runtime.md) |
@@ -37,6 +38,10 @@ Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 PDF SOP bertag (outline, bahasa `id`, tabel `th scope`) tetapi **tidak** mengklaim PDF/UA; lihat [sop.md](sop.md).
 
 ## Changelog
+
+### 2026-11-07 - v1.5.0
+
+- Menambahkan mode dan posisi caption burn-in ke tabel fitur.
 
 ### 2026-11-07 - v1.4.0
 

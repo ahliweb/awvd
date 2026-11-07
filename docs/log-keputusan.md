@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.7.0`
+- Version: `v1.8.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan KP-036 sampai KP-039: timing narasi berjangkar jeda, pemisahan narasi dan render, batas cps profil audiens, klasifikasi naskah dan angka dieja.`
+- Changeset: `Menambahkan KP-045 sampai KP-047 (nomor sementara): mode dan posisi caption, area aman dan kontras caption, kunci posisi di naskah.json.`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -73,8 +73,15 @@ flowchart TD
 | KP-037 | `bun run narasi` menulis aset beku (cue, stempel kata, rencana audio) dan boleh memakai mesin suara; `bun run render` tidak pernah memanggil mesin suara atau alat eksternal. Hash WAV dicatat di rencana dan laporan. | 2026-11-07 | Berlaku | Keluaran TTS daring tidak identik byte demi byte antar panggilan; memisahkan sintesis dari render menjaga determinisme (KP-003, KP-014). | #62 |
 | KP-038 | Batas cps cue adalah `cps` efektif profil audiens (yang paling ketat dari profil yang dipilih) dan menjadi batas `gagal` (kode keluar 1); `caption.cps` boleh melonggarkan sampai 20 dengan peringatan. Caption tidak dipercepat atau diperlambat agar lolos: tampil hanya diperpanjang ke jeda berikutnya sampai 0,5 detik, tanpa menimpa cue berikut. | 2026-11-07 | Berlaku | Menyembunyikan kecepatan baca yang terlalu tinggi merugikan penonton; perbaikannya ada di naskah atau kecepatan narasi. Angka cps dari KP-019; 0,5 detik mengikuti catatan DCMP tentang pergeseran sampai 15 frame. | #62 |
 | KP-039 | `naskah.json` mewajibkan `klasifikasi` (`publik` atau `internal`); mesin suara berpenanda daring ditolak untuk `internal`. Angka di teks yang dibacakan harus ditulis dengan huruf atau diberi `bacaan`. Satu bidang `mesin` dengan registri `daftarkanMesin` membuat adaptor TTS tinggal mendaftarkan mesin. | 2026-11-07 | Berlaku | TTS daring hanya untuk konten publik (AGENTS.md aturan 5); estimator tidak mengeja angka sehingga timing meleset bila angka dibiarkan. | #62 |
+| KP-045 | Tampil caption di komposisi dipecah menjadi tiga fungsi murni: `rencanaCaption` (sekali, rencana JSON), `keadaanCaption(rencana, frame)`, dan `captionHtml(keadaan)` (HTML tanpa animasi CSS). Lima mode (`pop-on` bawaan, `roll-up`, `paint-on`, `sorot-kata`, `satu-kata`) dan empat posisi (`bawah` bawaan, `atas`, `auto`, `dekat-penutur`). Posisi diputuskan per cue, bukan per frame; posisi tetap yang bertabrakan dengan zona diperingatkan, bukan digeser diam-diam; `auto` hanya naik ke atas bila atas bebas. | 2026-11-07 | Berlaku | Gerak hanya dari nomor frame (KP-003); rencana yang dapat diserialisasi dapat dibandingkan dan diuji tanpa browser. Kotak yang melompat di tengah cue mengganggu pembacaan dan tidak ada sumber yang membahasnya. Bukti manfaat tiap mode lemah atau terbelah (lihat [narasi-caption.md](narasi-caption.md#mode-dan-posisi-caption)), jadi bawaannya pop-on bawah dan mode sosial serta dekat penutur opt-in. | menyusul |
+| KP-046 | Caption selalu di dalam area aman: area aksi EBU R 95 untuk lanskap dan `areaAmanVertikal` (1080x1920: atas 250, bawah 480, kiri 65, kanan 120 px, diskalakan) untuk potret. Ukuran font = `min(batas lebar, max(minimum ukuranTeks "caption", 5,5% tinggi lanskap atau 3,8% potret))`, batas lebar memakai taksiran 0,6 em per karakter (`lebarKarakter` dapat diubah); kotak latar hitam alfa 0,75 dengan teks dari `pilihTeksKontras`, kontras terburuk (atas gambar hitam atau putih) dilaporkan dan diperingatkan di bawah 4,5:1. | 2026-11-07 | Berlaku | Angka zona platform vertikal berasal dari sumber sekunder yang saling berbeda dan konservatif (kotak 895x1190); 5,5% dan 3,8% adalah praktik dari riset caption, bukan standar. Taksiran lebar ditukar dengan fungsi murni tanpa pengukuran DOM; uji di Chromium memastikan kotak, baris, dan kata di dalam area untuk font templat, dan huruf yang jauh lebih lebar butuh `lebarKarakter` lebih besar. | menyusul |
+| KP-047 | `naskah.json` mengenali `caption.mode`, `caption.posisi`, `adegan[].posisi`, `adegan[].zonaCaption` (area bawah atau atas, frame relatif adegan), dan `adegan[].jangkarPenutur` (titik pusat kotak caption, piksel). Nilai hanya divalidasi dan diteruskan ke `kata.json` (zona dalam frame absolut); tidak memengaruhi cue atau lint. Penentuan jangkar tetap oleh penulis; awvd tidak mendeteksi penutur atau wajah. | 2026-11-07 | Berlaku | Menjaga `bun run narasi` sebagai pembangun aset beku dan penempatan sebagai urusan komposisi (KP-037). Deteksi penutur otomatis di luar cakupan: akurasi dan lisensi model belum diputuskan, dan bukti manfaat dekat penutur kecil. | menyusul |
 
 ## Changelog
+
+### 2026-11-07 - v1.8.0
+
+- Menambahkan KP-045 sampai KP-047 (mode dan posisi caption, area aman dan kontras caption, skema posisi di naskah; nomor sementara, rujukan PR menyusul).
 
 ### 2026-11-07 - v1.7.0
 
