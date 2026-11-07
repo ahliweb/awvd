@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.4.1`
+- Version: `v1.5.0`
 - Last updated: `2026-11-07`
-- Changeset: `Batasan --skala: skala di bawah 1 diperkecil lewat ffmpeg (deterministik, tidak lebih cepat); determinisme skala di atas 1 hanya teruji sampel.`
+- Changeset: `Menambahkan penunjuk batasan narasi dan caption.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -31,9 +31,14 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | SOP | [sop.md](sop.md#keputusan-desain-bukan-aturan-regulasi) |
 | Visual dan audiens (ukuran teks, palet buta warna, profil, efek) | [visual-audiens.md](visual-audiens.md#kesenjangan) |
 | Aset (gambar, logo, ikon, SVG, font, audio) | [aset.md](aset.md#batasan) |
+| Narasi dan caption sinkron (estimasi timing, mesin suara) | [narasi-caption.md](narasi-caption.md#batasan) |
 | Mempelajari gaya video dan kutipan wajar | [pelajari-reaction.md](pelajari-reaction.md#batasan) |
 
 ## Changelog
+
+### 2026-11-07 - v1.5.0
+
+- Menambahkan penunjuk batasan narasi dan caption.
 
 ### 2026-11-07 - v1.4.1
 

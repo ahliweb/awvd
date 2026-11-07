@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.2.0`
+- Version: `v1.3.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan kunci efek di klip[] (LUT .cube dan koreksi warna saat ekstraksi, rinci di olah-klip.md), efek dalam kunci cache, dan contoh sumber-warna.json di templat klip-tertanam.`
+- Changeset: `Menambahkan penunjuk bun run narasi sebagai penghasil rencana-audio.json dan caption sinkron untuk narasi beku.`
 
 Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md). Efek warna klip (LUT `.cube`, kecerahan, kontras, saturasi, gamma, keseimbangan warna) yang diterapkan saat ekstraksi ada di [olah-klip.md](olah-klip.md).
 
@@ -208,9 +208,15 @@ Dasar dan batas bukti. Ucapan simultan saling mengganggu (Salamé & Baddeley 198
 
 ### Narasi dan TTS
 
+`bun run narasi` ([narasi-caption.md](narasi-caption.md)) menurunkan `rencana-audio.json` (bagian `narasi`: id, `berkas`, `mulai` dalam frame, `sha256`) dari `naskah.json` dan WAV beku, sekaligus cue caption yang sinkron dengan durasi WAV. Berkasnya dibaca `bun run audio` tanpa perubahan.
+
 awvd tidak membundel mesin TTS. Antarmuka narasi adalah **berkas WAV beku**: hasil rekaman atau TTS dibekukan sebagai berkas, dihash, dicatat (mesin, versi, model, lisensi) di repo proyek, dan hanya berkas itu yang dipakai saat render (TTS saraf bisa tidak deterministik antar-run). Per 2026-11-07 riset tidak menemukan model TTS bahasa Indonesia berlisensi permisif dengan asal data yang jelas: Piper MIT sudah diarsipkan dan penerusnya GPL-3.0; suara `id_ID-news_tts-medium` berlisensi MIT tetapi asal data pelatihannya tidak jelas; MMS-TTS berlisensi CC BY-NC. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.3.0
+
+- §Narasi dan TTS menunjuk `bun run narasi` sebagai penghasil `rencana-audio.json` dan caption sinkron; `audio.mjs` tidak berubah.
 
 ### 2026-11-07 - v1.2.0
 
