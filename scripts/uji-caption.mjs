@@ -470,7 +470,8 @@ tes("(l) naskah.json mengenali caption.mode/posisi, zonaCaption, jangkarPenutur;
   const dasar = JSON.parse(await Bun.file(join(templat, "naskah.json")).text());
   const cek = (ubah) => { const n = JSON.parse(JSON.stringify(dasar)); ubah(n); return validasiNaskah(n, templat); };
   const ok = cek(() => {});
-  samaDengan(ok.galat, [], "naskah contoh sah");
+  // WAV contoh dibuat oleh buat-audio.mjs ke .cache (tidak ikut git); uji ini hanya memeriksa kunci caption
+  samaDengan(ok.galat.filter((g) => !/berkas tidak ditemukan/.test(g)), [], "naskah contoh sah");
   samaDengan(ok.peringatan, [], "naskah contoh tanpa peringatan (kunci dikenal)");
   samaDengan(ok.naskah.tampil, { mode: "pop-on", posisi: "auto" }, "tampil naskah");
   samaDengan(ok.naskah.adegan[1].tampil, { zonaCaption: [{ area: "bawah", dari: 0, sampai: null }], jangkarPenutur: { x: 794, y: 331 } }, "tampil adegan a2");
@@ -587,10 +588,14 @@ tes("(m2) lebarKarakter: teks lebih lebar dari taksiran 0,6 em melewati kotak, t
       const dom = await page.evaluate(() => { const a = document.querySelector("[data-caption]"), b = a.firstElementChild.getBoundingClientRect(); return { x: b.left, w: b.width }; });
       return { r, dom };
     };
-    const bawaan = await ukur(undefined), lebar = await ukur(1.0);
+    // lebar huruf "m" diukur dari font yang benar-benar dipakai (berbeda antarmesin, mis. Noto Sans vs DejaVu Sans)
+    const r0 = rencanaCaption({ cues: [{ mulai: 0, akhir: 2, teks: "m" }], lebar: 1280, tinggi: 720, fps: 30 });
+    await page.setContent(`<body style="margin:0"><div style="position:relative;width:1280px;height:720px">${captionHtml(keadaanCaption(r0, 5))}</div></body>`);
+    const rasio = await page.evaluate(() => { const el = document.querySelector("[data-caption]").firstElementChild; const cs = getComputedStyle(el); const c = document.createElement("canvas").getContext("2d"); c.font = `${cs.fontWeight} 100px ${cs.fontFamily}`; return c.measureText("m").width / 100; });
+    const bawaan = await ukur(undefined), lebar = await ukur(Math.max(rasio + 0.03, 0.61));
     tegas(bawaan.dom.w > bawaan.r.cue[0].kotak.w, "dengan taksiran 0,6 em deretan huruf lebar melebihi kotak (itulah mengapa ada opsi lebarKarakter)");
     const k = lebar.r.cue[0].kotak;
-    tegas(lebar.dom.w <= k.w + 0.5 && lebar.dom.x >= lebar.r.area.x - 0.5 && lebar.dom.x + lebar.dom.w <= lebar.r.area.x + lebar.r.area.w + 0.5, `lebarKarakter 1,0: baris ${JSON.stringify(lebar.dom)} kotak ${JSON.stringify(k)}`);
+    tegas(lebar.dom.w <= k.w + 0.5 && lebar.dom.x >= lebar.r.area.x - 0.5 && lebar.dom.x + lebar.dom.w <= lebar.r.area.x + lebar.r.area.w + 0.5, `lebarKarakter ${rasio.toFixed(3)}+0,03: baris ${JSON.stringify(lebar.dom)} kotak ${JSON.stringify(k)}`);
     tegas(lebar.r.ukuranFont < bawaan.r.ukuranFont, "taksiran lebih lebar menurunkan ukuran font");
     melempar(() => rencanaCaption({ cues: [], lebar: 1280, tinggi: 720, fps: 30, lebarKarakter: 0 }), /lebarKarakter/, "lebarKarakter 0");
   } finally {
