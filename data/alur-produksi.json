@@ -1,0 +1,1023 @@
+{
+  "versi": 1,
+  "catatan": "Satu sumber kebenaran alur produksi. Urutan tahap dan artefak adalah konvensi yang stabil di buku teks dan praktik agensi; jumlah gate, ronde review, dan penyetuju adalah keputusan desain, tanpa bukti empiris perbandingan alur untuk motion graphics.",
+  "legendaBukti": {
+    "buku-teks": "Kerangka dari buku teks produksi atau desain instruksional; isi bab tidak semuanya dibaca.",
+    "praktik": "Praktik industri atau birokrasi; sumber sekunder atau tanpa sumber tunggal.",
+    "keputusan-desain": "Usulan desain awvd tanpa bukti."
+  },
+  "peran": {
+    "PS": "Pemilik atau sponsor isi",
+    "PM": "Produser atau pengelola",
+    "PN": "Penulis naskah",
+    "DS": "Desainer gerak atau operator awvd",
+    "AU": "Narator atau audio",
+    "AH": "Ahli materi",
+    "KP": "Kepatuhan, hukum, atau humas",
+    "PJ": "Pejabat pengesah",
+    "QC": "Pemeriksa mutu (boleh otomatis lewat bun run periksa)"
+  },
+  "catatanRaci": "R = pelaksana, A = penanggung jawab akhir, C = dikonsultasi, I = diinformasikan. Satu orang boleh memegang beberapa peran. RACI adalah konvensi manajemen proyek.",
+  "alur": {
+    "ringkas": {
+      "label": "Ringkas",
+      "deskripsi": "Video pendek internal atau sosial, 1-3 hari kerja, 1-3 orang.",
+      "kapanDipakai": "Konten pendek berisiko rendah dengan satu pemilik isi dan sedikit pemangku kepentingan.",
+      "rondeReview": 1,
+      "overhead": "rendah",
+      "bukti": {
+        "struktur": {
+          "tingkat": "praktik",
+          "rujukan": "Praktik produksi konten pendek; SAM1 (Allen & Sites 2012) hanya sebagai analogi proses kecil."
+        },
+        "gateDanRonde": {
+          "tingkat": "keputusan-desain",
+          "rujukan": "Dua gate dan maksimal satu putaran revisi adalah usulan awvd, tanpa bukti perbandingan alur."
+        }
+      },
+      "tahap": [
+        {
+          "id": "T1",
+          "fase": "pra",
+          "nama": "Brief dan naskah",
+          "kegiatan": "Isi konsep.json (jenis, tujuan, audiens, pesan, CTA, durasi); tulis naskah dua kolom; render still tiap adegan.",
+          "artefak": ["konsep.json", "brief.md", "naskah.json (props)", "still per adegan"],
+          "perintah": [
+            "bun run konsep -- baru --jenis J --alur A --out konsep.json",
+            "bun run konsep -- brief konsep.json --out brief.md",
+            "bun run render komposisi.html --still N --out still/adegan-N.png"
+          ],
+          "gate": {
+            "id": "G1",
+            "jenis": "gate",
+            "nama": "Brief dan naskah",
+            "penyetuju": "PS",
+            "kriteria": [
+              "konsep.json terisi: jenis, tujuan, audiens, pesan satu kalimat, CTA, durasi",
+              "Naskah dua kolom dan still per adegan ada",
+              "PS setuju tertulis (pesan atau komentar cukup)"
+            ]
+          },
+          "raci": {
+            "R": ["PM", "DS"],
+            "A": ["PS"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T2",
+          "fase": "produksi",
+          "nama": "Rough dan satu putaran review",
+          "kegiatan": "Render rough dengan audio sementara; satu putaran review; catatan revisi dipenuhi.",
+          "artefak": ["rough.mp4"],
+          "perintah": ["bun run render komposisi.html --skala 0.5 --audio sementara.wav --out rough.mp4"],
+          "gate": null,
+          "raci": {
+            "R": ["PM", "DS"],
+            "A": ["PM"],
+            "C": ["PS"],
+            "I": []
+          }
+        },
+        {
+          "id": "T3",
+          "fase": "pasca",
+          "nama": "Final dan QC",
+          "kegiatan": "Perbaiki, render final, buat caption, normalisasi kenyaringan, jalankan periksa; tonton utuh sekali dengan suara mati dan sekali bersuara.",
+          "artefak": ["final.mp4", "caption.vtt", "atribusi.txt (bila ada aset pihak ketiga)", "ASET.md"],
+          "perintah": [
+            "bun run render komposisi.html --skala 1 --audio narasi.wav --subtitle caption.vtt --out final.mp4",
+            "bun run periksa final.mp4 --konsep konsep.json --subtitle caption.vtt"
+          ],
+          "gate": {
+            "id": "G2",
+            "jenis": "gate",
+            "nama": "Rilis",
+            "penyetuju": "QC",
+            "kriteria": [
+              "bun run periksa lolos",
+              "caption.vtt ada",
+              "Ditonton utuh dengan suara mati dan bersuara",
+              "Aset pihak ketiga tercatat",
+              "Tidak ada berkas mp4 dalam commit"
+            ]
+          },
+          "raci": {
+            "R": ["QC", "DS"],
+            "A": ["PM"],
+            "C": [],
+            "I": ["PS"]
+          }
+        },
+        {
+          "id": "T4",
+          "fase": "distribusi",
+          "nama": "Unggah",
+          "kegiatan": "Unggah ke kanal; simpan sumber di repo proyek tanpa mp4.",
+          "artefak": ["tautan terbit", "atribusi.txt bila ada"],
+          "perintah": [],
+          "gate": null,
+          "raci": {
+            "R": ["PM"],
+            "A": ["PS"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T5",
+          "fase": "evaluasi",
+          "nama": "Catatan hasil",
+          "kegiatan": "Catat satu angka (penayangan atau retensi) setelah 7 hari dan satu pelajaran.",
+          "artefak": ["catatan tiga baris"],
+          "perintah": [],
+          "gate": null,
+          "raci": {
+            "R": ["PM"],
+            "A": ["PS"],
+            "C": [],
+            "I": []
+          }
+        }
+      ],
+      "kriteriaSelesai": ["periksa lolos", "caption ada", "PS menyetujui", "Tidak ada mp4 dalam commit"]
+    },
+    "standar": {
+      "label": "Standar",
+      "deskripsi": "Alur agensi dengan review berjenjang untuk promo, produk, kreatif, testimoni, acara, dan data.",
+      "kapanDipakai": "Produksi dengan klien atau pemilik isi yang menyetujui di beberapa titik; ada konsep, naskah, storyboard, dan animatic sebelum produksi mahal.",
+      "rondeReview": 2,
+      "overhead": "sedang",
+      "bukti": {
+        "struktur": {
+          "tingkat": "buku-teks",
+          "rujukan": "Tiga fase pra-produksi, produksi, pasca-produksi (Zettl; Musburger & Kindem 2009; isi bab tidak dibaca, hanya katalog) dan urutan agensi (praktik). Varian iteratif: Hamilton (2013), Andersson & Sandahl (2021), Agile Manifesto; bukti lemah."
+        },
+        "gateDanRonde": {
+          "tingkat": "keputusan-desain",
+          "rujukan": "Jumlah gate dan dua ronde review adalah usulan awvd; angka 'tipikal' tidak ditemukan di sumber mana pun."
+        }
+      },
+      "tahap": [
+        {
+          "id": "T1",
+          "fase": "pra",
+          "nama": "Brief",
+          "kegiatan": "Creative brief: tujuan bisnis, audiens, pesan tunggal, mandatori (logo, disclaimer), CTA, saluran dan rasio, jadwal.",
+          "artefak": ["konsep.json", "brief.md"],
+          "perintah": [
+            "bun run konsep -- baru --jenis J --alur A --out konsep.json",
+            "bun run konsep -- brief konsep.json --out brief.md"
+          ],
+          "gate": {
+            "id": "G1",
+            "jenis": "gate",
+            "nama": "Brief",
+            "penyetuju": "PS",
+            "kriteria": [
+              "Brief ditandatangani PS",
+              "Mandatori (logo, disclaimer) tercatat",
+              "Saluran, rasio, dan durasi ditetapkan"
+            ]
+          },
+          "raci": {
+            "R": ["PM"],
+            "A": ["PS"],
+            "C": ["PN"],
+            "I": []
+          }
+        },
+        {
+          "id": "T2",
+          "fase": "pra",
+          "nama": "Konsep dan naskah",
+          "kegiatan": "Treatment dan referensi gaya; naskah audio-visual dua kolom dengan waktu.",
+          "artefak": ["treatment (bagian konsep)", "naskah.json (props)"],
+          "perintah": ["bun run konsep -- brief konsep.json --out brief.md"],
+          "gate": {
+            "id": "G2",
+            "jenis": "gate",
+            "nama": "Konsep dan naskah",
+            "penyetuju": "PS",
+            "kriteria": ["Konsep dan naskah disetujui PS", "Klaim promo diperiksa KP"]
+          },
+          "raci": {
+            "R": ["PN"],
+            "A": ["PM"],
+            "C": ["PS", "KP"],
+            "I": []
+          }
+        },
+        {
+          "id": "T3",
+          "fase": "pra",
+          "nama": "Storyboard dan animatic",
+          "kegiatan": "Storyboard dari still per adegan; animatic skala kecil dengan audio sementara.",
+          "artefak": ["still per adegan", "animatic.mp4"],
+          "perintah": [
+            "bun run render komposisi.html --still N --out still/adegan-N.png",
+            "bun run render komposisi.html --skala 0.25 --audio sementara.wav --out animatic.mp4"
+          ],
+          "gate": {
+            "id": "G3",
+            "jenis": "gate",
+            "nama": "Animatic terkunci",
+            "penyetuju": "PS",
+            "kriteria": [
+              "Urutan dan timing dibekukan",
+              "Hash naskah dan komposisi dicatat",
+              "Perubahan sesudahnya dihitung sebagai perubahan lingkup"
+            ]
+          },
+          "raci": {
+            "R": ["DS"],
+            "A": ["PM"],
+            "C": ["PS"],
+            "I": []
+          }
+        },
+        {
+          "id": "T4",
+          "fase": "produksi",
+          "nama": "Rough cut",
+          "kegiatan": "Desain dan animasi adegan; rough cut v1 tanpa polesan.",
+          "artefak": ["rough.mp4"],
+          "perintah": ["bun run render komposisi.html --skala 0.5 --audio sementara.wav --out rough.mp4"],
+          "gate": {
+            "id": "R1",
+            "jenis": "review",
+            "nama": "Review struktur dan pesan",
+            "penyetuju": "PS",
+            "kriteria": ["Struktur dan pesan ditinjau PS dan PM", "Catatan revisi dipenuhi"]
+          },
+          "raci": {
+            "R": ["DS"],
+            "A": ["PM"],
+            "C": [],
+            "I": ["PS"]
+          }
+        },
+        {
+          "id": "T5",
+          "fase": "produksi",
+          "nama": "Fine cut",
+          "kegiatan": "Tipografi, warna, gerak, caption, dan audio dengan ducking; fine cut v2.",
+          "artefak": ["fine.mp4", "caption.vtt"],
+          "perintah": [
+            "bun run render komposisi.html --skala 1 --audio sementara.wav --subtitle caption.vtt --out fine.mp4"
+          ],
+          "gate": {
+            "id": "R2",
+            "jenis": "review",
+            "nama": "Review detail",
+            "penyetuju": "PS",
+            "kriteria": ["Ejaan, merek, dan aksesibilitas ditinjau PS dan KP", "Ducking dan kenyaringan wajar"]
+          },
+          "raci": {
+            "R": ["DS"],
+            "A": ["PM"],
+            "C": ["KP"],
+            "I": ["PS"]
+          }
+        },
+        {
+          "id": "T6",
+          "fase": "pasca",
+          "nama": "QC dan final",
+          "kegiatan": "QC teknis; final v3; varian rasio; caption dan atribusi.",
+          "artefak": ["final.mp4", "caption.vtt", "atribusi.txt", "ASET.md"],
+          "perintah": [
+            "bun run render komposisi.html --skala 1 --audio narasi.wav --subtitle caption.vtt --out final.mp4",
+            "bun run periksa final.mp4 --konsep konsep.json --subtitle caption.vtt"
+          ],
+          "gate": {
+            "id": "G4",
+            "jenis": "gate",
+            "nama": "Rilis",
+            "penyetuju": "PS",
+            "kriteria": [
+              "bun run periksa lolos",
+              "Caption dan atribusi ada",
+              "Varian rasio dibuat bila diminta",
+              "PS menyetujui final"
+            ]
+          },
+          "raci": {
+            "R": ["QC"],
+            "A": ["PM"],
+            "C": [],
+            "I": ["PS"]
+          }
+        },
+        {
+          "id": "T7",
+          "fase": "distribusi",
+          "nama": "Unggah dan arsip",
+          "kegiatan": "Unggah dan jadwalkan; arsipkan master dan sumber.",
+          "artefak": ["tautan terbit", "arsip master dan sumber"],
+          "perintah": [],
+          "gate": null,
+          "raci": {
+            "R": ["PM"],
+            "A": ["PS"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T8",
+          "fase": "evaluasi",
+          "nama": "Evaluasi dan retrospektif",
+          "kegiatan": "Ukur terhadap tujuan di brief (retensi, klik CTA); retrospektif singkat.",
+          "artefak": ["evaluasi.md"],
+          "perintah": [],
+          "gate": {
+            "id": "G5",
+            "jenis": "gate",
+            "nama": "Penutupan proyek",
+            "penyetuju": "PS",
+            "kriteria": [
+              "Hasil dibandingkan dengan tujuan brief",
+              "Naskah final, caption, atribusi, dan konsep.json diarsipkan"
+            ],
+            "opsional": true
+          },
+          "raci": {
+            "R": ["PM"],
+            "A": ["PS"],
+            "C": [],
+            "I": []
+          }
+        }
+      ],
+      "kriteriaSelesai": [
+        "Semua gate lewat",
+        "periksa lolos",
+        "Master, naskah final, caption, atribusi, dan konsep.json tersimpan",
+        "Hasil dibandingkan dengan tujuan brief"
+      ]
+    },
+    "instruksional": {
+      "label": "Instruksional",
+      "deskripsi": "ADDIE dengan iterasi prototipe ala SAM untuk edukasi, panduan atau SOP, dan onboarding.",
+      "kapanDipakai": "Video yang harus mengubah kemampuan penonton: ada tujuan belajar terukur, ahli materi, dan uji pada pelajar sasaran.",
+      "rondeReview": 2,
+      "overhead": "sedang-tinggi",
+      "bukti": {
+        "struktur": {
+          "tingkat": "buku-teks",
+          "rujukan": "ADDIE (Branch 2009) untuk struktur dan evaluasi; SAM (Allen & Sites 2012) untuk iterasi: Design Proof, Alpha, Beta, Gold. Isi desain mengikuti Mayer (2021); efek belum diuji untuk bahasa Indonesia."
+        },
+        "gateDanRonde": {
+          "tingkat": "keputusan-desain",
+          "rujukan": "Jumlah gate, dua ronde review, dan satu uji pelajar adalah usulan awvd; jumlah penguji adalah keputusan proyek. Batasi jumlah iterasi agar tidak berputar tanpa akhir (risiko SAM menurut ulasan sekunder)."
+        }
+      },
+      "tahap": [
+        {
+          "id": "T1",
+          "fase": "pra",
+          "nama": "Analyze: kebutuhan dan tujuan belajar",
+          "kegiatan": "Kebutuhan, kesenjangan kinerja, audiens, pengetahuan awal, kendala (durasi, perangkat tonton), pengambil keputusan.",
+          "artefak": ["konsep.json (tujuanBelajar, audiens)", "brief.md"],
+          "perintah": [
+            "bun run konsep -- baru --jenis J --alur A --out konsep.json",
+            "bun run konsep -- brief konsep.json --out brief.md"
+          ],
+          "gate": {
+            "id": "GA",
+            "jenis": "gate",
+            "nama": "Tujuan belajar",
+            "penyetuju": "PS",
+            "kriteria": [
+              "Tujuan belajar terukur (kata kerja teramati) disetujui PS dan AH",
+              "Audiens, pengetahuan awal, perangkat tonton, dan kendala tercatat"
+            ]
+          },
+          "raci": {
+            "R": ["PM"],
+            "A": ["PS"],
+            "C": ["AH"],
+            "I": []
+          }
+        },
+        {
+          "id": "T2",
+          "fase": "pra",
+          "nama": "Design: segmen, naskah, asesmen",
+          "kegiatan": "Urutan segmen satu ide per segmen, pra-latih istilah, naskah percakapan, storyboard, pertanyaan cek; kerangka semua segmen dulu (breadth before depth).",
+          "artefak": [
+            "naskah.json (props)",
+            "still per adegan",
+            "rencana asesmen",
+            "sop.json (panduan atau SOP, bila fitur SOP tersedia)"
+          ],
+          "perintah": ["bun run render komposisi.html --still N --out still/adegan-N.png"],
+          "gate": {
+            "id": "GD",
+            "jenis": "gate",
+            "nama": "Desain",
+            "penyetuju": "AH",
+            "kriteria": [
+              "Satu ide per segmen; istilah dikenalkan sebelum dipakai",
+              "Naskah percakapan; teks layar kata kunci dekat objek dan sinkron dengan narasi",
+              "Elemen yang dibicarakan disorot; asesmen disusun",
+              "AH menyetujui kebenaran isi"
+            ]
+          },
+          "raci": {
+            "R": ["PN"],
+            "A": ["AH"],
+            "C": ["PM"],
+            "I": []
+          }
+        },
+        {
+          "id": "T3",
+          "fase": "produksi",
+          "nama": "Develop 1: Design Proof",
+          "kegiatan": "Satu segmen jadi dengan alat produksi akhir.",
+          "artefak": ["proof.mp4"],
+          "perintah": ["bun run render komposisi.html --skala 0.5 --audio sementara.wav --out rough.mp4"],
+          "gate": {
+            "id": "GV1",
+            "jenis": "gate",
+            "nama": "Design Proof",
+            "penyetuju": "PM",
+            "kriteria": ["Satu segmen selesai dengan alat produksi akhir", "Gaya, tempo, dan teks layar disetujui"]
+          },
+          "raci": {
+            "R": ["DS"],
+            "A": ["PM"],
+            "C": ["AH"],
+            "I": []
+          }
+        },
+        {
+          "id": "T4",
+          "fase": "produksi",
+          "nama": "Develop 2: Alpha",
+          "kegiatan": "Semua konten dibuat dan dicek terhadap desain.",
+          "artefak": ["alpha.mp4"],
+          "perintah": [
+            "bun run render komposisi.html --skala 1 --audio sementara.wav --subtitle caption.vtt --out fine.mp4"
+          ],
+          "gate": {
+            "id": "GV2",
+            "jenis": "gate",
+            "nama": "Alpha lengkap",
+            "penyetuju": "PM",
+            "kriteria": ["Semua segmen ada", "Dicek terhadap rencana desain dan asesmen"]
+          },
+          "raci": {
+            "R": ["DS"],
+            "A": ["PM"],
+            "C": ["AH"],
+            "I": []
+          }
+        },
+        {
+          "id": "T5",
+          "fase": "produksi",
+          "nama": "Develop 3: Beta dan uji pelajar",
+          "kegiatan": "Revisi kesalahan; uji pada pelajar sasaran; catat temuan dan perbaiki.",
+          "artefak": ["beta.mp4", "catatan uji"],
+          "perintah": [
+            "bun run render komposisi.html --skala 1 --audio sementara.wav --subtitle caption.vtt --out fine.mp4"
+          ],
+          "gate": {
+            "id": "GV3",
+            "jenis": "gate",
+            "nama": "Beta diuji pelajar",
+            "penyetuju": "PM",
+            "kriteria": ["Diuji pelajar sasaran; kriteria lulus ditetapkan di Analyze", "Temuan dicatat dan diperbaiki"]
+          },
+          "raci": {
+            "R": ["PM"],
+            "A": ["PM"],
+            "C": ["AH"],
+            "I": []
+          }
+        },
+        {
+          "id": "T6",
+          "fase": "pasca",
+          "nama": "Implement: QC dan rilis",
+          "kegiatan": "Caption wajib; periksa lolos; unggah ke LMS atau kanal beserta tautan latihan.",
+          "artefak": ["final.mp4", "caption.vtt", "atribusi.txt", "ASET.md"],
+          "perintah": [
+            "bun run render komposisi.html --skala 1 --audio narasi.wav --subtitle caption.vtt --out final.mp4",
+            "bun run periksa final.mp4 --konsep konsep.json --subtitle caption.vtt"
+          ],
+          "gate": {
+            "id": "GI",
+            "jenis": "gate",
+            "nama": "Rilis",
+            "penyetuju": "PS",
+            "kriteria": ["Setiap segmen berdurasi 6 menit atau kurang", "Caption ada", "bun run periksa lolos"]
+          },
+          "raci": {
+            "R": ["QC", "DS"],
+            "A": ["PS"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T7",
+          "fase": "evaluasi",
+          "nama": "Evaluate: formatif dan sumatif",
+          "kegiatan": "Formatif (di Beta: tanya apa yang membingungkan) dan sumatif (skor uji atau kinerja); keputusan revisi atau arsip.",
+          "artefak": ["evaluasi.md"],
+          "perintah": [],
+          "gate": {
+            "id": "GE",
+            "jenis": "gate",
+            "nama": "Evaluasi",
+            "penyetuju": "PS",
+            "kriteria": [
+              "Laporan evaluasi formatif dan sumatif ada",
+              "Keputusan revisi atau arsip dicatat",
+              "Jumlah iterasi tidak melebihi batas yang disepakati"
+            ]
+          },
+          "raci": {
+            "R": ["PM"],
+            "A": ["PS"],
+            "C": ["AH"],
+            "I": []
+          }
+        }
+      ],
+      "kriteriaSelesai": [
+        "Tujuan belajar tercapai pada uji beta",
+        "Setiap segmen 6 menit atau kurang",
+        "Caption ada",
+        "periksa lolos",
+        "Laporan evaluasi ada"
+      ]
+    },
+    "formal": {
+      "label": "Formal",
+      "deskripsi": "Kedinasan atau korporat resmi dengan pengesahan berjenjang dan dasar hukum; gate harus berurutan.",
+      "kapanDipakai": "Video resmi yang memerlukan otorisasi, verifikasi substansi, tinjauan kepatuhan, dan pengesahan atas versi berhash.",
+      "rondeReview": 2,
+      "overhead": "tinggi",
+      "urutanKetat": true,
+      "bukti": {
+        "struktur": {
+          "tingkat": "praktik",
+          "rujukan": "Tidak ditemukan standar nasional khusus video kedinasan. Struktur pengesahan berjenjang adalah praktik birokrasi. Persyaratan yang dibaca dari teks: Perpres 63/2019 Pasal 41 dan UU 28/2014 Pasal 12."
+        },
+        "gateDanRonde": {
+          "tingkat": "keputusan-desain",
+          "rujukan": "Enam gate dan dua ronde review adalah usulan awvd. Penyerahan siaran file-based (DPP AS-11 di Inggris, MXF) bukan keluaran awvd: minta spesifikasi stasiun."
+        }
+      },
+      "tahap": [
+        {
+          "id": "T1",
+          "fase": "pra",
+          "nama": "Otorisasi",
+          "kegiatan": "Permintaan resmi (surat tugas atau disposisi), pejabat pengesah, dasar hukum, mandatori identitas (logo resmi, nama instansi).",
+          "artefak": ["konsep.json (kepatuhan.dasarHukum, persetujuan)", "brief.md"],
+          "perintah": [
+            "bun run konsep -- baru --jenis J --alur A --out konsep.json",
+            "bun run konsep -- brief konsep.json --out brief.md"
+          ],
+          "gate": {
+            "id": "G1",
+            "jenis": "gate",
+            "nama": "Otorisasi",
+            "penyetuju": "PJ",
+            "kriteria": ["Permintaan resmi dan lingkup disahkan PJ atau PS", "Pejabat pengesah dan dasar hukum tercatat"]
+          },
+          "raci": {
+            "R": ["PM"],
+            "A": ["PJ"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T2",
+          "fase": "pra",
+          "nama": "Substansi",
+          "kegiatan": "Naskah bahasa baku dua kolom; verifikasi substansi dan angka ke sumber.",
+          "artefak": ["naskah.json (props)", "daftar sumber"],
+          "perintah": ["bun run konsep -- brief konsep.json --out brief.md"],
+          "gate": {
+            "id": "G2",
+            "jenis": "gate",
+            "nama": "Substansi",
+            "penyetuju": "AH",
+            "kriteria": [
+              "Naskah berbahasa Indonesia baku",
+              "Angka dan fakta diverifikasi ke sumber oleh AH",
+              "PS menyetujui naskah"
+            ]
+          },
+          "raci": {
+            "R": ["PN"],
+            "A": ["AH"],
+            "C": ["PS"],
+            "I": []
+          }
+        },
+        {
+          "id": "T3",
+          "fase": "pra",
+          "nama": "Visual",
+          "kegiatan": "Storyboard dan identitas visual sesuai pedoman instansi; animatic.",
+          "artefak": ["still per adegan", "animatic.mp4"],
+          "perintah": [
+            "bun run render komposisi.html --still N --out still/adegan-N.png",
+            "bun run render komposisi.html --skala 0.25 --audio sementara.wav --out animatic.mp4"
+          ],
+          "gate": {
+            "id": "G3",
+            "jenis": "gate",
+            "nama": "Visual",
+            "penyetuju": "KP",
+            "kriteria": [
+              "Logo dan identitas visual sesuai pedoman instansi",
+              "Adegan wajib lengkap (identitas, dasar, isi, penutup)"
+            ]
+          },
+          "raci": {
+            "R": ["DS"],
+            "A": ["KP"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T4",
+          "fase": "produksi",
+          "nama": "Rough cut",
+          "kegiatan": "Desain dan animasi adegan; rough cut.",
+          "artefak": ["rough.mp4"],
+          "perintah": ["bun run render komposisi.html --skala 0.5 --audio sementara.wav --out rough.mp4"],
+          "gate": {
+            "id": "R1",
+            "jenis": "review",
+            "nama": "Review rough",
+            "penyetuju": "PS",
+            "kriteria": ["Struktur dan pesan ditinjau PS"]
+          },
+          "raci": {
+            "R": ["DS"],
+            "A": ["PM"],
+            "C": [],
+            "I": ["PS"]
+          }
+        },
+        {
+          "id": "T5",
+          "fase": "produksi",
+          "nama": "Fine cut",
+          "kegiatan": "Fine cut dengan caption dan audio.",
+          "artefak": ["fine.mp4", "caption.vtt"],
+          "perintah": [
+            "bun run render komposisi.html --skala 1 --audio sementara.wav --subtitle caption.vtt --out fine.mp4"
+          ],
+          "gate": {
+            "id": "R2",
+            "jenis": "review",
+            "nama": "Review fine",
+            "penyetuju": "PS",
+            "kriteria": ["Detail (ejaan, merek, aksesibilitas) ditinjau PS"]
+          },
+          "raci": {
+            "R": ["DS"],
+            "A": ["PM"],
+            "C": ["KP"],
+            "I": ["PS"]
+          }
+        },
+        {
+          "id": "T6",
+          "fase": "pasca",
+          "nama": "Kepatuhan",
+          "kegiatan": "Tinjauan kepatuhan: bahasa Indonesia, izin potret, lisensi aset, tidak ada klaim tak berdasar, aksesibilitas.",
+          "artefak": ["daftar periksa kepatuhan", "ASET.md", "atribusi.txt"],
+          "perintah": [],
+          "gate": {
+            "id": "G4",
+            "jenis": "gate",
+            "nama": "Kepatuhan",
+            "penyetuju": "KP",
+            "kriteria": ["Bahasa Indonesia, izin potret, lisensi aset, klaim, aksesibilitas, dan kilatan diperiksa"]
+          },
+          "raci": {
+            "R": ["PM"],
+            "A": ["KP"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T7",
+          "fase": "pasca",
+          "nama": "QC dan hash",
+          "kegiatan": "QC teknis; render final; catat hash SHA-256 video dan naskah.",
+          "artefak": ["final.mp4", "hash video dan naskah"],
+          "perintah": [
+            "bun run render komposisi.html --skala 1 --audio narasi.wav --subtitle caption.vtt --out final.mp4",
+            "bun run periksa final.mp4 --konsep konsep.json --subtitle caption.vtt"
+          ],
+          "gate": {
+            "id": "G5",
+            "jenis": "gate",
+            "nama": "QC",
+            "penyetuju": "QC",
+            "kriteria": ["bun run periksa lolos", "Hash SHA-256 video dicatat (setuju --berkas final.mp4)"],
+            "butuhHash": true
+          },
+          "raci": {
+            "R": ["QC"],
+            "A": ["PM"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T8",
+          "fase": "pasca",
+          "nama": "Pengesahan akhir",
+          "kegiatan": "Pengesahan atas versi berhash; berkas dibekukan; perubahan sesudahnya berarti versi baru dan pengesahan ulang.",
+          "artefak": ["persetujuan[] dengan oleh, tanggal, hash"],
+          "perintah": [],
+          "gate": {
+            "id": "G6",
+            "jenis": "gate",
+            "nama": "Pengesahan akhir",
+            "penyetuju": "PJ",
+            "kriteria": [
+              "Hash yang disahkan sama dengan hash video terbit",
+              "Berkas dibekukan; perubahan sesudahnya = versi baru"
+            ],
+            "butuhHash": true
+          },
+          "raci": {
+            "R": ["PM"],
+            "A": ["PJ"],
+            "C": ["KP"],
+            "I": []
+          }
+        },
+        {
+          "id": "T9",
+          "fase": "distribusi",
+          "nama": "Kanal resmi dan arsip",
+          "kegiatan": "Terbitkan di kanal resmi; arsipkan master, naskah, bukti persetujuan, atribusi.",
+          "artefak": ["arsip lengkap"],
+          "perintah": [],
+          "gate": null,
+          "raci": {
+            "R": ["PM"],
+            "A": ["PJ"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T10",
+          "fase": "evaluasi",
+          "nama": "Laporan singkat",
+          "kegiatan": "Jangkauan dan umpan balik.",
+          "artefak": ["evaluasi.md"],
+          "perintah": [],
+          "gate": null,
+          "raci": {
+            "R": ["PM"],
+            "A": ["PS"],
+            "C": [],
+            "I": []
+          }
+        }
+      ],
+      "kriteriaSelesai": [
+        "Semua gate tercatat dengan hash yang sama dengan video terbit",
+        "periksa lolos",
+        "Caption dan transkrip ada",
+        "Arsip lengkap"
+      ]
+    },
+    "dokumenter": {
+      "label": "Dokumenter",
+      "deskripsi": "Cerita, profil panjang, dan riset arsip dengan izin narasumber dan pemeriksaan fakta.",
+      "kapanDipakai": "Video panjang berbasis fakta, narasumber, dan arsip pihak ketiga.",
+      "rondeReview": 3,
+      "overhead": "tinggi",
+      "bukti": {
+        "struktur": {
+          "tingkat": "buku-teks",
+          "rujukan": "Tiga fase produksi (Zettl; Musburger & Kindem 2009) dan konvensi dokumenter (paper edit, assembly, rough, fine). Buku acuan dokumenter (Nichols, Rabiger) tidak dibaca."
+        },
+        "gateDanRonde": {
+          "tingkat": "keputusan-desain",
+          "rujukan": "Empat gate dan tiga ronde (assembly, rough, fine) adalah usulan awvd."
+        }
+      },
+      "tahap": [
+        {
+          "id": "T1",
+          "fase": "pra",
+          "nama": "Riset dan treatment",
+          "kegiatan": "Riset, treatment (pertanyaan inti, struktur, narasumber, sumber arsip), pertimbangan etika.",
+          "artefak": ["konsep.json", "treatment"],
+          "perintah": [
+            "bun run konsep -- baru --jenis J --alur A --out konsep.json",
+            "bun run konsep -- brief konsep.json --out brief.md"
+          ],
+          "gate": {
+            "id": "G1",
+            "jenis": "gate",
+            "nama": "Treatment",
+            "penyetuju": "PS",
+            "kriteria": ["Treatment disetujui PS", "Catatan etika ada"]
+          },
+          "raci": {
+            "R": ["PM"],
+            "A": ["PS"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T2",
+          "fase": "pra",
+          "nama": "Izin dan inventaris aset",
+          "kegiatan": "Rilis tertulis narasumber; inventaris aset arsip dan lisensinya.",
+          "artefak": ["rilis tertulis", "sumber.json", "ASET.md"],
+          "perintah": [],
+          "gate": {
+            "id": "G2",
+            "jenis": "gate",
+            "nama": "Izin lengkap",
+            "penyetuju": "KP",
+            "kriteria": ["Rilis narasumber tertulis lengkap", "sumber.json dan ASET.md memuat lisensi setiap aset"]
+          },
+          "raci": {
+            "R": ["PM"],
+            "A": ["KP"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T3",
+          "fase": "pra",
+          "nama": "Naskah dan storyboard",
+          "kegiatan": "Naskah narasi dan garis besar adegan (paper edit); storyboard dari foto dan arsip.",
+          "artefak": ["naskah.json (props)", "still per adegan"],
+          "perintah": ["bun run render komposisi.html --still N --out still/adegan-N.png"],
+          "gate": null,
+          "raci": {
+            "R": ["PN"],
+            "A": ["PM"],
+            "C": ["AH"],
+            "I": []
+          }
+        },
+        {
+          "id": "T4",
+          "fase": "produksi",
+          "nama": "Assembly",
+          "kegiatan": "Urutan kasar adegan; satu ronde tinjau internal.",
+          "artefak": ["assembly.mp4"],
+          "perintah": ["bun run render komposisi.html --skala 0.5 --audio sementara.wav --out rough.mp4"],
+          "gate": null,
+          "raci": {
+            "R": ["DS"],
+            "A": ["PM"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T5",
+          "fase": "produksi",
+          "nama": "Rough cut",
+          "kegiatan": "Rough cut dengan lower third dan Ken Burns.",
+          "artefak": ["rough.mp4"],
+          "perintah": ["bun run render komposisi.html --skala 0.5 --audio sementara.wav --out rough.mp4"],
+          "gate": {
+            "id": "R1",
+            "jenis": "review",
+            "nama": "Review rough",
+            "penyetuju": "PS",
+            "kriteria": ["Struktur dan alur cerita ditinjau"]
+          },
+          "raci": {
+            "R": ["DS"],
+            "A": ["PM"],
+            "C": ["AH"],
+            "I": ["PS"]
+          }
+        },
+        {
+          "id": "T6",
+          "fase": "produksi",
+          "nama": "Fine cut",
+          "kegiatan": "Fine cut: tipografi, caption, mix audio.",
+          "artefak": ["fine.mp4", "caption.vtt"],
+          "perintah": [
+            "bun run render komposisi.html --skala 1 --audio sementara.wav --subtitle caption.vtt --out fine.mp4"
+          ],
+          "gate": {
+            "id": "R2",
+            "jenis": "review",
+            "nama": "Review fine",
+            "penyetuju": "AH",
+            "kriteria": ["Kebenaran fakta ditinjau"]
+          },
+          "raci": {
+            "R": ["DS"],
+            "A": ["PM"],
+            "C": ["AH"],
+            "I": []
+          }
+        },
+        {
+          "id": "T7",
+          "fase": "pasca",
+          "nama": "Picture lock dan fakta",
+          "kegiatan": "Pemeriksaan fakta terhadap sumber; picture lock (naskah dan komposisi dibekukan).",
+          "artefak": ["catatan pemeriksaan fakta", "hash naskah dan komposisi"],
+          "perintah": [],
+          "gate": {
+            "id": "G3",
+            "jenis": "gate",
+            "nama": "Fakta dan lock",
+            "penyetuju": "AH",
+            "kriteria": ["Fakta diperiksa terhadap sumber", "Picture lock; setelahnya hanya perbaikan teknis"]
+          },
+          "raci": {
+            "R": ["PM"],
+            "A": ["AH"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T8",
+          "fase": "pasca",
+          "nama": "Mix, kredit, QC",
+          "kegiatan": "Mix audio (narasi, arsip, musik) dan loudnorm; kredit akhir dan atribusi; QC.",
+          "artefak": ["final.mp4", "caption.vtt", "atribusi.txt"],
+          "perintah": [
+            "bun run render komposisi.html --skala 1 --audio narasi.wav --subtitle caption.vtt --out final.mp4",
+            "bun run periksa final.mp4 --konsep konsep.json --subtitle caption.vtt"
+          ],
+          "gate": {
+            "id": "G4",
+            "jenis": "gate",
+            "nama": "Rilis",
+            "penyetuju": "PS",
+            "kriteria": ["atribusi.txt memuat setiap aset pihak ketiga", "Rilis tertulis ada", "bun run periksa lolos"]
+          },
+          "raci": {
+            "R": ["QC", "DS"],
+            "A": ["PM"],
+            "C": [],
+            "I": ["PS"]
+          }
+        },
+        {
+          "id": "T9",
+          "fase": "distribusi",
+          "nama": "Kanal dan arsip",
+          "kegiatan": "Terbitkan; arsipkan master, sumber, rilis.",
+          "artefak": ["arsip lengkap"],
+          "perintah": [],
+          "gate": null,
+          "raci": {
+            "R": ["PM"],
+            "A": ["PS"],
+            "C": [],
+            "I": []
+          }
+        },
+        {
+          "id": "T10",
+          "fase": "evaluasi",
+          "nama": "Umpan balik",
+          "kegiatan": "Umpan balik narasumber dan penonton.",
+          "artefak": ["evaluasi.md"],
+          "perintah": [],
+          "gate": null,
+          "raci": {
+            "R": ["PM"],
+            "A": ["PS"],
+            "C": [],
+            "I": []
+          }
+        }
+      ],
+      "kriteriaSelesai": ["atribusi.txt memuat setiap aset pihak ketiga", "Rilis tertulis ada", "periksa lolos"]
+    }
+  }
+}

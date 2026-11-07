@@ -3,11 +3,14 @@
  * periksa.mjs — pemeriksaan mutu (QC) pasca-render untuk video MP4.
  *
  *   bun scripts/periksa.mjs <video.mp4> [--subtitle F.vtt|.srt]
- *        [--kenyaringan web|siaran] [--jenis penjelasan|promo] [--cps 17] [--json]
+ *        [--kenyaringan web|siaran] [--jenis penjelasan|promo] [--cps 17]
+ *        [--konsep konsep.json] [--json]
  *
  * Pemeriksaan: encoding (YouTube Help), kenyaringan (EBU R 128, AES TD1004/TD1008),
  * kilatan fotosensitif (WCAG 2.2 SC 2.3.1, penyaringan konservatif), subtitle (Netflix
  * Timed Text Style Guide), durasi (Guo, Kim & Rubin 2014). Memakai ffmpeg/ffprobe sistem.
+ * Dengan --konsep, ambang durasi (maks preset), cps, dan kenyaringan diambil dari konsep.json
+ * (preset jenis + override), dan rasio video dibandingkan dengan rasio konsep.
  * Exit 0 bila semua pemeriksaan wajib lolos, 1 bila ada yang gagal, 2 untuk argumen salah
  * atau berkas yang tidak bisa dibaca. Karya asli repo ini.
  */
@@ -15,11 +18,12 @@ import { parseArgs } from "node:util";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { bacaKonsepBerkas } from "./konsep.mjs";
 
 const PETUNJUK = `Pemakaian:
   bun scripts/periksa.mjs <video.mp4> [opsi]
 Opsi: --subtitle F(.vtt|.srt), --kenyaringan web|siaran (bawaan web),
-      --jenis penjelasan|promo, --cps N (bawaan 17), --json, -h/--help
+      --jenis penjelasan|promo, --cps N (bawaan 17), --konsep konsep.json, --json, -h/--help
 Exit: 0 semua pemeriksaan wajib lolos, 1 ada yang gagal, 2 argumen salah/berkas tak terbaca.`;
 
 function keluarSalah(pesan) {
@@ -34,9 +38,10 @@ try {
     allowPositionals: true,
     options: {
       subtitle: { type: "string" },
-      kenyaringan: { type: "string", default: "web" },
+      kenyaringan: { type: "string" },
       jenis: { type: "string" },
-      cps: { type: "string", default: "17" },
+      cps: { type: "string" },
+      konsep: { type: "string" },
       json: { type: "boolean", default: false },
       help: { type: "boolean", short: "h" },
     },
@@ -52,6 +57,18 @@ if (o.help) {
 if (positionals.length !== 1) keluarSalah("harus tepat satu berkas video.");
 const berkas = positionals[0];
 if (!existsSync(berkas) || !statSync(berkas).isFile()) keluarSalah(`berkas tidak ditemukan: ${berkas}`);
+// --konsep: pilihan proyek (kenyaringan, cps) menjadi bawaan; flag eksplisit menang.
+let konsep = null;
+let presetKonsep = null;
+if (o.konsep !== undefined) {
+  if (!existsSync(o.konsep)) keluarSalah(`--konsep: berkas tidak ditemukan: ${o.konsep}`);
+  const rk = bacaKonsepBerkas(o.konsep);
+  if (rk.galat.length) keluarSalah(`--konsep: konsep tidak valid: ${rk.galat.join("; ")} (periksa dengan: bun run konsep -- periksa ${o.konsep})`);
+  konsep = rk.konsep;
+  presetKonsep = rk.efektif;
+}
+o.kenyaringan ??= konsep?.kenyaringan ?? "web";
+o.cps ??= String(konsep?.caption?.cps ?? 17);
 if (!["web", "siaran"].includes(o.kenyaringan)) keluarSalah(`--kenyaringan tidak valid: "${o.kenyaringan}" (pilih web atau siaran)`);
 if (o.jenis !== undefined && !["penjelasan", "promo"].includes(o.jenis)) keluarSalah(`--jenis tidak valid: "${o.jenis}" (pilih penjelasan atau promo)`);
 const cps = Number(o.cps);
@@ -462,6 +479,16 @@ async function periksaSubtitle(berkasSub) {
 function periksaDurasi(detik) {
   const menit = detik / 60;
   const teks = `${fmt(detik, 1)} s (${fmt(menit, 1)} menit)`;
+  if (konsep) {
+    const maks = presetKonsep.durasiMaks;
+    const target = konsep.durasiTarget;
+    const rincian = [`target konsep ${target} s (selisih ${detik >= target ? "+" : ""}${fmt(detik - target, 1)} s)`];
+    if (o.jenis !== undefined) rincian.push("--jenis diabaikan karena --konsep dipakai");
+    const data = { detik, target, maks, jenis: konsep.jenis };
+    return detik > maks + 1e-9
+      ? item("durasi", `Durasi (${konsep.jenis})`, false, "PERINGATAN", `${teks}, di atas durasi maks preset ${maks} s`, rincian, data)
+      : item("durasi", `Durasi (${konsep.jenis})`, false, "LOLOS", `${teks}, <= durasi maks preset ${maks} s (target ${target} s)`, rincian, data);
+  }
   if (o.jenis === "penjelasan") {
     return detik > BATAS_DURASI_PENJELASAN_DETIK
       ? item("durasi", "Durasi (penjelasan)", false, "PERINGATAN", `${teks}, di atas 6 menit: keterlibatan penonton menurun (Guo, Kim & Rubin 2014)`)
@@ -471,6 +498,25 @@ function periksaDurasi(detik) {
     return item("durasi", "Durasi (promo)", false, "INFO", `${teks}; tidak ada ambang berbasis bukti untuk promo`);
   }
   return item("durasi", "Durasi", false, "INFO", `${teks}; tanpa --jenis, tidak dinilai`);
+}
+
+// ------------------------------------------------------------------ 6. konsep: rasio dan burn-in
+function periksaRasio(v) {
+  const [a, b] = konsep.rasio.split(":").map(Number);
+  const lebar = v.width;
+  const tinggi = v.height;
+  const nyata = lebar / tinggi;
+  const harapan = a / b;
+  const ok = Math.abs(nyata - harapan) / harapan <= 0.01;
+  return item("rasio", "Rasio (konsep)", true, ok ? "LOLOS" : "GAGAL",
+    ok ? `${lebar}x${tinggi} sesuai rasio konsep ${konsep.rasio}` : `${lebar}x${tinggi} (${fmt(nyata, 3)}) tidak sesuai rasio konsep ${konsep.rasio} (${fmt(harapan, 3)})`,
+    [], { lebar, tinggi, rasioKonsep: konsep.rasio });
+}
+function infoBurnIn() {
+  const ya = konsep.caption.burnIn;
+  return item("burn-in", "Burn-in (konsep)", false, "INFO",
+    `konsep mengharapkan caption ${ya ? "burn-in (tertanam di gambar)" : "sidecar/trek lunak"}; tidak bisa dideteksi otomatis, periksa secara visual`,
+    [], { burnIn: ya, mode: konsep.caption.mode });
 }
 
 // ------------------------------------------------------------------ main
@@ -501,17 +547,20 @@ const [encoding, kenyaringan, kilatan, subtitle] = await Promise.all([
 const pemeriksaan = [encoding, kenyaringan, ...kilatan];
 if (subtitle) pemeriksaan.push(subtitle);
 pemeriksaan.push(periksaDurasi(durasiDetik));
+if (konsep) pemeriksaan.push(periksaRasio(v), infoBurnIn());
 
 const jumlah = { LOLOS: 0, GAGAL: 0, PERINGATAN: 0, INFO: 0, LEWATI: 0 };
 for (const p of pemeriksaan) jumlah[p.status]++;
 const lolos = !pemeriksaan.some((p) => p.wajib && p.status === "GAGAL");
 const waktuDetik = Number(((Date.now() - t0) / 1000).toFixed(2));
 const hasil = { berkas, lolos, ringkasan: jumlah, durasiDetik, fps, waktuDetik, pemeriksaan };
+if (konsep) hasil.konsep = { berkas: o.konsep, id: konsep.id, jenis: konsep.jenis, alur: konsep.alur, tahap: konsep.tahap };
 
 if (o.json) {
   console.log(JSON.stringify(hasil, null, 2));
 } else {
   console.log(`Pemeriksaan mutu: ${berkas}`);
+  if (konsep) console.log(`Konsep: ${o.konsep} (jenis ${konsep.jenis}, alur ${konsep.alur}, tahap ${konsep.tahap}; kenyaringan ${o.kenyaringan}, cps ${o.cps})`);
   const lebar = Math.max(...pemeriksaan.map((p) => p.nama.length));
   for (const p of pemeriksaan) {
     console.log(`  ${p.status.padEnd(10)} ${p.nama.padEnd(lebar)} ${p.ringkas}`);
