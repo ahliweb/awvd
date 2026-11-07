@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.6.0`
+- Version: `v1.7.0`
 - Last updated: `2026-11-07`
-- Changeset: `Paritas: text-to-speech berstatus ada sebagai adaptor opsional yang tidak dibundel (sherpa-onnx; Supertonic untuk Indonesia, Kokoro untuk Inggris). Sebelumnya: caption sinkron voice over berstatus sebagian.`
+- Changeset: `Paritas: trim, speed (termasuk ramp), reverse, dan freeze berstatus ada lewat helper pemetaan frame di runtime (F2/04). Sebelumnya: text-to-speech berstatus ada sebagai adaptor opsional.`
 
 ## Visi
 
@@ -83,7 +83,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Ducking, fade, kenyaringan | ada | — |
 | QC kenyaringan, kilatan, subtitle | ada ([pemeriksaan-mutu.md](pemeriksaan-mutu.md)) | — |
 | Timeline multitrack | belum | F2 |
-| Trim, speed, reverse, freeze | sebagian (pemetaan frame manual) | F2/04 |
+| Trim, speed, reverse, freeze | ada sebagai helper pemetaan frame ([api-runtime.md](api-runtime.md#pemetaan-waktu-klip); `petaWaktuKlip`, `frameSumber`, ramp kecepatan); tanpa interpolasi gerak, audio tidak ikut diregangkan | F2/04 (selesai) |
 | Keyframe generik | sebagian (`interpolasi`, `urutan`) | F2/06 |
 | Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
 | Chroma key | ada ([olah-klip.md](olah-klip.md); `kunciWarna`, keluaran PNG beralfa) | F3/02 (selesai) |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-07 - v1.7.0
+
+- Paritas "Trim, speed, reverse, freeze" diubah menjadi ada (helper pemetaan frame, F2/04).
 
 ### 2026-11-07 - v1.6.0
 
