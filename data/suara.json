@@ -1,0 +1,382 @@
+{
+  "versi": 1,
+  "catatan": "Katalog mesin dan karakter suara TTS lokal untuk bun run narasi (docs/narasi-caption.md). awvd tidak membundel biner maupun model: pengguna memasangnya sendiri dan menunjuknya lewat AWVD_SHERPA_BIN dan AWVD_MODEL_<ID MESIN> (atau kunci biner dan model di tiap mesin). Nama karakter fiktif; preset suara bukan suara orang tertentu. Berkas ini boleh disalin ke proyek (suara.json di samping naskah.json, atau suara.konfigurasi) dan diubah.",
+  "kenyaringanTargetLUFS": -16,
+  "puncakMaksDBTP": -1.5,
+  "kamus": {},
+  "mesin": {
+    "supertonic3": {
+      "perintah": [
+        "sherpa-onnx-offline-tts",
+        "--supertonic-duration-predictor={model}/duration_predictor.int8.onnx",
+        "--supertonic-text-encoder={model}/text_encoder.int8.onnx",
+        "--supertonic-vector-estimator={model}/vector_estimator.int8.onnx",
+        "--supertonic-vocoder={model}/vocoder.int8.onnx",
+        "--supertonic-tts-json={model}/tts.json",
+        "--supertonic-unicode-indexer={model}/unicode_indexer.bin",
+        "--supertonic-voice-style={model}/voice.bin",
+        "--lang={bahasa}",
+        "--sid={speaker}",
+        "--speed={kecepatan}",
+        "--num-steps={langkah}",
+        "--num-threads={thread}",
+        "--output-filename={keluaran}",
+        "{teks}"
+      ],
+      "model": null,
+      "versi": "sherpa-onnx 2.0.1; supertonic-3 int8 2026-05-11",
+      "modelSha256": null,
+      "bahasa": [
+        "id",
+        "en"
+      ],
+      "langkah": 5,
+      "thread": 4,
+      "lisensiKode": "Apache-2.0 (sherpa-onnx), MIT (contoh kode Supertonic)",
+      "lisensiBobot": "OpenRAIL-M (BigScience Open RAIL-M 2022-08-18)",
+      "syaratPakai": [
+        "wajib menyatakan konten sebagai suara sintetis (butir e)",
+        "dilarang untuk nasihat atau interpretasi medis (butir l)",
+        "dilarang menirukan orang tanpa izin (butir g)",
+        "pembatasan ini ikut bila bobot didistribusikan ulang"
+      ],
+      "larangMedis": true,
+      "daring": false,
+      "deterministik": false,
+      "kredit": "Supertonic 3 (Supertone) lewat sherpa-onnx (k2-fsa)",
+      "sumber": "https://huggingface.co/Supertone/supertonic-3"
+    },
+    "kokoro": {
+      "perintah": [
+        "sherpa-onnx-offline-tts",
+        "--kokoro-model={model}/model.onnx",
+        "--kokoro-voices={model}/voices.bin",
+        "--kokoro-tokens={model}/tokens.txt",
+        "--kokoro-lexicon={model}/lexicon-us-en.txt",
+        "--kokoro-length-scale={panjangSkala}",
+        "--num-threads={thread}",
+        "--sid={speaker}",
+        "--output-filename={keluaran}",
+        "{teks}"
+      ],
+      "model": null,
+      "versi": "sherpa-onnx 2.0.1; kokoro-multi-lang-v1_0",
+      "modelSha256": null,
+      "bahasa": [
+        "en"
+      ],
+      "thread": 4,
+      "leksikon": [
+        "{model}/lexicon-us-en.txt"
+      ],
+      "oov": "gagal",
+      "lisensiKode": "Apache-2.0",
+      "lisensiBobot": "Apache-2.0",
+      "syaratPakai": [
+        "catat versi model dan lisensinya di ASET.md proyek",
+        "label suara sintetis tetap wajib menurut kebijakan awvd"
+      ],
+      "larangMedis": false,
+      "daring": false,
+      "deterministik": false,
+      "kredit": "Kokoro-82M (hexgrad) lewat sherpa-onnx (k2-fsa)",
+      "sumber": "https://huggingface.co/hexgrad/Kokoro-82M"
+    }
+  },
+  "karakter": {
+    "sekar": {
+      "nama": "Sekar",
+      "bahasa": "id",
+      "gender": "P",
+      "mesin": "supertonic3",
+      "speaker": 2,
+      "kecepatan": 1.05,
+      "gaya": "formal, penyiar profesional yang jelas",
+      "cocokUntuk": [
+        "formal",
+        "pemerintahan",
+        "pengumuman",
+        "dokumenter",
+        "sop"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "preset Supertonic 3 F3",
+      "orangNyata": false
+    },
+    "bagas": {
+      "nama": "Bagas",
+      "bahasa": "id",
+      "gender": "L",
+      "mesin": "supertonic3",
+      "speaker": 7,
+      "kecepatan": 1.0,
+      "gaya": "berwibawa dan tepercaya",
+      "cocokUntuk": [
+        "presentasi bisnis",
+        "pesan pimpinan",
+        "laporan"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "preset Supertonic 3 M3",
+      "orangNyata": false
+    },
+    "laras": {
+      "nama": "Laras",
+      "bahasa": "id",
+      "gender": "P",
+      "mesin": "supertonic3",
+      "speaker": 4,
+      "kecepatan": 0.95,
+      "gaya": "lembut dan menenangkan",
+      "cocokUntuk": [
+        "edukasi",
+        "sosial",
+        "narasi hangat"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "preset Supertonic 3 F5",
+      "orangNyata": false
+    },
+    "raka": {
+      "nama": "Raka",
+      "bahasa": "id",
+      "gender": "L",
+      "mesin": "supertonic3",
+      "speaker": 5,
+      "kecepatan": 1.1,
+      "gaya": "ceria, energik, percaya diri",
+      "cocokUntuk": [
+        "promo",
+        "kreatif",
+        "penjelasan bersemangat"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "preset Supertonic 3 M1",
+      "orangNyata": false
+    },
+    "dewi": {
+      "nama": "Dewi",
+      "bahasa": "id",
+      "gender": "P",
+      "mesin": "supertonic3",
+      "speaker": 1,
+      "kecepatan": 1.1,
+      "gaya": "cerah, playful, muda",
+      "cocokUntuk": [
+        "media sosial",
+        "iklan ringan",
+        "anak muda"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "preset Supertonic 3 F2",
+      "orangNyata": false
+    },
+    "wira": {
+      "nama": "Wira",
+      "bahasa": "id",
+      "gender": "L",
+      "mesin": "supertonic3",
+      "speaker": 6,
+      "kecepatan": 0.95,
+      "gaya": "berat, tenang, serius",
+      "cocokUntuk": [
+        "dokumenter",
+        "pengumuman serius"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "preset Supertonic 3 M2",
+      "orangNyata": false
+    },
+    "nusa": {
+      "nama": "Nusa",
+      "bahasa": "id",
+      "gender": "P",
+      "mesin": "supertonic3",
+      "speaker": 0,
+      "kecepatan": 1.0,
+      "gaya": "tenang, agak rendah, stabil",
+      "cocokUntuk": [
+        "panduan langkah",
+        "layanan pelanggan"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "preset Supertonic 3 F1",
+      "orangNyata": false
+    },
+    "arya": {
+      "nama": "Arya",
+      "bahasa": "id",
+      "gender": "L",
+      "mesin": "supertonic3",
+      "speaker": 8,
+      "kecepatan": 1.0,
+      "gaya": "lembut, netral, ramah",
+      "cocokUntuk": [
+        "edukasi ramah",
+        "onboarding"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "preset Supertonic 3 M4",
+      "orangNyata": false
+    },
+    "tirta": {
+      "nama": "Tirta",
+      "bahasa": "id",
+      "gender": "L",
+      "mesin": "supertonic3",
+      "speaker": 9,
+      "kecepatan": 0.95,
+      "gaya": "hangat, bergaya bercerita",
+      "cocokUntuk": [
+        "kisah",
+        "refleksi",
+        "dokumenter naratif"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "preset Supertonic 3 M5",
+      "orangNyata": false
+    },
+    "claire": {
+      "nama": "Claire",
+      "bahasa": "en",
+      "gender": "P",
+      "mesin": "kokoro",
+      "speaker": 21,
+      "kecepatan": 1.0,
+      "gaya": "halus dan formal (Inggris)",
+      "cocokUntuk": [
+        "dokumenter",
+        "formal",
+        "edukasi"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "Kokoro v1.0 bf_emma",
+      "orangNyata": false
+    },
+    "george": {
+      "nama": "George",
+      "bahasa": "en",
+      "gender": "L",
+      "mesin": "kokoro",
+      "speaker": 26,
+      "kecepatan": 1.0,
+      "gaya": "tenang dan naratif (Inggris)",
+      "cocokUntuk": [
+        "narator dokumenter"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "Kokoro v1.0 bm_george",
+      "orangNyata": false
+    },
+    "michael": {
+      "nama": "Michael",
+      "bahasa": "en",
+      "gender": "L",
+      "mesin": "kokoro",
+      "speaker": 16,
+      "kecepatan": 1.0,
+      "gaya": "netral dan hangat (Amerika)",
+      "cocokUntuk": [
+        "edukasi",
+        "promo"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "Kokoro v1.0 am_michael",
+      "orangNyata": false
+    },
+    "heart": {
+      "nama": "Heart",
+      "bahasa": "en",
+      "gender": "P",
+      "mesin": "kokoro",
+      "speaker": 3,
+      "kecepatan": 1.0,
+      "gaya": "hangat (Amerika)",
+      "cocokUntuk": [
+        "edukasi",
+        "sosial",
+        "promo"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "Kokoro v1.0 af_heart",
+      "orangNyata": false
+    },
+    "atlas": {
+      "nama": "Atlas",
+      "bahasa": "en",
+      "gender": "L",
+      "mesin": "supertonic3",
+      "speaker": 6,
+      "kecepatan": 1.0,
+      "gaya": "berat dan serius",
+      "cocokUntuk": [
+        "dokumenter",
+        "formal"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "preset Supertonic 3 M2",
+      "orangNyata": false
+    },
+    "vera": {
+      "nama": "Vera",
+      "bahasa": "en",
+      "gender": "P",
+      "mesin": "supertonic3",
+      "speaker": 2,
+      "kecepatan": 1.0,
+      "gaya": "penyiar",
+      "cocokUntuk": [
+        "berita",
+        "formal"
+      ],
+      "jeda": {
+        "antarKalimatMs": 400,
+        "antarSegmenMs": 800
+      },
+      "sumberSuara": "preset Supertonic 3 F3",
+      "orangNyata": false
+    }
+  }
+}

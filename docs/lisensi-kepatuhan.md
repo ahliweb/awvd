@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.3.1`
+- Version: `v1.4.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menyebut LUT warna sebagai aset yang berlisensi (rujukan ke olah-klip.md). Sebelumnya: menambahkan bagian Video pihak ketiga dan kutipan wajar: awvd tidak menyediakan pengunduh platform, hanya berkas sah dengan manifest, KUTIPAN-WAJAR sebagai klaim pengecualian (bukan lisensi) dengan gerbang hukum GH, dan peringatan bukan nasihat hukum.`
+- Changeset: `Menambahkan bagian Model TTS dan OpenRAIL-M: sherpa-onnx, Supertonic 3 (bobot OpenRAIL-M dengan butir yang relevan) dan Kokoro (Apache-2.0) sebagai mesin opsional yang tidak dibundel, kewajiban pemakai (label suara sintetis, larangan nasihat medis, izin suara), dan baris sherpa-onnx di Pihak ketiga.`
 
 Catatan hukum di dokumen ini bukan nasihat hukum.
 
@@ -20,6 +20,7 @@ Catatan hukum di dokumen ini bukan nasihat hukum.
 - **playwright-core 1.65.0:** Apache-2.0 (Microsoft). Dependensi npm, bukan kode yang disalin ke repo; LICENSE/NOTICE-nya ikut dalam paket.
 - **playwright-core 1.64.1:** Apache-2.0 (Microsoft). Dependensi npm, bukan kode yang disalin ke repo; LICENSE/NOTICE-nya ikut dalam paket.
 - **Material Components for Android:** Apache License 2.0 (Copyright Google LLC). Hanya **nilai** yang dipakai di `scripts/transisi.js`, diambil dari dokumentasi Motion dan sumber `MaterialFadeThrough`, `FadeThroughProvider`, `MaterialSharedAxis`, `MaterialFade`, dan `MaterialContainerTransform`: ambang fade through 35 %, skala awal 0,92, durasi 450 ms, token durasi, dan kurva bezier standard dan emphasized. Tidak ada kode yang disalin dan tidak ada dependensi; atribusi ada di komentar kepala `scripts/transisi.js` dan di [transisi-animasi.md](transisi-animasi.md#sumber). Nilai numerik tunggal bukan ekspresi yang dilindungi, tetapi atribusi dicatat sebagai kehati-hatian.
+- **sherpa-onnx, Supertonic 3, Kokoro:** mesin dan model TTS opsional untuk `bun run narasi` (adaptor `scripts/narasi-tts.mjs`). Dipanggil sebagai program eksternal yang dipasang pengguna; **tidak dibundel, tidak didistribusikan, dan tidak ditautkan** oleh awvd. Lisensi dan syaratnya di [Model TTS dan OpenRAIL-M](#model-tts-dan-openrail-m).
 - **Chromium/Chrome:** dipakai dari instalasi lokal dan tidak didistribusikan.
 - **ffmpeg:** dipanggil sebagai program sistem lewat CLI dan tidak didistribusikan atau ditautkan, sehingga kewajiban LGPL/GPL (libx264) tidak berlaku untuk repo ini. Video keluaran tidak terkena GPL.
 - **H.264:** lisensi paten AVC (dulu MPEG LA, kini Via LA) secara historis tidak memungut royalti untuk video internet yang gratis bagi pengguna akhir. Untuk distribusi berbayar, siaran, atau platform streaming komersial, cek ketentuan Via LA terbaru. Status 2026 belum diverifikasi dari halaman resmi.
@@ -31,6 +32,25 @@ Font, musik (`--audio`), gambar, footage, klip tertanam, LUT warna (`.cube`), da
 LUT warna dari pihak ketiga tunduk pada lisensinya sendiri (lihat [olah-klip.md](olah-klip.md#lisensi-dan-atribusi)).
 
 Syarat lisensi sumber klip tertanam (CC BY, BY-SA, BY-NC, CC0, PDM, stok) dan lisensi keluaran ada di [video-tertanam-audio.md](video-tertanam-audio.md#aturan-sumber).
+
+## Model TTS dan OpenRAIL-M
+
+Adaptor TTS ([narasi-caption.md](narasi-caption.md#tts-lokal-sherpa-onnx)) bersifat opsional: pengguna mengunduh biner dan model sendiri, dan awvd tidak membundel bobot apa pun. Ringkasan di bawah dari lisensi dan kartu model yang dibaca pada riset 2026-11-07; ini bukan nasihat hukum, lisensi dapat berubah, dan teks lengkapnya wajib dibaca pemakai.
+
+| Komponen | Lisensi | Hal yang relevan bagi pemakai awvd |
+| --- | --- | --- |
+| sherpa-onnx (CLI `sherpa-onnx-offline-tts`) | Apache-2.0 | Dipanggil sebagai program eksternal. Versi 2.x tidak memakai espeak-ng (GPL) sehingga tidak ada kewajiban copyleft dari jalur ini. |
+| Supertonic 3 (Supertone), konversi int8 dari rilis sherpa-onnx | Contoh kode MIT; **bobot OpenRAIL-M** (BigScience Open RAIL-M, 2022-08-18) | Boleh komersial, tetapi membawa pembatasan penggunaan yang ikut berlaku bila bobot atau turunannya didistribusikan ulang (awvd tidak mendistribusikannya). Butir yang paling relevan: **(e) konten wajib dinyatakan sebagai buatan mesin**, **(l) dilarang untuk nasihat medis atau interpretasi hasil medis**, **(g) dilarang menirukan orang tanpa izin**; juga dilarang informasi palsu untuk mencelakai (c), keputusan otomatis yang merugikan hak hukum individu (h), dan administrasi peradilan atau penegakan hukum (m). Pemberi lisensi berhak membatasi penggunaan jarak jauh bila ada pelanggaran. Hak atas keluaran tidak diklaim pemberi lisensi; tanggung jawab atas keluaran ada pada pemakai. |
+| Kokoro-82M v1.0 (hexgrad) | Apache-2.0 (kode dan bobot) | Tanpa pembatasan penggunaan seperti OpenRAIL-M. Kartu model menyatakan data pelatihan permisif tetapi mencakup audio sintetis dari TTS komersial tertutup (risiko sisa kecil, tercatat). Tidak mendukung bahasa Indonesia. |
+
+Perwujudannya di awvd:
+
+- **Label suara sintetis wajib** untuk setiap video bersuara TTS (butir e Supertonic; kebijakan awvd untuk mesin lain): `suara-kredit.json` dan `kredit-suara.txt` ([cara pelabelan](narasi-caption.md#label-suara-sintetis)).
+- **Konten medis** tidak memakai bobot dengan larangan medis: `jenisKonten: "medis"` ditolak untuk Supertonic; gunakan rekaman manusia atau layanan daring untuk konten publik. Edukasi kesehatan umum berada di wilayah abu-abu dan diperingatkan ([konten medis](narasi-caption.md#konten-medis)). Keputusan pemilik 2026-11-07.
+- **Tidak menirukan orang**: karakter wajib menyatakan `orangNyata`; `true` mewajibkan `izinBerkas`. Suara kustom atau kloning hanya dengan izin tertulis pemilik suara; rekaman suara orang diperlakukan hati-hati sebagai data pribadi (UU 27/2022; status hukum rekaman suara sebagai data pribadi belum diverifikasi).
+- **Pencatatan**: catat versi mesin dan model, lisensinya, tanggal unduh, dan hash model di `ASET.md` repo proyek; `suara.json` memuat `lisensiKode`, `lisensiBobot`, `syaratPakai`, dan `sumber` yang dikeluarkan ke `suara-kredit.json`.
+- **TTS daring** hanya untuk konten publik (aturan 5 AGENTS.md); mesin berpenanda `daring` ditolak untuk naskah berklasifikasi `internal`.
+- Mesin lain (Piper dan suara turunannya, MMS-TTS, F5-TTS, XTTS) tidak didukung bawaan karena lisensi data atau bobotnya membatasi atau asal datanya tidak jelas (riset awvd 2026-11-07); `suara.json` kustom boleh mendaftarkannya atas tanggung jawab pemakai.
 
 ## Aset: matriks lisensi (ringkas)
 
@@ -66,6 +86,10 @@ Ringkasan dari [AGENTS.md](../AGENTS.md) §Lisensi dan Aset:
 - Atribusi mulberry32 di `scripts/runtime.js` dipertahankan.
 
 ## Changelog
+
+### 2026-11-07 - v1.4.0
+
+- Bagian Model TTS dan OpenRAIL-M (sherpa-onnx, Supertonic 3, Kokoro; kewajiban label, larangan medis, izin suara, pencatatan) dan baris sherpa-onnx, Supertonic, Kokoro di Pihak ketiga.
 
 ### 2026-11-07 - v1.3.1
 

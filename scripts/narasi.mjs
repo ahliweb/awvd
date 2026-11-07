@@ -14,7 +14,8 @@
  * nyata dipasangkan ke tanda baca (estimasi berjangkar jeda), lalu kata dikelompokkan
  * menjadi cue yang divalidasi terhadap batas cps profil audiens (data/audiens.json),
  * baris, karakter, dan durasi. Mesin suara bersifat pluggable (`daftarkanMesin`); yang
- * tersedia kini hanya `berkas-beku` (WAV sudah jadi). Adaptor TTS ada di issue terpisah.
+ * tersedia: `berkas-beku` (WAV sudah jadi) dan `sherpa-onnx` (adaptor TTS lokal opsional,
+ * narasi-tts.mjs; tidak dibundel, WAV dibekukan di cache berhash, label suara sintetis wajib).
  *
  * Kode keluar: 0 berhasil (peringatan boleh ada), 1 lint gagal atau galat saat memproses
  * (keluaran tetap ditulis bila memungkinkan), 2 naskah atau argumen tidak valid.
@@ -27,14 +28,24 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { audiensEfektif, muatData } from "./konsep.mjs";
 import { bacaAudio, kataDariPenanda, keFrame, selaraskanToken, sebarkanTampil, tokenisasi } from "./narasi-selaras.mjs";
 import { keSrt, keVtt, periksaCue, susunCue } from "./narasi-cue.mjs";
+import { JENIS_KONTEN, mesinSherpa } from "./narasi-tts.mjs";
 
 // ------------------------------------------------------------------ mesin suara
 /**
  * Registri mesin suara. Deskriptor: { daring: boolean, butuhBerkas: boolean,
- * async sintesis(segmen, konteks) -> { berkas: jalurAbsolut, penanda?: [{ teks, mulai, durasi }] } }.
+ * async sintesis(segmen, konteks) -> { berkas: jalurAbsolut, penanda?: [{ teks, mulai, durasi }], info? } }.
  * `penanda` (detik, relatif ke awal berkas, satu per kata) hanya dipakai bila jumlahnya sama
  * dengan jumlah kata; selain itu timing jatuh ke estimasi. Mesin `daring: true` ditolak untuk
  * naskah berklasifikasi `internal` (konten internal tidak dikirim ke layanan daring).
+ * `konteks` = { naskah, opsi, peringatan } (opsi: { cache, sintesisUlang }; peringatan: larik
+ * yang boleh diisi mesin).
+ * Hook opsional untuk mesin yang memanggil TTS (lihat narasi-tts.mjs):
+ *   siapkan(naskahMentah, { dir, penutur, jenisKonten, klasifikasi, konfigurasi })
+ *     -> { galat[], peringatan[], konfigurasi, bacaan(teks, penuturId) -> teks|null } dipanggil saat validasi;
+ *     `bacaan` menormalkan teks yang dibacakan (angka dan tanggal menjadi kata) sehingga naskah
+ *     boleh memuat angka. Mesin tanpa `siapkan` tetap menolak angka tanpa `bacaan`.
+ *   async selesai({ naskah, segmen: [{ id, adegan, sha256, info }] })
+ *     -> { berkas: { nama: isi }, laporan, info[] } berkas tambahan (kredit dan label) dan baris info CLI.
  */
 const MESIN = {
   "berkas-beku": { daring: false, butuhBerkas: true, async sintesis(segmen) { return { berkas: segmen.berkas }; } },
@@ -46,13 +57,14 @@ export function daftarkanMesin(nama, deskriptor) {
 }
 export function hapusMesin(nama) { if (nama !== "berkas-beku") delete MESIN[nama]; }
 export const daftarMesin = () => Object.keys(MESIN);
+daftarkanMesin("sherpa-onnx", mesinSherpa);
 
 // ------------------------------------------------------------------ skema naskah
 const KUNCI = {
-  naskah: ["versi", "catatan", "fps", "bahasa", "klasifikasi", "ukuran", "audiens", "caption", "suara", "penutur", "adegan"],
+  naskah: ["versi", "catatan", "fps", "bahasa", "klasifikasi", "jenisKonten", "ukuran", "audiens", "caption", "suara", "penutur", "adegan"],
   caption: ["maksKarakter", "maksBaris", "cps", "tahanMaks"],
-  suara: ["mesin", "kalibrasi", "jedaAwal", "jedaKalimat", "jedaAdegan"],
-  penutur: ["nama", "italik", "label"],
+  suara: ["mesin", "konfigurasi", "cache", "kalibrasi", "jedaAwal", "jedaKalimat", "jedaAdegan"],
+  penutur: ["nama", "italik", "label", "karakter"],
   adegan: ["id", "kalimat", "berkas", "durasiMin", "penutur"],
   kalimat: ["teks", "bacaan", "penutur", "berkas"],
 };
@@ -82,6 +94,8 @@ export function validasiNaskah(n, dir, { data = muatData() } = {}) {
   const bahasa = n.bahasa ?? "id";
   if (!teksIsi(bahasa)) g("bahasa harus teks");
   if (n.klasifikasi !== "publik" && n.klasifikasi !== "internal") g(`klasifikasi wajib "publik" atau "internal" (dapat ${JSON.stringify(n.klasifikasi)})`);
+  const jenisKonten = n.jenisKonten ?? "umum";
+  if (!JENIS_KONTEN.includes(jenisKonten)) g(`jenisKonten harus salah satu dari ${JENIS_KONTEN.join(", ")} (dapat ${JSON.stringify(n.jenisKonten)})`);
 
   let ukuran = null;
   if (n.ukuran !== undefined) {
@@ -124,6 +138,7 @@ export function validasiNaskah(n, dir, { data = muatData() } = {}) {
   const mesin = MESIN[namaMesin];
   if (!mesin) g(`suara.mesin "${namaMesin}" tidak dikenal; tersedia: ${daftarMesin().join(", ")}`);
   else if (n.klasifikasi === "internal" && mesin.daring) g(`suara.mesin "${namaMesin}" memakai layanan daring; ditolak untuk klasifikasi "internal" (konten internal tidak dikirim ke layanan daring)`);
+  for (const k of ["konfigurasi", "cache"]) if (suara[k] !== undefined && !teksIsi(suara[k])) g(`suara.${k} harus teks (jalur relatif terhadap folder naskah)`);
   const kalibrasi = { ...KALIBRASI_BAWAAN, ...(adalahObjek(suara.kalibrasi) ? suara.kalibrasi : {}) };
   if (suara.kalibrasi !== undefined && !adalahObjek(suara.kalibrasi)) g("suara.kalibrasi harus objek { awal, akhir }");
   for (const k of ["awal", "akhir"]) {
@@ -147,8 +162,17 @@ export function validasiNaskah(n, dir, { data = muatData() } = {}) {
       if (p.nama !== undefined && !teksIsi(p.nama)) g(`penutur.${id}.nama harus teks`);
       if (p.italik !== undefined && typeof p.italik !== "boolean") g(`penutur.${id}.italik harus boolean`);
       if (p.label !== undefined && typeof p.label !== "boolean") g(`penutur.${id}.label harus boolean`);
-      penutur[id] = { nama: p.nama ?? id, italik: p.italik ?? false, label: p.label ?? false };
+      if (p.karakter !== undefined && !teksIsi(p.karakter)) g(`penutur.${id}.karakter harus teks (id karakter di suara.json)`);
+      penutur[id] = { nama: p.nama ?? id, italik: p.italik ?? false, label: p.label ?? false, karakter: p.karakter ?? null };
     }
+  }
+
+  // mesin yang memanggil TTS memeriksa suara.json, karakter, jenis konten, dan menormalkan teks
+  let adaptor = null;
+  if (mesin && typeof mesin.siapkan === "function") {
+    adaptor = mesin.siapkan(n, { dir, penutur, jenisKonten, klasifikasi: n.klasifikasi, konfigurasi: suara.konfigurasi });
+    for (const x of adaptor.galat ?? []) g(x);
+    for (const x of adaptor.peringatan ?? []) w(x);
   }
 
   // adegan dan segmen
@@ -186,14 +210,22 @@ export function validasiNaskah(n, dir, { data = muatData() } = {}) {
         kunciAneh(o, KUNCI.kalimat, pk);
         if (!teksIsi(o.teks)) { g(`${pk}: teks wajib`); continue; }
         if (o.bacaan !== undefined && !teksIsi(o.bacaan)) { g(`${pk}: bacaan harus teks`); continue; }
-        dibacakan(o.bacaan ?? o.teks, pk);
-        if (o.bacaan !== undefined && /[<>]/.test(o.teks)) g(`${pk}: karakter < dan > tidak diizinkan`);
         const p = o.penutur ?? a.penutur ?? "narator";
+        let bacaan = o.bacaan === undefined ? null : o.bacaan.replace(/\s+/g, " ").trim();
+        if (adaptor?.bacaan && Object.hasOwn(penutur, p)) {
+          // mesin TTS menormalkan angka, tanggal, URL, dan singkatan menjadi kata
+          const dasar = bacaan ?? o.teks.replace(/\s+/g, " ").trim();
+          const nb = adaptor.bacaan(dasar, p);
+          if (typeof nb === "string" && nb !== dasar) bacaan = nb;
+        }
+        dibacakan(bacaan ?? o.teks, pk);
+        if (o.bacaan !== undefined && /[<>]/.test(o.teks)) g(`${pk}: karakter < dan > tidak diizinkan`);
         if (!Object.hasOwn(penutur, p)) g(`${pk}: penutur "${p}" tidak ada di daftar penutur`);
-        kal.push({ indeks: k, teks: o.teks.replace(/\s+/g, " ").trim(), bacaan: o.bacaan === undefined ? null : o.bacaan.replace(/\s+/g, " ").trim(), penutur: p, berkas: o.berkas });
+        kal.push({ indeks: k, teks: o.teks.replace(/\s+/g, " ").trim(), bacaan, penutur: p, berkas: o.berkas });
       }
       // segmen: satu WAV per adegan, atau satu per kalimat bila tiap kalimat punya berkas
       const wajib = mesin?.butuhBerkas ?? false;
+      if (mesin && !wajib && (a.berkas !== undefined || kal.some((x) => x.berkas !== undefined))) w(`${nama}: berkas diabaikan; mesin "${namaMesin}" membuat audionya sendiri`);
       const sebagian = kal.filter((x) => x.berkas !== undefined).length;
       const segmen = [];
       if (kal.length !== a.kalimat.length) continue;
@@ -217,9 +249,9 @@ export function validasiNaskah(n, dir, { data = muatData() } = {}) {
   return {
     galat, peringatan,
     naskah: {
-      fps, bahasa, klasifikasi: n.klasifikasi, audiens: [...profil], ukuran,
+      fps, bahasa, klasifikasi: n.klasifikasi, jenisKonten, audiens: [...profil], ukuran,
       batas: { cps, maksKarakter, maksBaris, tahanMaks },
-      suara: { mesin: namaMesin, kalibrasi, ...jeda },
+      suara: { mesin: namaMesin, kalibrasi, ...jeda, konfigurasi: adaptor?.konfigurasi ?? null, cache: suara.cache ? resolve(dir, suara.cache) : null },
       penutur, adegan,
     },
   };
@@ -260,7 +292,7 @@ function tokenSegmen(segmen, idAdegan) {
  * `dirKeluaran` dipakai untuk jalur relatif di rencana-audio.json dan laporan.
  * Mengembalikan { berkas: { "caption.vtt", ... teks }, cues, gagal[], peringatan[], laporan }.
  */
-export async function buatNarasi(naskah, { dirKeluaran, sha256Naskah = null } = {}) {
+export async function buatNarasi(naskah, { dirKeluaran, sha256Naskah = null, opsiMesin = {} } = {}) {
   const { fps, batas, suara, penutur } = naskah;
   const mesin = MESIN[suara.mesin];
   const peringatan = [], gagal = [];
@@ -271,10 +303,10 @@ export async function buatNarasi(naskah, { dirKeluaran, sha256Naskah = null } = 
   const segmen = [];
   for (const a of naskah.adegan) {
     for (const s of a.segmen) {
-      const hasil = await mesin.sintesis(s, { naskah });
+      const hasil = await mesin.sintesis(s, { naskah, opsi: opsiMesin, peringatan });
       if (!hasil || typeof hasil.berkas !== "string" || !existsSync(hasil.berkas)) throw new Error(`segmen "${s.id}": mesin tidak menghasilkan berkas audio`);
       const audio = await bacaAudio(hasil.berkas);
-      segmen.push({ ...s, adegan: a.id, berkas: hasil.berkas, penanda: hasil.penanda ?? null, audio, sha256: sha256Berkas(hasil.berkas) });
+      segmen.push({ ...s, adegan: a.id, berkas: hasil.berkas, penanda: hasil.penanda ?? null, info: hasil.info ?? null, audio, sha256: sha256Berkas(hasil.berkas) });
     }
   }
 
@@ -385,14 +417,21 @@ export async function buatNarasi(naskah, { dirKeluaran, sha256Naskah = null } = 
     gagal: gagal.map((x) => ({ cue: x.n, kode: x.kode, pesan: x.pesan })),
     peringatan,
   };
+  // berkas tambahan dari mesin (TTS: kredit dan label suara sintetis)
+  let ekstra = null;
+  if (typeof mesin.selesai === "function") {
+    ekstra = await mesin.selesai({ naskah, segmen: segmen.map((s) => ({ id: s.id, adegan: s.adegan, sha256: s.sha256, info: s.info })) });
+    if (ekstra.laporan) laporan.suara = ekstra.laporan;
+  }
   return {
-    cues, gagal, peringatan, laporan, kata: fileKata, rencana,
+    cues, gagal, peringatan, laporan, kata: fileKata, rencana, info: ekstra?.info ?? [],
     berkas: {
       "caption.vtt": keVtt(cues, fps, penutur),
       "caption.srt": keSrt(cues, fps, penutur),
       "kata.json": tulisJson(fileKata),
       "rencana-audio.json": tulisJson(rencana),
       "laporan.json": tulisJson(laporan),
+      ...(ekstra?.berkas ?? {}),
     },
   };
 }
@@ -403,16 +442,21 @@ const PETUNJUK = `awvd narasi: naskah.json -> caption VTT/SRT, stempel kata, ren
 Pemakaian:
   bun scripts/narasi.mjs <naskah.json> [--out DIR]
 
+Flag TTS (hanya untuk suara.mesin "sherpa-onnx"):
+  --cache DIR        folder cache WAV beku (bawaan .cache/awvd/suara atau suara.cache di naskah)
+  --sintesis-ulang   sintesis ulang semua kalimat dan ganti cache (suara berubah; bukan bawaan)
+
 Keluaran di DIR (bawaan out/narasi): caption.vtt, caption.srt, kata.json,
-rencana-audio.json (masukan bun run audio), laporan.json.
+rencana-audio.json (masukan bun run audio), laporan.json; untuk TTS juga
+suara-kredit.json dan kredit-suara.txt (label suara sintetis, wajib ditampilkan).
 Berkas audio narasi (WAV) disebut di naskah dan dibaca apa adanya; mesin suara tidak
-dipanggil saat render. Kode keluar: 0 berhasil, 1 lint gagal atau galat proses, 2 naskah
-atau argumen tidak valid.`;
+dipanggil saat render. Kode keluar: 0 berhasil, 1 lint gagal atau galat proses (termasuk
+mesin TTS tidak terpasang), 2 naskah atau argumen tidak valid.`;
 
 export async function utama(argv) {
   let nilai, posisi;
   try {
-    ({ values: nilai, positionals: posisi } = parseArgs({ args: argv, allowPositionals: true, options: { out: { type: "string" }, bantuan: { type: "boolean", short: "h" } } }));
+    ({ values: nilai, positionals: posisi } = parseArgs({ args: argv, allowPositionals: true, options: { out: { type: "string" }, cache: { type: "string" }, "sintesis-ulang": { type: "boolean" }, bantuan: { type: "boolean", short: "h" } } }));
   } catch (e) {
     console.error(`narasi: ${e.message}\n\n${PETUNJUK}`);
     return 2;
@@ -430,8 +474,9 @@ export async function utama(argv) {
   const keluar = resolve(nilai.out ?? "out/narasi");
   let hasil;
   try {
-    hasil = await buatNarasi(naskah, { dirKeluaran: keluar, sha256Naskah: sha256 });
+    hasil = await buatNarasi(naskah, { dirKeluaran: keluar, sha256Naskah: sha256, opsiMesin: { cache: nilai.cache, sintesisUlang: nilai["sintesis-ulang"] === true } });
   } catch (e) {
+    // galat mesin (tidak terpasang, gagal jalan, cache rusak) dilaporkan sebagai pesan, bukan jejak tumpukan
     console.error(`narasi: ${e.message}`);
     return 1;
   }
@@ -440,6 +485,7 @@ export async function utama(argv) {
   const r = hasil.laporan.ringkasan;
   console.log(`narasi: ${r.cue} cue, ${r.kata} kata, ${hasil.laporan.durasiFrame} frame pada ${naskah.fps} fps; cps maks ${r.cpsMaks} (batas ${naskah.batas.cps}), median ${r.cpsMedian}`);
   for (const p of hasil.peringatan) console.error(`peringatan: ${p}`);
+  for (const x of hasil.info) console.log(`info: ${x}`);
   for (const x of hasil.gagal) console.error(`GAGAL${x.n ? ` cue ${x.n}` : ""}: ${x.pesan}`);
   console.log(`keluaran: ${keluar}`);
   return hasil.gagal.length ? 1 : 0;
