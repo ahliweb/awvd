@@ -6,6 +6,7 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/). Ve
 
 ### Ditambahkan
 
+- Roadmap `docs/roadmap.md` (fase F1–F6 menuju paritas fitur penyunting video, kriteria keluar, tabel paritas), milestone F1–F6, label baku, formulir issue `.github/ISSUE_TEMPLATE/` (tugas, bug, riset, epik), dan epik serta sub-issue per fase di GitHub. Template PR memuat `Closes #`.
 - Renderer `scripts/render.mjs`: komposisi web -> MP4 H.264 lewat Chromium headless, PNG pipe, dan ffmpeg; mode `--still`, rentang `--dari`/`--sampai`, `--skala`, `--crf`, `--audio`, `--subtitle`, `--bahasa`, `--props`, `--browser`.
 - Runtime `scripts/runtime.js`: `defineVideo`, `interpolasi`, `easing`, `pegas`, `urutan`, `fade`, `acak`, dan mode pratinjau `?preview`.
 - Template `templates/contoh-dasar`.

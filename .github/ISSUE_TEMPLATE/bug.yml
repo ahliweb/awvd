@@ -1,0 +1,86 @@
+# Templat issue: bug.
+# Standar lintas-portofolio internal: roadmap dan issue GitHub (DL-041).
+name: Laporan bug
+description: Perilaku yang salah dibanding yang seharusnya.
+title: "[Fase/SEQ] fix: ringkasan"
+labels: ["jenis:fix"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Repo ini mungkin publik.** Jangan menempelkan rahasia, token, data pribadi, atau log yang memuatnya. Samarkan dulu.
+        Kerentanan keamanan dilaporkan lewat kanal privat repo, bukan lewat issue.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Di mana bug terlihat, versi atau commit, dan dampaknya.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Langkah mereproduksi
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Hasil yang diharapkan
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Hasil yang terjadi
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Termasuk uji regresi yang membuktikan bug tidak kembali.
+      value: |
+        - [ ] Bug tidak lagi bisa direproduksi
+        - [ ] Ada uji yang gagal sebelum perbaikan dan lolos sesudahnya
+    validations:
+      required: true
+  - type: textarea
+    id: scope-out
+    attributes:
+      label: Scope - Out
+      description: Temuan lain di sekitar bug ini dicatat sebagai issue terpisah.
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options:
+        - S
+        - M
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Prioritas yang diusulkan
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Pemeriksaan keamanan isi
+      options:
+        - label: Issue ini tidak memuat rahasia, data pribadi, atau nama repo privat
+          required: true

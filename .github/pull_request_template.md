@@ -2,6 +2,8 @@
 
 <!-- Apa yang berubah dan kenapa. -->
 
+Closes #
+
 ## Uji
 
 - [ ] `bun run uji` lolos secara lokal
@@ -19,4 +21,5 @@
 - [ ] API/flag berubah: "skill pemakaian awvd perlu disesuaikan" ditulis di PR (tanpa menyebut lokasi internal)
 - [ ] Bukan materi proyek video (komposisi proyek, aset klien/merek, naskah, hasil render)
 - [ ] Perubahan yang memengaruhi repo proyek (jalur scripts/, protokol runtime) ditandai di CHANGELOG
+- [ ] Fitur selesai atau fase berubah: `docs/roadmap.md` (status fase dan tabel paritas) diperbarui
 - [ ] Tidak ada klaim rilis/tag yang belum ada, data nyata, atau secret
