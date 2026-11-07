@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Version: `v1.8.0`
+- Version: `v1.9.0`
 - Last updated: `2026-11-07`
 - Changeset: `Menambahkan KP-041 sampai KP-042 (sementara): olah suara per trek di audio.mjs (afftdn bawaan, arnndn dengan model pengguna, rubberband dengan cadangan, tempo hanya narasi).`
 
@@ -73,14 +73,19 @@ flowchart TD
 | KP-037 | `bun run narasi` menulis aset beku (cue, stempel kata, rencana audio) dan boleh memakai mesin suara; `bun run render` tidak pernah memanggil mesin suara atau alat eksternal. Hash WAV dicatat di rencana dan laporan. | 2026-11-07 | Berlaku | Keluaran TTS daring tidak identik byte demi byte antar panggilan; memisahkan sintesis dari render menjaga determinisme (KP-003, KP-014). | #62 |
 | KP-038 | Batas cps cue adalah `cps` efektif profil audiens (yang paling ketat dari profil yang dipilih) dan menjadi batas `gagal` (kode keluar 1); `caption.cps` boleh melonggarkan sampai 20 dengan peringatan. Caption tidak dipercepat atau diperlambat agar lolos: tampil hanya diperpanjang ke jeda berikutnya sampai 0,5 detik, tanpa menimpa cue berikut. | 2026-11-07 | Berlaku | Menyembunyikan kecepatan baca yang terlalu tinggi merugikan penonton; perbaikannya ada di naskah atau kecepatan narasi. Angka cps dari KP-019; 0,5 detik mengikuti catatan DCMP tentang pergeseran sampai 15 frame. | #62 |
 | KP-039 | `naskah.json` mewajibkan `klasifikasi` (`publik` atau `internal`); mesin suara berpenanda daring ditolak untuk `internal`. Angka di teks yang dibacakan harus ditulis dengan huruf atau diberi `bacaan`. Satu bidang `mesin` dengan registri `daftarkanMesin` membuat adaptor TTS tinggal mendaftarkan mesin. | 2026-11-07 | Berlaku | TTS daring hanya untuk konten publik (AGENTS.md aturan 5); estimator tidak mengeja angka sehingga timing meleset bila angka dibiarkan. | #62 |
+| KP-040 | Preset transisi per jenis video tetap hanya di `scripts/transisi.js`; `konsep.mjs` memuatnya (`Transisi.presetJenisVideo`) untuk bagian Transisi dan gerak di `brief` dan untuk keluaran `preset`. Profil gerak konsep: `kurangiGerak: true` di `konsep.json` menang; bila tidak, profil audiens paling ketat (`lansia` > `anak` > `standar`; `umum`, `remaja`, `lowVision` = `standar`); bila tidak ada, bawaan preset. Profil dipilih lewat props (`profil` dan `transisi` di keluaran `preset`), tanpa flag baru di `render.mjs`. | 2026-11-07 | Berlaku | Satu sumber untuk preset menghindari salinan kedua di `data/jenis-video.json` yang bisa basi (token `transisi` di data tetap durasi kasar runtime). Props mengikuti KP-023 (tanpa flag `--gerak`) dan konvensi `props.profil` yang sudah dibaca galeri, sehingga komposisi yang ada tidak perlu diubah. `kurangiGerak` menggantikan, bukan menambah, pengali durasi `lansia`/`anak` agar perilakunya sama dengan `--props` eksplisit. Pemetaan audiens ke profil gerak adalah keputusan desain tanpa riset. | #65 |
 | KP-041 | Peredam bising per trek di `audio.mjs` memakai `afftdn` sebagai bawaan (parameter bawaan `nr` 12 dB, `nf` -40 dB, `lacak` aktif). `arnndn` hanya bila pengguna memberi berkas model sendiri; awvd tidak membundel model RNNoise, memvalidasi format berkasnya, dan menolak tanpa model. | 2026-11-07 | Berlaku | `afftdn` bawaan ffmpeg tanpa berkas tambahan, jadi tidak ada lisensi model yang harus dikelola. Pada sinus 440 Hz dengan derau putih ber-seed (SNR awal -0,7 dB), `afftdn` `nr` 20 menaikkan SNR sekitar 17,9 dB dan `lacak` menentukan (tanpa lacak hanya sekitar 2 dB). Kode RNNoise berlisensi BSD 3-Clause, tetapi lisensi model beragam dan tidak terverifikasi per model; model, TTS, dan mesin pihak ketiga bersifat opsional dan tidak dibundel. Bukti hanya dari derau putih stasioner, belum dari ucapan nyata. | menyusul |
 | KP-042 | Pengubah nada dan tempo memakai `rubberband` bila ada di build ffmpeg, dengan cadangan `asetrate` + `atempo` (peringatan, mesin dapat dipaksa lewat `suara.mesin`); `tempo` hanya untuk narasi, ditolak pada klip. Level tiap trek diukur sesudah olah supaya kenyaringan tetap `ucapanLufs`. | 2026-11-07 | Berlaku | `rubberband` menjaga formant ucapan dan memisahkan nada dari tempo, tetapi berlisensi GPL-2.0-or-later dan tidak ada di semua build ffmpeg; cadangan tersedia di mana-mana namun menggeser formant. Hasil `otomatis` bergantung pada build, jadi `mesin` eksplisit dianjurkan untuk hasil identik antar mesin (uji: dua run identik byte demi byte pada kedua mesin). `tempo` pada klip akan membuat audio tidak sepanjang rentang frame dan lepas dari gambar. Cue caption `bun run narasi` tidak ikut bergeser oleh `tempo`. | menyusul |
 
 ## Changelog
 
-### 2026-11-07 - v1.8.0
+### 2026-11-07 - v1.9.0
 
 - Menambahkan KP-041 dan KP-042 (olah suara per trek; nomor tetap diberikan saat merge).
+
+### 2026-11-07 - v1.8.0
+
+- Menambahkan KP-040 (preset transisi dan profil gerak dari `konsep.json`, dipilih lewat props).
 
 ### 2026-11-07 - v1.7.0
 
