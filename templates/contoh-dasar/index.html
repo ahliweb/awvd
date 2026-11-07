@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Contoh dasar video-terprogram</title>
+<meta name="viewport" content="width=1280">
+<style>
+  html, body { margin: 0; background: #101828; }
+  #layar {
+    position: relative; width: 1280px; height: 720px; overflow: hidden;
+    font-family: system-ui, "Segoe UI", Roboto, "DejaVu Sans", sans-serif;
+    color: #f8fafc; background: linear-gradient(135deg, #101828 0%, #1d2b4a 100%);
+  }
+  #judul { position: absolute; left: 96px; top: 190px; margin: 0; font-size: 84px; font-weight: 800; letter-spacing: -1px; max-width: 1088px; }
+  #subjudul { position: absolute; left: 96px; top: 320px; margin: 0; font-size: 36px; font-weight: 400; color: #cbd5e1; max-width: 1088px; }
+  #garis { position: absolute; left: 96px; top: 168px; height: 8px; border-radius: 4px; }
+  #lower { position: absolute; left: 0; bottom: 120px; display: flex; align-items: center; gap: 20px; padding: 18px 40px 18px 96px; background: rgba(15, 23, 42, .85); }
+  #lower .penanda { width: 10px; align-self: stretch; border-radius: 5px; }
+  #lower .t1 { font-size: 32px; font-weight: 700; }
+  #lower .t2 { font-size: 24px; color: #cbd5e1; }
+  #progres { position: absolute; left: 0; bottom: 0; height: 10px; }
+</style>
+</head>
+<body>
+<div id="layar">
+  <div id="garis"></div>
+  <h1 id="judul"></h1>
+  <p id="subjudul"></p>
+  <div id="lower"><span class="penanda"></span><div><div class="t1">Bagian satu</div><div class="t2">Keterangan singkat</div></div></div>
+  <div id="progres"></div>
+</div>
+<script src="../../scripts/runtime.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const el = { garis: $("garis"), judul: $("judul"), sub: $("subjudul"), lower: $("lower"), progres: $("progres") };
+  const lowerItems = [
+    ["Bagian satu", "Pegas memunculkan judul"],
+    ["Bagian dua", "Urutan mengatur kapan elemen muncul"],
+    ["Bagian tiga", "Semua gerak berasal dari nomor frame"],
+  ];
+
+  defineVideo({
+    width: 1280, height: 720, fps: 30, durationInFrames: 180,
+    render(frame, ctx) {
+      const p = Object.assign({
+        judul: "Judul Video", subjudul: "Subjudul", warnaAksen: "#38bdf8",
+      }, ctx.props);
+      const aksen = p.warnaAksen;
+
+      // judul masuk dengan pegas (geser + opasitas), keluar di akhir
+      const naik = pegas(frame, ctx.fps, { tunda: 6, kekakuan: 120, redaman: 14 });
+      const keluar = fade(frame, ctx.durationInFrames, { masuk: 1, keluar: 20 });
+      el.judul.textContent = p.judul;
+      el.judul.style.transform = "translateY(" + ((1 - naik) * 80) + "px)";
+      el.judul.style.opacity = String(Math.min(1, naik * 1.5) * keluar);
+
+      // garis aksen memanjang dengan easing
+      el.garis.style.background = aksen;
+      el.garis.style.width = interpolasi(frame, [0, 24], [0, 220], { easing: easing.keluarCubic }) + "px";
+      el.garis.style.opacity = String(keluar);
+
+      // subjudul fade-in setelah judul
+      el.sub.textContent = p.subjudul;
+      el.sub.style.opacity = String(interpolasi(frame, [24, 44], [0, 1]) * keluar);
+
+      // lower-third bertahap: tiga segmen berurutan 45 frame, masuk dari kiri
+      const idx = Math.min(2, Math.max(0, Math.floor((frame - 60) / 40)));
+      const seg = urutan(frame, { dari: 60 + idx * 40, durasi: 40 });
+      const adaLower = frame >= 60 && frame < 170;
+      el.lower.style.display = adaLower ? "flex" : "none";
+      if (adaLower) {
+        const masuk = interpolasi(seg.lokal, [0, 12], [-420, 0], { easing: easing.keluarBack });
+        el.lower.style.transform = "translateX(" + masuk + "px)";
+        el.lower.querySelector(".penanda").style.background = aksen;
+        el.lower.querySelector(".t1").textContent = lowerItems[idx][0];
+        el.lower.querySelector(".t2").textContent = lowerItems[idx][1];
+      }
+
+      // bar progres keseluruhan
+      el.progres.style.background = aksen;
+      el.progres.style.width = (frame / (ctx.durationInFrames - 1)) * 1280 + "px";
+    },
+  });
+</script>
+</body>
+</html>
