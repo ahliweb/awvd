@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Version: `v2.5.1`
+- Version: `v2.5.2`
 - Last updated: `2026-11-07`
 - Changeset: `Daftar uji renderer memuat uji determinisme --skala; indeks memuat versi dokumen yang berubah.`
 
@@ -54,7 +54,7 @@ Server statis apa pun juga bisa dipakai. Satu frame saja: `?frame=60`. Props pra
 - `bun run sop <sop.json> --out DIR`: SOP menjadi dokumen dan bahan video ([docs/sop.md](docs/sop.md)).
 - `bun run klip <sumber.json> --fps N` dan `bun run audio <rencana.json> --fps N --out ...`: video di dalam video dan timeline audio ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md)).
 - `bun run konsep -- <subperintah>`: konsep video, pilihan jenis video dan alur produksi ([docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md)).
-- `bun run aset tambah|impor|periksa`: aset (gambar, logo, ikon, SVG, font, audio) dengan manifest `aset.json`, validasi lisensi, pembersih SVG, dan atribusi ([docs/aset.md](docs/aset.md)). Render memblokir semua permintaan jaringan non-lokal (kode keluar 3; [docs/cli.md](docs/cli.md#jaringan-dan-font)).
+- `bun run aset tambah|impor|periksa`: aset (gambar, logo, ikon, SVG, font, audio) dengan manifest `aset.json`, validasi lisensi, pembersih SVG, dan atribusi ([docs/aset.md](docs/aset.md)); komposisi memakai aset lewat helper runtime `logo`, `ikon`, `asetGambar`, `kreditAset`, dan `pasangFont` ([docs/api-runtime.md](docs/api-runtime.md)). Render memblokir semua permintaan jaringan non-lokal (kode keluar 3; [docs/cli.md](docs/cli.md#jaringan-dan-font)).
 - Transisi dan animasi elemen: muat `scripts/transisi.js` setelah `runtime.js` (`window.Transisi`); galeri semua jenis di `templates/transisi-galeri/` ([docs/transisi-animasi.md](docs/transisi-animasi.md)).
 - `bun run pelajari <video-lokal> --sumber-sah CARA` dan `bun run kutipan -- periksa|hash <sumber.json>`: statistik gaya dari video lokal yang sah dimiliki, dan kebijakan kutipan wajar untuk video reaction ([docs/pelajari-reaction.md](docs/pelajari-reaction.md)).
 - `bun run uji`: uji unit runtime, uji periksa, uji SOP, uji klip, uji konsep, uji visual (helper warna dan ukuran teks, data audiens), uji transisi, uji aset (`bun run uji:aset`), uji pelajari (statistik gaya, kebijakan kutipan, templat reaction), lalu sepuluh uji renderer (properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran, determinisme `--skala` 0.5 dan 0.75); sekitar tiga menit. `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
@@ -65,11 +65,11 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.5.1` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.5.2` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.1.1` |
-| [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.2.0` |
+| [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.3.0` |
 | [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.2.1` |
-| [docs/aset.md](docs/aset.md) | `bun run aset`: manifest `aset.json`, matriks lisensi, SVG, resolusi, sRGB, atribusi | `v1.0.0` |
+| [docs/aset.md](docs/aset.md) | `bun run aset`: manifest `aset.json`, matriks lisensi, SVG, resolusi, sRGB, atribusi, helper runtime | `v1.1.0` |
 | [docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md) | `bun run periksa`: pemeriksaan, ambang, kilatan | `v1.0.1` |
 | [docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md) | `bun run konsep`: 13 jenis video, 5 alur, tingkat bukti, profil audiens | `v1.1.0` |
 | [docs/sop.md](docs/sop.md) | SOP sebagai dokumen cetak dan bahan video | `v1.0.0` |
@@ -77,12 +77,12 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/pelajari-reaction.md](docs/pelajari-reaction.md) | `bun run pelajari`, kebijakan kutipan wajar, gerbang hukum GH, templat reaction | `v1.0.0` |
 | [docs/visual-audiens.md](docs/visual-audiens.md) | Profil audiens, ukuran teks, buta warna, ketajaman, efek dekoratif | `v1.0.0` |
 | [docs/transisi-animasi.md](docs/transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, `kurangiGerak`, biaya kompresi | `v1.0.1` |
-| [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.3.0` |
+| [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.3.1` |
 | [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.4.1` |
 | [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, tanggung jawab aset, matriks lisensi aset, video pihak ketiga | `v1.3.0` |
 | [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.1.0` |
-| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.0.0` |
-| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.4.0` |
+| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.0.1` |
+| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.5.0` |
 | [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.9.0` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
 
@@ -132,9 +132,13 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 
 ## Changelog
 
-### 2026-11-07 - v2.5.1
+### 2026-11-07 - v2.5.2
 
 - §Struktur repo: `bun run uji` memuat sepuluh uji renderer (menambah determinisme `--skala`); indeks dokumentasi memperbarui versi `arsitektur.md`, `cli.md`, `transisi-animasi.md`, dan `batasan.md`.
+
+### 2026-11-07 - v2.5.1
+
+- Perintah utama menyebut helper runtime aset; kolom Versi indeks dokumentasi diperbarui (`api-runtime` v1.3.0, `aset` v1.1.0, `aksesibilitas` v1.3.1, `roadmap` v1.0.1, `log-keputusan` v1.5.0, `docs/README` v1.5.1).
 
 ### 2026-11-07 - v2.5.0
 

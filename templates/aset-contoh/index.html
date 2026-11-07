@@ -11,34 +11,51 @@
     font-family: system-ui, "Segoe UI", Roboto, "DejaVu Sans", sans-serif;
     color: #f8fafc; background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
   }
-  /* logo di atas panel terang agar kontras warna logo terjaga */
-  #panel { position: absolute; left: 96px; top: 120px; width: 440px; height: 180px; border-radius: 24px; background: #ffffff; display: flex; align-items: center; justify-content: center; }
-  #logo { width: 360px; height: 120px; object-fit: contain; }
-  #judul { position: absolute; left: 96px; top: 360px; margin: 0; font-size: 64px; font-weight: 800; max-width: 1088px; }
-  #baris { position: absolute; left: 96px; top: 470px; display: flex; align-items: center; gap: 20px; font-size: 32px; color: #cbd5e1; }
-  #ikon { width: 48px; height: 48px; filter: brightness(0) invert(1); }
+  /* panel putih = kotak logo ditambah clear space, agar kontras warna logo terjaga */
+  #panel { position: absolute; border-radius: 24px; background: #ffffff; }
+  /* posisi dan ukuran #logo-img diatur logo() lewat pasangGambar */
+  #judul { position: absolute; margin: 0; font-size: 64px; font-weight: 800; max-width: 1088px; }
+  #baris { position: absolute; display: flex; align-items: center; gap: 20px; font-size: 32px; color: #cbd5e1; }
+  #kredit { position: absolute; font-size: 24px; color: #cbd5e1; white-space: pre-line; }
 </style>
 </head>
 <body>
 <div id="layar">
-  <div id="panel"><img id="logo" src="aset/logo-contoh.svg" alt="Logo Contoh Karya (fiktif)"></div>
+  <div id="panel"></div>
+  <img id="logo-img" alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
   <h1 id="judul"></h1>
-  <div id="baris"><img id="ikon" src="aset/ikon-centang.svg" alt=""><span id="teks"></span></div>
+  <div id="baris"><img id="ikon-img" alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><span id="teks"></span></div>
+  <div id="kredit"></div>
 </div>
 <script src="../../scripts/runtime.js"></script>
+<script src="aset-props.js"></script>
 <script>
   const $ = (id) => document.getElementById(id);
   defineVideo({
     width: 1280, height: 720, fps: 30, durationInFrames: 60,
-    render(frame, ctx) {
+    async render(frame, ctx) {
       const p = Object.assign({ judul: "Aset lokal yang tercatat", teks: "Logo dan ikon dimuat dari berkas lokal" }, ctx.props);
+      // props aset: dari --props-file (hasil `bun run aset periksa --gabung`) atau salinan bawaan templat
+      const c = Object.assign({}, ctx, { props: { aset: (ctx.props && ctx.props.aset) || window.asetPropsBawaan.aset } });
+      const A = areaAman(ctx.width, ctx.height).grafis;
+
+      // logo: kiri atas area aman; ukuran, clear space, dan kontras dijaga helper (galat bila dilanggar)
+      const kotak = logo("logo-contoh", "kiri-atas", { ctx: c, ukuran: 28, latar: "#ffffff" });
+      const cs = kotak.clearSpace;
+      Object.assign($("panel").style, { left: (kotak.x - cs) + "px", top: (kotak.y - cs) + "px", width: (kotak.w + 2 * cs) + "px", height: (kotak.h + 2 * cs) + "px" });
+      await pasangGambar($("logo-img"), kotak);
+      await pasangGambar($("ikon-img"), ikon("ikon-centang", { ctx: c, ukuran: 48, warna: "putih" }));
+
       const masuk = interpolasi(frame, [0, 15], [0, 1], { easing: easing.keluarCubic });
       $("judul").textContent = p.judul;
       $("teks").textContent = p.teks;
+      // kredit TASL ringkas untuk layar; kreditAset("semua", { ringkas: false }) memberi kredit akhir
+      $("kredit").textContent = kreditAset(["logo-contoh", "ikon-centang"], { ctx: c });
+      Object.assign($("judul").style, { left: A.x + "px", top: "360px", opacity: String(masuk), transform: "translateY(" + ((1 - masuk) * 40) + "px)" });
+      Object.assign($("baris").style, { left: A.x + "px", top: "470px", opacity: String(masuk) });
+      Object.assign($("kredit").style, { left: A.x + "px", top: (A.y + A.h - 64) + "px", opacity: String(masuk) });
       $("panel").style.opacity = String(masuk);
-      $("judul").style.opacity = String(masuk);
-      $("baris").style.opacity = String(masuk);
-      $("judul").style.transform = "translateY(" + ((1 - masuk) * 40) + "px)";
+      $("logo-img").style.opacity = String(masuk * kotak.opacity);
     },
   });
 </script>

@@ -32,6 +32,9 @@ const j = (...p) => join(tmp, ...p);
 function tegas(kondisi, pesan) {
   if (!kondisi) throw new Error(pesan);
 }
+function samaIsi(a, b, nama) {
+  tegas(JSON.stringify(a) === JSON.stringify(b), `${nama}: dapat ${JSON.stringify(a)}, harapan ${JSON.stringify(b)}`);
+}
 function memuat(teks, potongan, nama) {
   tegas(teks.includes(potongan), `${nama}: "${potongan}" tidak ada dalam:\n${teks}`);
 }
@@ -662,6 +665,11 @@ daftar("(i) templat aset-contoh: periksa lolos, ASET.md memuat setiap id, render
   const p = await bun(asetMjs, "periksa", manifest, "--out", keluar, "--ketat", "--komposisi", join(templat, "index.html"));
   tegas(p.kode === 0, `templat harus lolos termasuk --ketat: exit ${p.kode}\n${p.out}${p.err}`);
   const m = JSON.parse(readFileSync(manifest, "utf8"));
+  // aset-props.js = salinan keluaran periksa (props bawaan templat) tidak boleh basi
+  const salinan = /window\.asetPropsBawaan = (\{.*\});/s.exec(readFileSync(join(templat, "aset-props.js"), "utf8"));
+  tegas(salinan, "aset-props.js harus berisi window.asetPropsBawaan = {...};");
+  tegas(JSON.stringify(JSON.parse(salinan[1])) === JSON.stringify(JSON.parse(readFileSync(join(keluar, "aset-props.json"), "utf8"))),
+    "templates/aset-contoh/aset-props.js basi: salin ulang isi keluaran bun run aset periksa (aset-props.json)");
   const asetMd = readFileSync(join(templat, "ASET.md"), "utf8");
   for (const a of m.aset) memuat(asetMd, `\`${a.id}\``, "ASET.md");
   tegas(m.aset.every((a) => ["MILIK-SENDIRI", "CC0-1.0"].includes(a.lisensi)), "templat tidak boleh memuat aset pihak ketiga");
@@ -681,6 +689,69 @@ daftar("(i) templat aset-contoh: periksa lolos, ASET.md memuat setiap id, render
   memuat(atribusi, "Copyright (c) Penulis Uji", "pemberitahuan MIT"); memuat(atribusi, "Copyright 2026 Penulis Uji", "pemberitahuan OFL");
   const props = bangunProps(r.aset);
   tegas(props.aset["font-uji"].font.format === "ttf" && props.aset["foto-uji"].fokus.y === 0.4 && props.aset["foto-uji"].atribusi.kredit.includes("Foto uji"), "aset-props memuat font, fokus, dan kredit");
+});
+
+
+// =============================================================== (j) helper runtime aset
+daftar("(j) helper runtime aset: kreditAset sesuai manifest (= atribusi.txt); pasangFont, logo, dan asetGambar di renderer; galat keras (alt, <img>, font)", async () => {
+  const m = await proyekDasar();
+  const r = await validasiAset(m, dirProyek);
+  tegas(r.galat.length === 0, `proyek dasar: ${r.galat.join("\n")}`);
+  const props = bangunProps(r.aset);
+  // --- AC: kreditAset sesuai manifest. Runtime dimuat di Bun dengan window/document tiruan minimal.
+  const asliWindow = globalThis.window, asliDocument = globalThis.document;
+  const tiruan = () => ({ setAttribute() {}, appendChild() {}, style: {} });
+  globalThis.window = { location: { search: "" } };
+  globalThis.document = { readyState: "complete", createElement: tiruan, head: tiruan(), documentElement: tiruan() };
+  let api;
+  try { await import(runtimeJs); api = globalThis.window.VideoTerprogram; } finally { globalThis.window = asliWindow; globalThis.document = asliDocument; }
+  const atribusi = bangunAtribusi(r.aset);
+  const baris = atribusi.split("\n").filter((l) => /^- \[(akhir|layar)\] /.test(l)).map((l) => l.replace(/^- \[(akhir|layar)\] /, ""));
+  tegas(baris.length >= 2, `atribusi.txt harus memuat kredit foto dan musik: ${atribusi}`);
+  samaIsi(api.kreditAset("semua", { props, ringkas: false }).split("\n").sort(), [...baris].sort(), "kreditAset(semua) = baris atribusi.txt");
+  for (const [id, a] of Object.entries(r.aset)) if (a.atribusiTampil !== "tidak") tegas(atribusi.includes(api.kreditAset(id, { props, ringkas: false })), `kredit ${id} harus ada di atribusi.txt`);
+  tegas(api.kreditAset("foto-uji", { props }) === '"Foto uji" oleh Penulis Uji · Lisensi stok pexels', `kredit ringkas: ${api.kreditAset("foto-uji", { props })}`);
+
+  // --- render di Chromium: komposisi di folder proyek (jalur aset relatif ke komposisi)
+  const P = JSON.stringify(props);
+  const kosong = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+  const tulis = (nama, badan, render, opsi = {}) => {
+    const f = join(dirProyek, nama);
+    writeFileSync(f, komposisi(badan, `const P = ${P};`, { lebar: 400, tinggi: 120, frame: 8, ...opsi }).replace(/\{ \/\*RENDER\*\/ \}/, `{ ${render} }`).replace("render(f) {", "async render(f, ctx) {"));
+    return f;
+  };
+  // (1) pasangFont: lebar teks yang diukur segera setelah await benar di frame 0 dan identik di frame 5 (tanpa font cadangan)
+  const kotak = `const s = document.createElement("span"); s.id = "a"; s.textContent = "HHH"; s.style.cssText = 'position:absolute;left:10px;top:10px;line-height:30px;background:#f00;color:transparent;font:40px/30px "Uji Awvd", serif'; document.body.append(s);`;
+  const fontKomp = tulis("helper-font.html", "", `await pasangFont("font-uji", { props: P }); if (!document.getElementById("a")) { ${kotak} } await pasangFont("semua", { props: P });`);
+  const png0 = j("helper-font-0.png"), png5 = j("helper-font-5.png");
+  for (const [png, f] of [[png0, "0"], [png5, "5"]]) { const x = await render(fontKomp, "--out", png, "--still", f); tegas(x.kode === 0, `pasangFont render frame ${f}: ${x.kode} ${x.err}`); }
+  const [w0, w5] = [await lebarMerah(png0, 25), await lebarMerah(png5, 25)];
+  tegas(Math.abs(w0 - 120) <= 1 && w0 === w5, `pasangFont: lebar frame 0 = ${w0}, frame 5 = ${w5}, harapan 120 dan sama`);
+  // (2) logo + asetGambar: posisi dan ukuran dari logo() dipasang lewat <img>; piksel hanya di dalam kotak
+  const logoKomp = tulis("helper-logo.html", `<img id="lg" alt="" src="${kosong}"><img id="ft" alt="" src="${kosong}" style="display:none">`,
+    `const c = Object.assign({}, ctx, { props: { aset: P.aset } }); const k = logo("logo-uji", "kiri-atas", { ctx: c, ukuran: 30 }); window.__k = k; await pasangGambar(document.getElementById("lg"), k); const d = await asetGambar("foto-uji", { ctx: c, target: document.getElementById("ft") }); if (document.getElementById("ft").getAttribute("alt") !== "Latar biru polos" || d.objectPosition !== "50% 40%") throw new Error("asetGambar tidak memasang alt/fokus"); if (document.querySelector("svg")) throw new Error("ada SVG inline");`);
+  const pngL = j("helper-logo.png");
+  const lx = await render(logoKomp, "--out", pngL, "--still", "0");
+  tegas(lx.kode === 0, `logo render: ${lx.kode} ${lx.err}`);
+  // kotak yang diharapkan: area grafis 400x120 = x 20, y 6, w 360, h 108; logo 30% x 400 = 120 x 40, clear space 0,5 x 40 = 20
+  const px = await pikselRgb(pngL);
+  const bukanPutih = (x, y) => { const o = (y * 400 + x) * 3; return px[o] < 235 || px[o + 1] < 235 || px[o + 2] < 235; };
+  const kx = 20 + 20, ky = 6 + 20, kw = 120, kh = 40;
+  let dalam = 0, luar = 0;
+  for (let y = 0; y < 120; y++) for (let x = 0; x < 400; x++) if (bukanPutih(x, y)) (x >= kx && x < kx + kw && y >= ky && y < ky + kh ? dalam++ : luar++);
+  tegas(dalam > 200 && luar === 0, `logo harus tergambar tepat di kotak ${kx},${ky} ${kw}x${kh}: dalam=${dalam} luar=${luar}`);
+  // (3) galat keras di renderer: exit 1 dengan pesan jelas
+  const gagalKomp = async (nama, render, pola) => {
+    const f = tulis(nama, `<img id="lg" alt="" src="${kosong}">`, render);
+    const x = await render_(f);
+    tegas(x.kode === 1 && pola.test(x.err), `${nama}: harus exit 1 dengan ${pola}, dapat ${x.kode}: ${x.err}`);
+  };
+  const render_ = (f) => render(f, "--out", j("galat.png"), "--still", "0");
+  await gagalKomp("helper-tanpa-alt.html", `const Q = JSON.parse(JSON.stringify(P)); delete Q.aset["foto-uji"].teksAlternatif; await asetGambar("foto-uji", { props: Q, target: document.getElementById("lg") });`, /informatif tetapi tanpa teksAlternatif/);
+  await gagalKomp("helper-logo-div.html", `const c = Object.assign({}, ctx, { props: P }); await pasangGambar(document.createElement("div"), logo("logo-uji", "kiri-atas", { ctx: c, ukuran: 30 }));`, /target harus elemen <img>/);
+  await gagalKomp("helper-id-hilang.html", `await asetGambar("tidak-ada", { props: P });`, /"tidak-ada" tidak ada di aset-props/);
+  await gagalKomp("helper-logo-kecil.html", `const c = Object.assign({}, ctx, { props: P }); logo("logo-uji", "kiri-atas", { ctx: c, ukuran: 5 });`, /di bawah ukuran minimum pedoman merek \(48 px\)/);
+  await gagalKomp("helper-font-hilang.html", `const Q = JSON.parse(JSON.stringify(P)); Q.aset["font-uji"].jalur = "aset/tidak-ada.ttf"; await pasangFont("font-uji", { props: Q });`, /font gagal dimuat: "Uji Awvd" \(aset\/tidak-ada\.ttf\)/);
 });
 
 // ----------------------------------------------------------------- jalankan
