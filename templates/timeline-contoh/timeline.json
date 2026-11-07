@@ -1,0 +1,309 @@
+{
+  "$schema": "../../data/skema-timeline.json",
+  "skema": 1,
+  "proyek": {
+    "judul": "Timeline multitrack dengan transisi dan audio (contoh fiktif)",
+    "lebar": 1280,
+    "tinggi": 720,
+    "fps": 30,
+    "durasi": 450,
+    "jenisVideo": "promo",
+    "latar": "#000000"
+  },
+  "manifes": {
+    "aset": "aset.json",
+    "sumber": "sumber.json"
+  },
+  "audio": {
+    "fadeMs": 200,
+    "ucapanLufs": -16
+  },
+  "penanda": [
+    {
+      "id": "p-buka",
+      "pada": 0,
+      "label": "Pembuka"
+    },
+    {
+      "id": "p-penutup",
+      "pada": 390,
+      "label": "Kredit"
+    }
+  ],
+  "track": [
+    {
+      "id": "t-latar",
+      "jenis": "video",
+      "nama": "Adegan utama",
+      "butir": [
+        {
+          "id": "adegan-1",
+          "jenis": "video",
+          "klip": "k1",
+          "dari": 0,
+          "mulai": 0,
+          "durasi": 90,
+          "audio": {
+            "mode": "bergantian"
+          }
+        },
+        {
+          "id": "adegan-2",
+          "jenis": "video",
+          "klip": "k2",
+          "dari": 0,
+          "mulai": 75,
+          "durasi": 80,
+          "waktu": {
+            "kecepatan": 1.5
+          },
+          "audio": {
+            "mode": "bisu"
+          },
+          "kreditLayar": true,
+          "transisi": {
+            "jenis": "pudarMelalui",
+            "durasi": 15
+          }
+        },
+        {
+          "id": "adegan-3",
+          "jenis": "warna",
+          "warna": "#0b1220",
+          "mulai": 140,
+          "durasi": 310,
+          "transisi": {
+            "jenis": "celup",
+            "durasi": 15,
+            "warna": "#000000"
+          }
+        }
+      ]
+    },
+    {
+      "id": "t-pip",
+      "jenis": "overlay",
+      "nama": "Kotak PiP",
+      "butir": [
+        {
+          "id": "pip-balik",
+          "jenis": "video",
+          "klip": "k1",
+          "dari": 30,
+          "mulai": 200,
+          "durasi": 60,
+          "waktu": {
+            "balik": true
+          },
+          "audio": {
+            "mode": "bisu"
+          },
+          "tata": {
+            "x": 860,
+            "y": 400,
+            "lebar": 360,
+            "tinggi": 202,
+            "fit": "cover"
+          },
+          "properti": {
+            "opasitas": [
+              {
+                "pada": 0,
+                "nilai": 0,
+                "easing": "keluarCubic"
+              },
+              {
+                "pada": 10,
+                "nilai": 1
+              }
+            ],
+            "skala": [
+              {
+                "pada": 0,
+                "nilai": 0.9,
+                "easing": "keluarCubic"
+              },
+              {
+                "pada": 10,
+                "nilai": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "pip-beku",
+          "jenis": "video",
+          "klip": "k1",
+          "dari": 45,
+          "mulai": 260,
+          "durasi": 45,
+          "waktu": {
+            "bekukan": true
+          },
+          "audio": {
+            "mode": "bisu"
+          },
+          "tata": {
+            "x": 860,
+            "y": 400,
+            "lebar": 360,
+            "tinggi": 202,
+            "fit": "cover"
+          },
+          "animasi": {
+            "keluar": {
+              "jenis": "pudar",
+              "durasi": 10
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "t-logo",
+      "jenis": "overlay",
+      "nama": "Logo",
+      "butir": [
+        {
+          "id": "logo",
+          "jenis": "gambar",
+          "aset": "logo-contoh",
+          "mulai": 0,
+          "durasi": 450,
+          "tata": {
+            "x": 40,
+            "y": 30,
+            "lebar": 192,
+            "tinggi": 64,
+            "fit": "contain"
+          }
+        }
+      ]
+    },
+    {
+      "id": "t-teks-1",
+      "jenis": "teks",
+      "butir": [
+        {
+          "id": "judul",
+          "jenis": "teks",
+          "peran": "judul",
+          "isi": "Timeline multitrack",
+          "mulai": 20,
+          "durasi": 180,
+          "gaya": {
+            "ukuran": 64,
+            "bobot": 800,
+            "warna": "#f8fafc"
+          },
+          "tata": {
+            "x": 80,
+            "y": 300,
+            "lebar": 1100,
+            "tinggi": 90
+          },
+          "animasi": {
+            "masuk": {
+              "jenis": "geser",
+              "arah": "kiri",
+              "jarak": 60,
+              "durasi": 15
+            },
+            "keluar": {
+              "jenis": "pudar",
+              "durasi": 12
+            }
+          }
+        },
+        {
+          "id": "kredit",
+          "jenis": "kredit",
+          "mulai": 390,
+          "durasi": 60,
+          "gaya": {
+            "ukuran": 28,
+            "warna": "#e2e8f0"
+          },
+          "tata": {
+            "x": 80,
+            "y": 120,
+            "lebar": 1100,
+            "tinggi": 480
+          },
+          "animasi": {
+            "masuk": {
+              "jenis": "pudar",
+              "durasi": 15
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "t-teks-2",
+      "jenis": "teks",
+      "butir": [
+        {
+          "id": "subjudul",
+          "jenis": "teks",
+          "peran": "subjudul",
+          "isi": "Transisi, speed, reverse, freeze, dan audio",
+          "mulai": 50,
+          "durasi": 150,
+          "gaya": {
+            "ukuran": 40,
+            "warna": "#cbd5e1"
+          },
+          "tata": {
+            "x": 80,
+            "y": 400,
+            "lebar": 1100,
+            "tinggi": 50
+          },
+          "animasi": {
+            "masuk": {
+              "jenis": "pudar",
+              "durasi": 15
+            },
+            "keluar": {
+              "jenis": "pudar",
+              "durasi": 12
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "a-narasi",
+      "jenis": "audio",
+      "nama": "Narasi",
+      "butir": [
+        {
+          "id": "narasi-1",
+          "jenis": "audio",
+          "aset": "narasi-1",
+          "mulai": 160,
+          "durasi": 90
+        }
+      ]
+    },
+    {
+      "id": "a-musik",
+      "jenis": "audio",
+      "nama": "Musik latar",
+      "butir": [
+        {
+          "id": "musik-1",
+          "jenis": "audio",
+          "aset": "musik-1",
+          "mulai": 0,
+          "durasi": 450,
+          "ducking": {
+            "levelDb": -12,
+            "bebasDb": -6
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.5.1`
+- Version: `v1.6.0`
 - Last updated: `2026-11-07`
-- Changeset: `Penunjuk batasan narasi memuat TTS lokal opsional. Sebelumnya: menambahkan penunjuk batasan narasi dan caption.`
+- Changeset: `Menambahkan penunjuk batasan timeline. Sebelumnya: penunjuk batasan narasi memuat TTS lokal opsional.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -32,9 +32,14 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | Visual dan audiens (ukuran teks, palet buta warna, profil, efek) | [visual-audiens.md](visual-audiens.md#kesenjangan) |
 | Aset (gambar, logo, ikon, SVG, font, audio) | [aset.md](aset.md#batasan) |
 | Narasi dan caption sinkron (estimasi timing, mesin suara, TTS lokal opsional) | [narasi-caption.md](narasi-caption.md#batasan) |
+| Timeline deklaratif (`timeline.json`, validator; render menyusul) | [timeline.md](timeline.md#batasan) |
 | Mempelajari gaya video dan kutipan wajar | [pelajari-reaction.md](pelajari-reaction.md#batasan) |
 
 ## Changelog
+
+### 2026-11-07 - v1.6.0
+
+- Menambahkan penunjuk batasan timeline deklaratif.
 
 ### 2026-11-07 - v1.5.1
 

@@ -1,0 +1,66 @@
+{
+  "skema": 1,
+  "proyek": {
+    "tujuan": "nonkomersial",
+    "jenisVideo": "promo"
+  },
+  "aset": [
+    {
+      "id": "logo-contoh",
+      "jenis": "logo",
+      "berkas": "aset/logo-contoh.svg",
+      "sha256": "3d69cde932033b1697a11b12da6e13a87aa66177f3659a392e82f8b47fcfde96",
+      "judul": "Logo Contoh Karya",
+      "pencipta": "Proyek awvd",
+      "sumberUrl": "https://github.com/ahliweb/awvd",
+      "lisensi": "MILIK-SENDIRI",
+      "tanggalAkses": "2026-11-07",
+      "perubahan": "tidak ada (disalin dari templat aset-contoh)",
+      "atribusiTampil": "tidak",
+      "teksAlternatif": "Logo Contoh Karya (fiktif)",
+      "merek": {
+        "kategori": "milik-sendiri",
+        "pemilik": "Proyek awvd",
+        "aturan": {
+          "ukuranMinPx": 96,
+          "clearSpace": { "nilai": 0.25, "satuan": "tinggi" },
+          "warnaDiizinkan": ["#0b5fa5", "#1e9bd7", "#ffffff"],
+          "larangan": ["distorsi", "rotasi", "bayangan"]
+        }
+      },
+      "izin": { "jenis": "milik-sendiri" },
+      "ai": { "status": "tidak" },
+      "tampil": { "lebar": 360, "tinggi": 120, "fit": "contain" }
+    },
+    {
+      "id": "narasi-1",
+      "jenis": "audio",
+      "berkas": "aset/narasi-1.m4a",
+      "sha256": "f8ae65a45e13b801c4425af81cc3858b1a34f30734d79d09715070a04930b72d",
+      "judul": "Narasi contoh (nada 330 Hz)",
+      "pencipta": "Proyek awvd",
+      "sumberUrl": "https://github.com/ahliweb/awvd",
+      "lisensi": "CC0-1.0",
+      "tanggalAkses": "2026-11-07",
+      "perubahan": "tidak ada (dibangkitkan ffmpeg lavfi, bukan suara manusia)",
+      "atribusiTampil": "tidak",
+      "ai": { "status": "tidak" },
+      "audio": { "peran": "narasi" }
+    },
+    {
+      "id": "musik-1",
+      "jenis": "audio",
+      "berkas": "aset/musik-1.m4a",
+      "sha256": "c4ab70423b14fbaef80b7ee7f3b22386953d6456bbfcdc926a10669dd4d5e768",
+      "judul": "Musik contoh (akor sinus)",
+      "pencipta": "Proyek awvd",
+      "sumberUrl": "https://github.com/ahliweb/awvd",
+      "lisensi": "CC0-1.0",
+      "tanggalAkses": "2026-11-07",
+      "perubahan": "tidak ada (dibangkitkan ffmpeg lavfi, bukan musik pihak ketiga)",
+      "atribusiTampil": "tidak",
+      "ai": { "status": "tidak" },
+      "audio": { "peran": "musik" }
+    }
+  ]
+}

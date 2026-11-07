@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.6.0`
+- Version: `v1.7.0`
 - Last updated: `2026-11-07`
-- Changeset: `Paritas: text-to-speech berstatus ada sebagai adaptor opsional yang tidak dibundel (sherpa-onnx; Supertonic untuk Indonesia, Kokoro untuk Inggris). Sebelumnya: caption sinkron voice over berstatus sebagian.`
+- Changeset: `Paritas: timeline multitrack berstatus sebagian (validator timeline.json ada, render menyusul). Sebelumnya: text-to-speech berstatus ada sebagai adaptor opsional yang tidak dibundel.`
 
 ## Visi
 
@@ -82,7 +82,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Text-to-speech | ada sebagai adaptor opsional yang tidak dibundel ([narasi-caption.md](narasi-caption.md#tts-lokal-sherpa-onnx)); layanan daring dan suara kustom belum | F1/06C (selesai) |
 | Ducking, fade, kenyaringan | ada | — |
 | QC kenyaringan, kilatan, subtitle | ada ([pemeriksaan-mutu.md](pemeriksaan-mutu.md)) | — |
-| Timeline multitrack | belum | F2 |
+| Timeline multitrack | sebagian: format `timeline.json`, validator `bun run timeline periksa`, dan contoh ada ([timeline.md](timeline.md)); render ke video menyusul | F2/02 (selesai), F2/03 |
 | Trim, speed, reverse, freeze | sebagian (pemetaan frame manual) | F2/04 |
 | Keyframe generik | sebagian (`interpolasi`, `urutan`) | F2/06 |
 | Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-07 - v1.7.0
+
+- Paritas "Timeline multitrack" diubah menjadi sebagian (format, validator, dan contoh `timeline.json` ada, F2/02; render menyusul, F2/03).
 
 ### 2026-11-07 - v1.6.0
 

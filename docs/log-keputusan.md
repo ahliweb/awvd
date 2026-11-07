@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.12.0`
+- Version: `v1.13.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan KP-048 sampai KP-051 (nomor sementara): adaptor TTS lokal opsional, WAV beku berhash, label suara sintetis dan konten medis, normalisasi teks Indonesia. Sebelumnya: KP-036 sampai KP-039 tentang timing narasi.`
+- Changeset: `Menambahkan KP-BARU-1 sampai KP-BARU-4 (ID sementara; keputusan pemilik tentang timeline.json: frame bulat, transisi tumpang tindih, sumber tunggal jadwal dan fail-closed, OTIO bukan format asli). Sebelumnya: KP-048 sampai KP-051 tentang adaptor TTS lokal opsional.`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -33,6 +33,10 @@ flowchart TD
     KPT1 --> KPT2[KP-049 WAV beku berhash]
     KPT1 --> KPT3[KP-050 label sintetis dan konten medis]
     KPT1 --> KPT4[KP-051 normalisasi teks id]
+    KP3 -->|gerak dari nomor frame| KPW1[KP-BARU-1 waktu frame bulat]
+    KPW1 --> KPW2[KP-BARU-2 transisi tumpang tindih]
+    KPW1 --> KPW3[KP-BARU-3 timeline sumber tunggal]
+    KPW3 -.->|konverter ditunda| KPW4[KP-BARU-4 OTIO bukan format asli]
     KP15[KP-015 preset bertingkat bukti] -->|konflik lint caption| KP16[KP-016 preset sosial 20 cps]
     KP16 -->|alasan dikoreksi| KP19[KP-019 cps Netflix Indonesia]
     KP15 -->|bukti per atribut| KP20[KP-020 profil audiens dan helper visual]
@@ -91,8 +95,16 @@ flowchart TD
 | KP-049 | WAV TTS dibekukan per kalimat di cache berkunci SHA-256 (teks ternormalisasi, mesin, versi, model, speaker, kecepatan, langkah, perintah); SHA-256 WAV disahkan tiap dibaca dan ketidakcocokan menggagalkan proses; sintesis ulang hanya lewat `--sintesis-ulang`; mesin tidak diperlukan bila cache lengkap. Tiap kalimat dinormalkan ke -16 LUFS dan 48 kHz mono sebelum disambung dengan jeda senyap. | 2026-11-07 | Berlaku | Keluaran Supertonic dan Kokoro tidak identik antar-run dan CLI tidak punya seed (terukur pada riset: korelasi bentuk gelombang -0,03), jadi determinisme (KP-003, KP-037) hanya dapat dijaga dengan membekukan WAV. Selisih kenyaringan antar-suara sampai sekitar 6 LU; angka -16 LUFS mengikuti KP-004. | #69 |
 | KP-050 | Setiap video bersuara TTS wajib berlabel suara sintetis dan label tidak dapat dimatikan: `suara-kredit.json` dan `kredit-suara.txt` (kredit layar, deskripsi, metadata, lisensi). `jenisKonten: "medis"` ditolak untuk mesin dengan `larangMedis` (Supertonic); `kesehatan` dan teks yang tampak medis diperingatkan; konten medis memakai rekaman manusia atau layanan daring untuk konten publik. | 2026-11-07 | Berlaku | Keputusan pemilik 2026-11-07. OpenRAIL-M Supertonic mewajibkan pernyataan konten buatan mesin (butir e) dan melarang nasihat medis (butir l). awvd tidak dapat memaksa tayangan label; yang disediakan bahan label dan penolakan di sisi alat. Daftar kata medis hanya heuristik; edukasi kesehatan umum adalah wilayah abu-abu yang menunggu keputusan pemilik per konten. | #69 |
 | KP-051 | awvd memiliki modul normalisasi teks Indonesia sendiri (`scripts/normalisasi-id.mjs`: tanggal, jam, rupiah, persen, pasal, nomor, URL, surel, satuan, singkatan) yang mengisi `bacaan` otomatis untuk mesin TTS, dan memeriksa leksikon Kokoro: kata di luar leksikon menggagalkan sintesis (atau diperingatkan) alih-alih dilewati diam-diam. | 2026-11-07 | Berlaku | Uji putar-balik ASR riset awvd menunjukkan tanggal, pasal, URL, dan surel terbaca kacau oleh Supertonic, sedangkan angka yang dieja aman; sherpa-onnx 2.x melewati kata di luar leksikon tanpa galat (terbukti: "explains", "officers"). Cakupan normalisasi sengaja sempit dan dapat diperluas lewat `kamus`, bukan kamus lengkap. | #69 |
+| KP-BARU-1 | Waktu di `timeline.json` adalah frame bilangan bulat pada `proyek.fps` bulat; `mulai`, `durasi`, `dari`, dan `pada` semuanya frame, dan rentang butir setengah terbuka `[mulai, mulai + durasi)`. fps pecahan (29,97) ditunda ke skema 2. Pemetaan waktu klip memakai bilangan bulat permil. | 2026-11-07 | Berlaku | Tanpa pembulatan, satu satuan waktu di seluruh kode (`renderFrame(n)`, rencana audio, `susunAdegan`), pemeriksaan tumpang tindih pasti, dan `Math.floor(100 * 0.29)` yang salah (28, benarnya 29) tidak bisa terjadi. Keputusan pemilik setelah riset #30; konsekuensinya penulis menghitung frame (alat bantu konversi menyusul). | #30, #31, PR menyusul |
+| KP-BARU-2 | Transisi di timeline adalah tumpang tindih dua butir pada track `video` (objek `transisi` di butir masuk); panjang tumpang tindih wajib sama dengan `transisi.durasi`, tanpa objek = potong, dan hanya satu transisi aktif per frame di seluruh timeline. | 2026-11-07 | Berlaku | Identik dengan `susunAdegan` dan semua pemakaian `transisi.js`, tidak butuh handle di luar rentang trim, dan id filter SVG `transisi.js` bersifat global sehingga dua transisi bersamaan akan bertabrakan. Konsekuensinya durasi butir mencakup bagian yang tumpang tindih; dapat dilonggarkan kelak dengan id filter per track. Keputusan pemilik. | #30, #31, PR menyusul |
+| KP-BARU-3 | `timeline.json` adalah sumber tunggal jadwal: rencana audio, mulai klip, durasi, dan kebijakan kutipan diturunkan darinya (validator menghitung kebijakan kutipan dari durasi tampil dan menolak nilai manual di `sumber.json` yang bertentangan), dan audio klip bawaannya bisu (`audio.mode` yang tidak ditulis = `bisu`). Timeline merujuk media hanya lewat id di `aset.json` dan `sumber.json`, dan validasinya fail-closed (skema dibaca langsung dari `data/skema-timeline.json`, bidang dan versi skema asing ditolak, galat berlokasi JSON pointer, kode keluar 2). | 2026-11-07 | Berlaku | Menghilangkan jadwal ganda yang kini ada di empat tempat pada templat reaction; bawaan bisu mencegah suara tak sengaja dari klip pihak ketiga (risiko hak cipta musik). Fail-closed karena bidang yang diabaikan dapat meloloskan atribusi atau lisensi yang tak diperiksa; validator ditulis tangan tanpa dependensi (Ajv akan menambah dependensi runtime dan memberi pesan tak berlokasi). Keputusan pemilik; rincian di [timeline.md](timeline.md). | #30, #31, PR menyusul |
+| KP-BARU-4 | OpenTimelineIO bukan format asli awvd; konverter impor/ekspor opsional masuk backlog setelah F6. | 2026-11-07 | Berlaku | Skema belum teruji pemakaian nyata dan konversi menambah permukaan pemeliharaan; pustaka OTIO tidak bisa menjadi dependensi (Bun-only) dan sikap OTIO mengabaikan bidang tak dikenal bertentangan dengan fail-closed. Konsekuensinya tidak ada interoperabilitas dengan penyunting lain sampai backlog dikerjakan. Keputusan pemilik. | #30, PR menyusul |
 
 ## Changelog
+
+### 2026-11-07 - v1.13.0
+
+- Menambahkan KP-BARU-1 sampai KP-BARU-4 (ID sementara, akan dinomori ulang saat merge; keputusan pemilik tentang `timeline.json`).
 
 ### 2026-11-07 - v1.12.0
 

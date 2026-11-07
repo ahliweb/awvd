@@ -1,0 +1,45 @@
+{
+  "proyek": {
+    "tujuan": "nonkomersial"
+  },
+  "sumber": [
+    {
+      "id": "pola-a",
+      "berkas": "aset/klip-a.mkv",
+      "sha256": "4e9d5b820c4a7e0d000f6f9679f9c9068af83275384559315f41016eae8e06d0",
+      "judul": "Pola uji A (timeline contoh)",
+      "pencipta": "Proyek awvd",
+      "sumberUrl": "https://github.com/ahliweb/awvd",
+      "lisensi": "CC0-1.0",
+      "perubahan": "dibuat ffmpeg lavfi 3 detik; diperkecil ke 480x270; dibuat ulang per frame pada fps proyek"
+    },
+    {
+      "id": "pola-b",
+      "berkas": "aset/klip-b.mkv",
+      "sha256": "38783b98aa0ebb7ac0f5fe2a94a322e00c1135c10ccaaaee83064faaa7270021",
+      "judul": "Gradasi warna B (timeline contoh)",
+      "pencipta": "Proyek awvd",
+      "sumberUrl": "https://github.com/ahliweb/awvd",
+      "lisensi": "CC-BY-4.0",
+      "perubahan": "dibuat ffmpeg lavfi 4 detik; diperkecil ke 480x270; dibuat ulang per frame pada fps proyek"
+    }
+  ],
+  "klip": [
+    {
+      "id": "k1",
+      "sumber": "pola-a",
+      "lebar": 480,
+      "tinggi": 270,
+      "dari": 0,
+      "panjang": 3
+    },
+    {
+      "id": "k2",
+      "sumber": "pola-b",
+      "lebar": 480,
+      "tinggi": 270,
+      "dari": 0,
+      "panjang": 4
+    }
+  ]
+}
