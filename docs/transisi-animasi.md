@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.0.1`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru: modul scripts/transisi.js (window.Transisi): katalog 21 transisi dan 13 animasi elemen dengan makna dan kapan dipakai, helper, kustomisasi, profil audiens, kurangiGerak, aksesibilitas (SC 2.3.1, 2.3.3), biaya kompresi terukur, sumber, dan keterbatasan bukti.`
+- Changeset: `Keterbatasan --skala diperbarui: skala di bawah 1 kini deterministik (isu #26).`
 
 Referensi modul `scripts/transisi.js`, yang menyediakan `window.Transisi`: transisi antar adegan, animasi masuk/keluar/penekanan elemen, dan helper gerak. Modul ini mandiri dan terpisah dari `scripts/runtime.js` ([api-runtime.md](api-runtime.md)); runtime tetap kecil dan komposisi memuat modul ini hanya bila perlu. Galeri semua jenis ada di `templates/transisi-galeri/`. Aturan determinisme yang mendasarinya ada di [arsitektur.md](arsitektur.md#aturan-determinisme).
 
@@ -203,7 +203,7 @@ Temuan: ongkos bitrate dominan datang dari derau dan detail temporal (grain hidu
 - Angka profil `lansia` dan `anak`, ambang laju kamera, durasi minimum jenis berkilat, dan seluruh durasi bawaan non-Material adalah **keputusan desain**.
 - Klaim vestibular untuk zoom dan parallax bersandar pada WCAG 2.3.3 (dibaca langsung) dan tulisan praktisi (hanya dari ringkasan); tidak ada riset klinis yang dibaca.
 - Lolos `periksa` tidak menjamin aman bagi semua penonton fotosensitif.
-- Determinisme hanya diuji pada satu mesin dan satu build Chromium; lintas mesin belum diuji. `render.mjs --skala` selain 1 belum deterministik pada pengamatan (dua render rentang pendek menghasilkan `framemd5` berbeda, juga untuk `templates/contoh-dasar`); uji determinisme memakai skala 1. Fidelitas filter SVG pada `--skala` selain 1, `backdrop-filter`, `will-change`, dan rasio 9:16 (lebar/tinggi parametrik tetapi tidak dirender) belum diuji.
+- Determinisme hanya diuji pada satu mesin dan satu build Chromium; lintas mesin belum diuji. `render.mjs --skala` di bawah 1 sebelumnya tidak deterministik (isu #26) dan kini deterministik pada `templates/contoh-dasar` (uji regresi di `bun run uji`); uji determinisme transisi tetap memakai skala 1. Fidelitas filter SVG pada `--skala` selain 1, `backdrop-filter`, `will-change`, dan rasio 9:16 (lebar/tinggi parametrik tetapi tidak dirender) belum diuji.
 - `gangguan` meninggalkan jalur piksel berwarna di tepi kiri dan kanan bila adegan tidak terpotong `overflow: hidden`; `halaman` tanpa lengkung kertas; `bentuk` terbuka cepat karena easing `ditekankan`.
 - Pemeriksa otomatis `tunggal >= durasiBaca` dan integrasi `presetJenisVideo` dengan `konsep.json` belum ada.
 - Angka kompresi di atas hanya indikasi relatif.
@@ -220,6 +220,10 @@ Tingkat bukti: [standar], [pedoman industri], [riset empiris], [buku teks], [pra
 - [praktik], [keputusan desain] Jenis tanpa rujukan di katalog, seluruh angka profil dan preset, ambang kamera, dan durasi minimum jenis berkilat.
 
 ## Changelog
+
+### 2026-11-07 - v1.0.1
+
+- Koreksi catatan keterbatasan `--skala` setelah perbaikan renderer.
 
 ### 2026-11-07 - v1.0.0
 

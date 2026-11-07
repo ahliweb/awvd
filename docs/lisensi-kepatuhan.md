@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.3.0`
+- Version: `v1.3.1`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan bagian Video pihak ketiga dan kutipan wajar: awvd tidak menyediakan pengunduh platform, hanya berkas sah dengan manifest, KUTIPAN-WAJAR sebagai klaim pengecualian (bukan lisensi) dengan gerbang hukum GH, dan peringatan bukan nasihat hukum.`
+- Changeset: `Menyebut LUT warna sebagai aset yang berlisensi (rujukan ke olah-klip.md). Sebelumnya: menambahkan bagian Video pihak ketiga dan kutipan wajar: awvd tidak menyediakan pengunduh platform, hanya berkas sah dengan manifest, KUTIPAN-WAJAR sebagai klaim pengecualian (bukan lisensi) dengan gerbang hukum GH, dan peringatan bukan nasihat hukum.`
 
 Catatan hukum di dokumen ini bukan nasihat hukum.
 
@@ -26,7 +26,9 @@ Catatan hukum di dokumen ini bukan nasihat hukum.
 
 ## Tanggung jawab pengguna atas aset
 
-Font, musik (`--audio`), gambar, footage, klip tertanam, dan suara TTS wajib berlisensi jelas dan dicatat sumbernya (klip tertanam divalidasi `klip.mjs`). Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
+Font, musik (`--audio`), gambar, footage, klip tertanam, LUT warna (`.cube`), dan suara TTS wajib berlisensi jelas dan dicatat sumbernya (klip tertanam divalidasi `klip.mjs`). Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
+
+LUT warna dari pihak ketiga tunduk pada lisensinya sendiri (lihat [olah-klip.md](olah-klip.md#lisensi-dan-atribusi)).
 
 Syarat lisensi sumber klip tertanam (CC BY, BY-SA, BY-NC, CC0, PDM, stok) dan lisensi keluaran ada di [video-tertanam-audio.md](video-tertanam-audio.md#aturan-sumber).
 
@@ -64,6 +66,10 @@ Ringkasan dari [AGENTS.md](../AGENTS.md) §Lisensi dan Aset:
 - Atribusi mulberry32 di `scripts/runtime.js` dipertahankan.
 
 ## Changelog
+
+### 2026-11-07 - v1.3.1
+
+- Menyebut LUT warna sebagai aset berlisensi di Tanggung jawab pengguna atas aset.
 
 ### 2026-11-07 - v1.3.0
 

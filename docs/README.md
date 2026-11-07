@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Version: `v1.6.0`
+- Version: `v1.7.0`
 - Last updated: `2026-11-07`
 - Changeset: `Mendaftarkan narasi-caption.md (naskah.json, bun run narasi, caption sinkron voice over) dan memperbarui versi dokumen yang berubah; tabel kini memuat 19 dokumen docs/.`
 
@@ -14,25 +14,26 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [arsitektur.md](arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`/`renderFrame`, pemblokiran jaringan, aturan determinisme, peran upstream, memakai awvd di repo proyek | `v1.1.0` |
-| [api-runtime.md](api-runtime.md) | Referensi seluruh API `scripts/runtime.js`, mode URL, sumber riset helper | `v1.2.0` |
+| [arsitektur.md](arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`/`renderFrame`, pemblokiran jaringan, aturan determinisme, peran upstream, memakai awvd di repo proyek | `v1.1.1` |
+| [api-runtime.md](api-runtime.md) | Referensi seluruh API `scripts/runtime.js`, mode URL, sumber riset helper | `v1.3.0` |
 | [cli.md](cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode BT.709, kenyaringan, daftar perintah lain | `v1.3.0` |
-| [aset.md](aset.md) | `bun run aset`: manifest `aset.json`, matriks lisensi, SVG berdaftar-izin, resolusi, sRGB, atribusi, rencana helper runtime | `v1.0.0` |
+| [aset.md](aset.md) | `bun run aset`: manifest `aset.json`, matriks lisensi, SVG berdaftar-izin, resolusi, sRGB, atribusi, helper runtime (logo, ikon, kredit, font) | `v1.1.0` |
 | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) | `bun run periksa` (termasuk `--konsep`): pemeriksaan, ambang, kilatan fotosensitif | `v1.0.1` |
 | [konsep-jenis-alur.md](konsep-jenis-alur.md) | `bun run konsep`, `konsep.json`, 13 jenis video, 5 alur produksi, tingkat bukti, profil audiens | `v1.1.0` |
 | [sop.md](sop.md) | SOP sebagai dokumen cetak (PermenPAN-RB 35/2012) dan bahan video | `v1.0.0` |
-| [video-tertanam-audio.md](video-tertanam-audio.md) | Video di dalam video (lisensi sumber, `klip.mjs`) dan timeline audio (`audio.mjs`) | `v1.2.0` |
-| [narasi-caption.md](narasi-caption.md) | `bun run narasi`: skema `naskah.json`, estimasi timing berjangkar jeda, cue VTT/SRT dengan lint cps profil audiens, rencana audio, mesin suara pluggable | `v1.0.0` |
+| [video-tertanam-audio.md](video-tertanam-audio.md) | Video di dalam video (lisensi sumber, `klip.mjs`) dan timeline audio (`audio.mjs`) | `v1.3.0` |
+| [olah-klip.md](olah-klip.md) | Efek klip saat ekstraksi: `klip[].efek` (LUT `.cube`, warna, keseimbangan), rantai ffmpeg, kunci cache, LUT identitas, titik perluasan | `v1.0.0` |
 | [pelajari-reaction.md](pelajari-reaction.md) | `bun run pelajari` (statistik gaya), kebijakan kutipan wajar, gerbang hukum GH, templat reaction, dasar hukum ringkas (bukan nasihat hukum) | `v1.0.0` |
 | [visual-audiens.md](visual-audiens.md) | Profil audiens, ukuran teks, buta warna dan jarak warna, ketajaman (garis 2 px, 4:2:0, supersampling), efek dekoratif | `v1.0.0` |
-| [transisi-animasi.md](transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, kustomisasi, profil dan `kurangiGerak`, biaya kompresi | `v1.0.0` |
+| [transisi-animasi.md](transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, kustomisasi, profil dan `kurangiGerak`, biaya kompresi | `v1.0.1` |
 | [aksesibilitas.md](aksesibilitas.md) | Subtitle, kontras, kilatan, kontrol pratinjau, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.4.0` |
 | [batasan.md](batasan.md) | Batasan yang diketahui dan penunjuk ke batasan per fitur | `v1.5.0` |
-| [lisensi-kepatuhan.md](lisensi-kepatuhan.md) | Lisensi MIT, asal kode, pihak ketiga, tanggung jawab atas aset, matriks lisensi aset, video pihak ketiga dan kutipan wajar | `v1.3.0` |
+| [lisensi-kepatuhan.md](lisensi-kepatuhan.md) | Lisensi MIT, asal kode, pihak ketiga, tanggung jawab atas aset, matriks lisensi aset, video pihak ketiga dan kutipan wajar | `v1.3.1` |
 | [pedoman-produksi.md](pedoman-produksi.md) | Pedoman produksi berbasis riset, dipetakan ke fitur awvd, checklist, rencana | `v1.1.0` |
-| [roadmap.md](roadmap.md) | Roadmap: visi, fase F1–F6 dan kriteria keluarnya, paritas fitur, label dan milestone GitHub | `v1.1.0` |
-| [log-keputusan.md](log-keputusan.md) | Log keputusan awvd (KP-001 dst.) beserta alasan dan rujukan PR | `v1.5.0` |
-| [README.md](README.md) | Indeks ini | `v1.6.0` |
+| [roadmap.md](roadmap.md) | Roadmap: visi, fase F1–F6 dan kriteria keluarnya, paritas fitur, label dan milestone GitHub | `v1.2.0` |
+| [log-keputusan.md](log-keputusan.md) | Log keputusan awvd (KP-001 dst.) beserta alasan dan rujukan PR | `v1.7.0` |
+| [narasi-caption.md](narasi-caption.md) | `bun run narasi`: skema `naskah.json`, estimasi timing berjangkar jeda, cue VTT/SRT dengan lint cps profil audiens, rencana audio, mesin suara pluggable | `v1.0.0` |
+| [README.md](README.md) | Indeks ini | `v1.7.0` |
 
 ## Peta dokumen
 
@@ -48,6 +49,7 @@ flowchart TD
     CLI --> QC[pemeriksaan-mutu]
     CLI --> KLP[video-tertanam-audio]
     KLP --> PLJ[pelajari-reaction]
+    KLP --> OLH[olah-klip]
     KLP --> NAR[narasi-caption]
     NAR --> AKS
     PLJ --> LIS
@@ -83,9 +85,21 @@ flowchart TD
 
 ## Changelog
 
-### 2026-11-07 - v1.6.0
+### 2026-11-07 - v1.7.0
 
 - Mendaftarkan `narasi-caption.md` (v1.0.0); indeks kini memuat 19 dokumen. Versi dokumen yang berubah: `video-tertanam-audio.md` v1.2.0, `cli.md` v1.3.0, `aksesibilitas.md` v1.4.0, `batasan.md` v1.5.0, `roadmap.md` v1.1.0, `log-keputusan.md` v1.5.0.
+
+### 2026-11-07 - v1.6.0
+
+- Mendaftarkan `olah-klip.md` (v1.0.0); indeks kini memuat 19 dokumen. Versi `video-tertanam-audio.md` v1.2.0, `log-keputusan.md` v1.5.0, `lisensi-kepatuhan.md` v1.3.1, dan `roadmap.md` v1.1.0 diperbarui.
+
+### 2026-11-07 - v1.5.2
+
+- Memperbarui versi dokumen yang berubah di tabel indeks (`arsitektur.md` v1.1.1, `cli.md` v1.2.1, `transisi-animasi.md` v1.0.1, `batasan.md` v1.4.1).
+
+### 2026-11-07 - v1.5.1
+
+- Kolom Versi dan deskripsi baris `aset.md` diperbarui untuk helper runtime aset (`api-runtime.md` v1.3.0, `aset.md` v1.1.0, `aksesibilitas.md` v1.3.1, `roadmap.md` v1.0.1, `log-keputusan.md` v1.5.0).
 
 ### 2026-11-07 - v1.5.0
 

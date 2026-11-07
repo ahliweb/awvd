@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.2.0`
 - Last updated: `2026-11-07`
 - Changeset: `Paritas: caption sinkron voice over berstatus sebagian (naskah.json, estimasi timing, cue VTT/SRT selesai; mode tampil caption belum).`
 
@@ -74,7 +74,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Grafik data, tabel, angka, rupiah | ada ([api-runtime.md](api-runtime.md)) | — |
 | SOP dan diagram alir | ada ([sop.md](sop.md)) | — |
 | Gambar, Ken Burns | ada | — |
-| Logo, ikon, aset berlisensi | sebagian: CLI aset ada ([aset.md](aset.md)), helper runtime belum | F1/03 (selesai), F1/04 |
+| Logo, ikon, aset berlisensi | ada: CLI aset dan helper runtime ([aset.md](aset.md#helper-runtime)); uji-tayang per frame dan Lottie belum | F1/03 (selesai), F1/04 (selesai) |
 | Video di dalam video | ada ([video-tertanam-audio.md](video-tertanam-audio.md)) | — |
 | Reaction dan kutipan wajar | ada ([pelajari-reaction.md](pelajari-reaction.md)) | F1/05 (selesai) |
 | Pemeriksa visual dan profil audiens | ada ([visual-audiens.md](visual-audiens.md)) | F1/01 (selesai) |
@@ -85,7 +85,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Timeline multitrack | belum | F2 |
 | Trim, speed, reverse, freeze | sebagian (pemetaan frame manual) | F2/04 |
 | Keyframe generik | sebagian (`interpolasi`, `urutan`) | F2/06 |
-| Filter dan LUT warna | belum | F3/01 |
+| Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
 | Chroma key | belum | F3/02 |
 | Stabilisasi | belum | F3/03 |
 | Peredam bising, pengubah suara | belum | F3/04 |
@@ -113,9 +113,17 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 
 ## Changelog
 
-### 2026-11-07 - v1.1.0
+### 2026-11-07 - v1.2.0
 
 - Tabel paritas: caption sinkron voice over menjadi sebagian (F1/06A selesai).
+
+### 2026-11-07 - v1.1.0
+
+- Paritas "Filter dan LUT warna" diubah menjadi ada (F3/01: `klip[].efek` jenis `lut`, `warna`, `keseimbangan`).
+
+### 2026-11-07 - v1.0.1
+
+- Baris paritas Logo, ikon, aset berlisensi: helper runtime aset ada (F1/04 selesai); uji-tayang per frame dan Lottie belum.
 
 ### 2026-11-07 - v1.0.0
 

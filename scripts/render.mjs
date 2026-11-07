@@ -89,6 +89,10 @@ function angka(nama, nilai, { min = -Infinity, bulat = false } = {}) {
   return n;
 }
 const skala = angka("skala", o.skala, { min: 0.1 });
+// Skala < 1 TIDAK ditangkap Chromium pada ukuran kecil: clip.scale < 1 menghasilkan raster yang
+// berbeda +-1 pada batas tile secara acak antar jalankan (#26). Tangkap pada skala 1 (deterministik)
+// lalu perkecil dengan ffmpeg (lanczos). Skala >= 1 tetap lewat clip.scale (raster tajam).
+const skalaRaster = Math.max(skala, 1);
 const crf = angka("crf", o.crf, { min: 0, bulat: true });
 if (crf > 51) gagal("--crf harus 0..51", 2);
 const dariOpt = angka("dari", o.dari, { min: 0, bulat: true });
@@ -202,6 +206,9 @@ async function ukurAkhir(file) {
   return { I: angka(I[1]), TP: angka(TP[1]) };
 }
 
+// Filter perkecil deterministik (swscale lanczos, pembulatan akurat) untuk skala < 1.
+const filterPerkecil = (w, h) => `scale=${w}:${h}:flags=lanczos+accurate_rnd+full_chroma_int`;
+
 function bangunFfmpeg({ fps, dari, w, h, filterKenyaringan }) {
   const a = ["-hide_banner", "-loglevel", "error", "-y", "-f", "image2pipe", "-framerate", String(fps), "-c:v", "png", "-i", "-"];
   const offsetDetik = (dari / fps).toFixed(6);
@@ -222,7 +229,9 @@ function bangunFfmpeg({ fps, dari, w, h, filterKenyaringan }) {
   if (idxSub >= 0) a.push("-map", `${idxSub}:s:0`);
   // Crop dulu: dimensi ganjil dipotong 1 px ke genap (yuv420p mewajibkan genap).
   // Lalu RGB penuh (PNG sRGB dari browser) -> YUV BT.709 rentang TV, eksplisit.
-  a.push("-vf", "crop=trunc(iw/2)*2:trunc(ih/2)*2,scale=in_range=full:out_range=tv:out_color_matrix=bt709,format=yuv420p,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709");
+  // Skala < 1: perkecil dari tangkapan skala 1 ke w x h (RGB, sebelum konversi warna).
+  const perkecil = skala < 1 ? `${filterPerkecil(w, h)},` : "";
+  a.push("-vf", `${perkecil}crop=trunc(iw/2)*2:trunc(ih/2)*2,scale=in_range=full:out_range=tv:out_color_matrix=bt709,format=yuv420p,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709`);
   // Profil sesuai YouTube Help "Recommended upload encoding settings": H.264 High,
   // 4:2:0, progresif, B-frame 2, GOP tertutup = setengah fps, SDR BT.709.
   a.push(
@@ -304,6 +313,17 @@ async function pasangPemblokiranJaringan(context, asalKomposisi) {
     catat("WS", ws.url(), "websocket");
     ws.close({ code: 1008, reason: "diblokir awvd" });
   });
+}
+
+// Perkecil satu PNG lewat ffmpeg (jalur yang sama dengan mode video; deterministik).
+async function perkecilPng(buf, w, h) {
+  const p = Bun.spawn(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "image2pipe", "-c:v", "png", "-i", "-",
+    "-vf", filterPerkecil(w, h), "-frames:v", "1", "-f", "image2pipe", "-c:v", "png", "-"], { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
+  p.stdin.write(buf);
+  await p.stdin.end();
+  const [keluar, galat, kode] = await Promise.all([new Response(p.stdout).arrayBuffer(), new Response(p.stderr).text(), p.exited]);
+  if (kode !== 0) throw new Error(`ffmpeg gagal memperkecil still (exit ${kode}):\n${galat.trim()}`);
+  return Buffer.from(keluar);
 }
 
 // ------------------------------------------------------------------------ main
@@ -410,8 +430,8 @@ try {
     const { data } = await cdp.send("Page.captureScreenshot", {
       format: "png",
       optimizeForSpeed: true,
-      // skala lewat clip.scale: layout tetap w x h, raster dibuat ulang tajam pada ukuran akhir
-      clip: { x: 0, y: 0, width: cfg.width, height: cfg.height, scale: skala },
+      // skala >= 1 lewat clip.scale: layout tetap w x h, raster dibuat ulang tajam pada ukuran akhir
+      clip: { x: 0, y: 0, width: cfg.width, height: cfg.height, scale: skalaRaster },
     });
     periksaJaringan();
     return Buffer.from(data, "base64");
@@ -420,7 +440,8 @@ try {
   // ------------------------------------------------------------ mode --still
   if (stillOpt !== undefined) {
     if (stillOpt >= dur) throw new Error(`--still ${stillOpt} di luar 0..${dur - 1}`);
-    const buf = await ambil(stillOpt);
+    let buf = await ambil(stillOpt);
+    if (skala < 1) buf = await perkecilPng(buf, Math.round(cfg.width * skala), Math.round(cfg.height * skala));
     await Bun.write(o.out, buf);
     console.error(`still frame ${stillOpt} -> ${o.out} (${(statSync(o.out).size / 1024).toFixed(0)} KB, ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
   } else {
