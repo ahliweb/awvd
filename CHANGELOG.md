@@ -16,6 +16,8 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/). Ve
 - Pedoman orchestrator di AGENTS.md beserta subagent `.claude/agents/pelaksana-kompleks.md` dan `pelaksana-sederhana.md`; bagian Skill, Git dan PR, serta Rilis dan Deployment.
 - README: bagian Klasifikasi repo dan Rilis.
 - Renderer: flag `--kenyaringan <web|siaran|mati>` (bawaan `web` bila ada `--audio`): normalisasi `loudnorm` dua-pass linear, web -16 LUFS / -1,5 dBTP, siaran -23 LUFS / -1 dBTP (EBU R 128). Setelah encode, kenyaringan hasil dilaporkan (`kenyaringan: I=.. LUFS, TP=.. dBTP`). Uji (i) dan penegasan baru di (a) dan (e).
+- Helper runtime generik di `scripts/runtime.js` (murni dan deterministik; global dan `window.VideoTerprogram`): `areaAman` (area aksi 93% dan grafis 90%, EBU R 95), `ms` dan `durasi` (preset milidetik, token Material Design 3), preset `easing` `standar`/`percepat`/`perlambat`/`ditekankanMasuk`/`ditekankanKeluar`, `luminansRelatif`/`kontras`/`pilihTeksKontras` (WCAG 2.2 SC 1.4.3), `durasiBaca`, `pecahBaris`, `captionAktif` beserta `parseVtt`/`parseSrt` (burn-in caption deterministik di DOM), dan `berjenjang` (stagger). Easing dan API lama tidak berubah. Memengaruhi repo proyek: helper baru tersedia setelah naik versi, tanpa perubahan wajib.
+- Uji unit `scripts/uji-runtime.mjs` (script `bun run uji:runtime`); `bun run uji` menjalankannya lebih dulu, lalu uji renderer.
 
 ### Diubah
 
