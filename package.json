@@ -9,6 +9,7 @@
   },
   "scripts": {
     "render": "bun scripts/render.mjs",
-    "uji": "bun scripts/uji.mjs"
+    "uji": "bun scripts/uji-runtime.mjs && bun scripts/uji.mjs",
+    "uji:runtime": "bun scripts/uji-runtime.mjs"
   }
 }

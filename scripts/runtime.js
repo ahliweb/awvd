@@ -32,6 +32,20 @@
  *   fade(frame, durasiTotal, { masuk = 15, keluar = 15 }) -> opasitas 0..1
  *   acak(seed) -> fungsi () => angka [0,1) deterministik
  *
+ *   Helper generik (semuanya fungsi murni, tanpa Date/Math.random/timer):
+ *   easing.{standar, percepat, perlambat, ditekankanMasuk, ditekankanKeluar}
+ *                                  preset kurva bezier (token Material Design 3)
+ *   durasi.{pendek, sedang, panjang, sangatPanjang, masuk, keluar}  (milidetik)
+ *   ms(milidetik, fps) -> jumlah frame (dibulatkan, minimal 1 bila input > 0)
+ *   berjenjang(frame, indeks, { mulai = 0, jeda = 6 }) -> frame lokal elemen ke-indeks
+ *   areaAman(lebar, tinggi) -> { aksi: {x,y,w,h}, grafis: {x,y,w,h} }  (EBU R 95)
+ *   luminansRelatif(warna), kontras(a, b), pilihTeksKontras(latar)     (WCAG 2.2 SC 1.4.3)
+ *                                  warna = [r,g,b] 0..255 atau "#rgb"/"#rrggbb"
+ *   durasiBaca(teks, { cps = 17, min = 5/6, maks = 7, fps }) -> { detik[, frame] }
+ *   pecahBaris(teks, { maks = 42, baris = 2 }) -> array baris; properti .melebihi
+ *   captionAktif(cues, frame, fps) -> cue aktif atau null
+ *   parseVtt(teks), parseSrt(teks) -> [{ mulai, akhir, teks }] (detik)
+ *
  * MODE
  *   Tanpa query  : diam menunggu renderer (dipakai render.mjs).
  *   ?preview     : putar real-time (rAF, fps komposisi) + slider + play/pause.
@@ -92,6 +106,13 @@
       };
     },
   };
+
+  // Preset easing bernama (token easing Material Design 3), dibangun dari bezier di atas.
+  easing.standar = easing.bezier(0.2, 0, 0, 1);
+  easing.percepat = easing.bezier(0.3, 0, 1, 1);
+  easing.perlambat = easing.bezier(0, 0, 0, 1);
+  easing.ditekankanMasuk = easing.bezier(0.05, 0.7, 0.1, 1);
+  easing.ditekankanKeluar = easing.bezier(0.3, 0, 0.8, 0.15);
 
   // ------------------------------------------------------------ interpolasi
   // Pemetaan piecewise-linear dari rentang `masukan` (naik monoton) ke `keluaran`.
@@ -196,6 +217,294 @@
     }
     return h >>> 0;
   }
+
+  // ------------------------------------------------------- waktu: ms, durasi
+  function cekPositif(fn, nama, v) {
+    if (typeof v !== "number" || !isFinite(v) || v <= 0) {
+      throw new Error(fn + ": '" + nama + "' harus angka positif");
+    }
+  }
+
+  // Milidetik -> jumlah frame (dibulatkan ke terdekat). Input > 0 selalu menghasilkan
+  // minimal 1 frame; input 0 menghasilkan 0.
+  function ms(milidetik, fps) {
+    cekPositif("ms", "fps", fps);
+    var n = Math.round((milidetik * fps) / 1000);
+    if (milidetik > 0 && n < 1) n = 1;
+    return n || 0; // hindari -0
+  }
+
+  // Preset durasi gerak dalam milidetik. pendek..sangatPanjang mengikuti token durasi
+  // Material Design 3 (150/300/500/800); masuk sedikit lebih lama dari keluar
+  // (NN/g, Laubheimer 2020). Pakai bersama ms(): ms(durasi.sedang, ctx.fps).
+  var durasi = {
+    pendek: 150,
+    sedang: 300,
+    panjang: 500,
+    sangatPanjang: 800,
+    masuk: 300,
+    keluar: 200,
+  };
+
+  // Frame lokal elemen ke-`indeks` pada animasi berjenjang (stagger satu ide per beat).
+  function berjenjang(frame, indeks, opsi) {
+    opsi = opsi || {};
+    var mulai = opsi.mulai == null ? 0 : opsi.mulai;
+    var jeda = opsi.jeda == null ? 6 : opsi.jeda;
+    return frame - mulai - indeks * jeda;
+  }
+
+  // ------------------------------------------------------------- area aman
+  // EBU R 95 v1.1 (2017) catatan 5: area aksi 93% (margin 3,5% per sisi) dan area
+  // grafis 90% (margin 5% per sisi), dipusatkan. Margin tiap sisi dibulatkan ke piksel
+  // bulat terdekat (setengah naik) dengan aritmetika bilangan bulat (lebar*35/1000), lalu
+  // diterapkan simetris: x = margin, w = lebar - 2*margin (idem y, h). Contoh 1920x1080:
+  // aksi {x:67, y:38, w:1786, h:1004}; grafis {x:96, y:54, w:1728, h:972}.
+  function areaAman(lebar, tinggi) {
+    cekPositif("areaAman", "lebar", lebar);
+    cekPositif("areaAman", "tinggi", tinggi);
+    function kotak(permil) {
+      var mx = Math.round((lebar * permil) / 1000);
+      var my = Math.round((tinggi * permil) / 1000);
+      return { x: mx, y: my, w: lebar - 2 * mx, h: tinggi - 2 * my };
+    }
+    return { aksi: kotak(35), grafis: kotak(50) };
+  }
+
+  // ---------------------------------------------------------------- kontras
+  // WCAG 2.2 SC 1.4.3. Warna: [r,g,b] 0..255 atau string "#rgb" / "#rrggbb".
+  function uraiWarna(w, fn) {
+    if (Array.isArray(w) && w.length >= 3) {
+      var rgb = [w[0], w[1], w[2]];
+      for (var i = 0; i < 3; i++) {
+        if (typeof rgb[i] !== "number" || !isFinite(rgb[i]) || rgb[i] < 0 || rgb[i] > 255) {
+          throw new Error(fn + ": komponen warna harus angka 0..255");
+        }
+      }
+      return rgb;
+    }
+    if (typeof w === "string") {
+      var m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(w.trim());
+      if (m) {
+        var h = m[1];
+        if (h.length === 3) h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+        return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+      }
+    }
+    throw new Error(fn + ": warna harus [r,g,b] 0..255 atau '#rgb'/'#rrggbb'");
+  }
+
+  function linierSrgb(c) {
+    var v = c / 255;
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  }
+
+  // Luminansi relatif 0..1: L = 0,2126 R + 0,7152 G + 0,0722 B (komponen sudah linier).
+  function luminansRelatif(warna) {
+    var c = uraiWarna(warna, "luminansRelatif");
+    return 0.2126 * linierSrgb(c[0]) + 0.7152 * linierSrgb(c[1]) + 0.0722 * linierSrgb(c[2]);
+  }
+
+  // Rasio kontras 1..21: (L terang + 0,05) / (L gelap + 0,05). Tidak dibulatkan.
+  function kontras(a, b) {
+    var la = luminansRelatif(a), lb = luminansRelatif(b);
+    var terang = Math.max(la, lb), gelap = Math.min(la, lb);
+    return (terang + 0.05) / (gelap + 0.05);
+  }
+
+  // "#000000" atau "#ffffff", mana yang rasio kontrasnya lebih tinggi terhadap `latar`.
+  function pilihTeksKontras(latar) {
+    return kontras(latar, "#000000") > kontras(latar, "#ffffff") ? "#000000" : "#ffffff";
+  }
+
+  // ------------------------------------------------------------ teks / caption
+  // Karakter dihitung per code point; spasi berurutan dan pinggir dirapikan dulu.
+  function rapikan(teks) {
+    return String(teks == null ? "" : teks).replace(/\s+/g, " ").trim();
+  }
+  function panjangTeks(s) {
+    return Array.from(s).length;
+  }
+
+  // Lama tampil caption dari kecepatan baca: karakter (termasuk spasi) / cps, dijepit ke
+  // [min, maks] detik. Pedoman Netflix Timed Text Style Guide menghitung karakter dan
+  // membatasi 20 cps (dewasa) / 17 cps (anak); untuk bahasa Indonesia belum ada angka
+  // primer, jadi bawaan konservatif 17. Bila opsi.fps diberikan, hasil memuat `frame`.
+  function durasiBaca(teks, opsi) {
+    opsi = opsi || {};
+    var cps = opsi.cps == null ? 17 : opsi.cps;
+    var min = opsi.min == null ? 5 / 6 : opsi.min;
+    var maks = opsi.maks == null ? 7 : opsi.maks;
+    cekPositif("durasiBaca", "cps", cps);
+    if (!(min >= 0 && maks >= min)) throw new Error("durasiBaca: butuh 0 <= min <= maks");
+    var detik = clampNum(panjangTeks(rapikan(teks)) / cps, min, maks);
+    var hasil = { detik: detik };
+    if (opsi.fps != null) {
+      cekPositif("durasiBaca", "fps", opsi.fps);
+      hasil.frame = Math.max(1, Math.round(detik * opsi.fps));
+    }
+    return hasil;
+  }
+
+  var KATA_SAMBUNG = ["dan", "atau", "tetapi", "yang", "untuk", "dengan", "di", "ke",
+    "dari", "karena", "agar", "sehingga"];
+
+  // Memecah teks menjadi baris caption. Mengembalikan ARRAY string; array itu selalu
+  // punya properti `melebihi` (boolean): true bila teks tidak muat dalam `baris` baris
+  // berisi <= `maks` karakter. Dalam kasus itu array berisi seluruh teks yang dibungkus
+  // greedy (jumlah elemen bisa > `baris`; kata tunggal terpanjang dari `maks` tetap
+  // satu baris), sehingga tidak ada teks yang hilang. Teks kosong -> [].
+  // Bila muat satu baris -> satu elemen. Selain itu dipakai jumlah baris minimum, dan
+  // titik potong (di spasi) dipilih lewat urutan prioritas berikut (leksikografis):
+  //   1. semua baris <= maks (syarat mutlak);
+  //   2. baris atas tidak hanya 1-2 kata (bila ada alternatif);
+  //   3. sedikit potongan "biasa": potongan baik = setelah tanda baca , . ; : ? !
+  //      atau sebelum kata sambung (dan, atau, tetapi, yang, untuk, dengan, di, ke,
+  //      dari, karena, agar, sehingga);
+  //   4. sedikit pelanggaran piramida terbalik (baris bawah >= baris atas);
+  //   5. baris terpanjang sependek mungkin (seimbang); seri -> potong paling awal.
+  function pecahBaris(teks, opsi) {
+    opsi = opsi || {};
+    var maks = opsi.maks == null ? 42 : opsi.maks;
+    var nBaris = opsi.baris == null ? 2 : opsi.baris;
+    cekPositif("pecahBaris", "maks", maks);
+    if (typeof nBaris !== "number" || nBaris < 1 || nBaris % 1 !== 0) {
+      throw new Error("pecahBaris: 'baris' harus bilangan bulat >= 1");
+    }
+    function tandai(arr, melebihi) { arr.melebihi = melebihi; return arr; }
+
+    var rapi = rapikan(teks);
+    if (rapi === "") return tandai([], false);
+    var kata = rapi.split(" ");
+    var n = kata.length;
+    if (panjangTeks(rapi) <= maks) return tandai([rapi], false);
+
+    var awal = [0]; // awal[i] = jumlah karakter kata 0..i-1 beserta spasi pemisahnya
+    var terpanjang = 0;
+    for (var i = 0; i < n; i++) {
+      var p = panjangTeks(kata[i]);
+      if (p > terpanjang) terpanjang = p;
+      awal.push(awal[i] + p + 1);
+    }
+    function lebarBaris(a, b) { return awal[b] - awal[a] - 1; } // kata a..b-1
+    function gabung(a, b) { return kata.slice(a, b).join(" "); }
+
+    // Bungkus greedy: jumlah baris minimum (juga cadangan saat tidak muat).
+    var greedy = [];
+    for (var s = 0; s < n;) {
+      var e = s + 1;
+      while (e < n && lebarBaris(s, e + 1) <= maks) e++;
+      greedy.push(gabung(s, e));
+      s = e;
+    }
+    var m = greedy.length;
+    if (m > nBaris || terpanjang > maks) return tandai(greedy, true);
+
+    function potonganBaik(j) { // potong sebelum kata ke-j?
+      if (/[,.;:?!]$/.test(kata[j - 1])) return true;
+      var berikut = kata[j].toLowerCase().replace(/^[^a-z0-9]+/, "");
+      return KATA_SAMBUNG.indexOf(berikut) >= 0;
+    }
+    function kunci(titik) { // titik: indeks awal tiap baris, dimulai 0
+      var batas = titik.concat([n]);
+      var biasa = 0, pir = 0, panjangMaks = 0, prev = -1;
+      for (var k = 0; k < m; k++) {
+        var w = lebarBaris(batas[k], batas[k + 1]);
+        if (w > panjangMaks) panjangMaks = w;
+        if (k > 0) {
+          if (!potonganBaik(batas[k])) biasa++;
+          if (w < prev) pir++;
+        }
+        prev = w;
+      }
+      var pendek = m > 1 && batas[1] <= 2 ? 1 : 0;
+      return [pendek, biasa, pir, panjangMaks];
+    }
+    function lebihBaik(a, b) { // a lebih baik dari b (b boleh null)?
+      if (!b) return true;
+      for (var k = 0; k < a.length; k++) {
+        if (a[k] !== b[k]) return a[k] < b[k];
+      }
+      return false;
+    }
+
+    var terbaik = null, kunciTerbaik = null;
+    function telusuri(pos, sisa, titik) {
+      if (sisa === 1) {
+        if (lebarBaris(pos, n) > maks) return;
+        var kk = kunci(titik);
+        if (lebihBaik(kk, kunciTerbaik)) { kunciTerbaik = kk; terbaik = titik.slice(); }
+        return;
+      }
+      for (var j = pos + 1; j <= n - (sisa - 1); j++) {
+        if (lebarBaris(pos, j) > maks) break;
+        titik.push(j);
+        telusuri(j, sisa - 1, titik);
+        titik.pop();
+      }
+    }
+    telusuri(0, m, [0]);
+    if (!terbaik) return tandai(greedy, true); // tidak terjadi; jaga-jaga
+    var hasil = [], batasAkhir = terbaik.concat([n]);
+    for (var q = 0; q < m; q++) hasil.push(gabung(batasAkhir[q], batasAkhir[q + 1]));
+    return tandai(hasil, false);
+  }
+
+  // Cue aktif pada `frame`: mulai <= t < akhir dengan t = frame / fps (detik). Bila
+  // beberapa cue tumpang tindih, yang pertama dalam array. Tidak ada -> null.
+  function captionAktif(cues, frame, fps) {
+    cekPositif("captionAktif", "fps", fps);
+    var t = frame / fps;
+    for (var i = 0; i < cues.length; i++) {
+      if (cues[i].mulai <= t && t < cues[i].akhir) return cues[i];
+    }
+    return null;
+  }
+
+  // Timestamp "hh:mm:ss.mmm" / "mm:ss.mmm" (VTT) atau dengan koma (SRT) -> milidetik
+  // bilangan bulat, atau null. Detik dihitung dari milidetik bulat (ms / 1000) agar
+  // perbandingan di captionAktif tidak kena galat penjumlahan desimal.
+  function uraiWaktu(str) {
+    var m = /^(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{1,3})$/.exec(str);
+    if (!m) return null;
+    var frak = parseInt((m[4] + "00").slice(0, 3), 10);
+    return ((parseInt(m[1] || "0", 10) * 60 + parseInt(m[2], 10)) * 60 + parseInt(m[3], 10)) * 1000 + frak;
+  }
+  var POLA_WAKTU = /^\s*((?:\d+:)?\d{1,2}:\d{2}[.,]\d{1,3})\s*-->\s*((?:\d+:)?\d{1,2}:\d{2}[.,]\d{1,3})/;
+
+  // Penguraian bersama VTT/SRT: berkas dipecah menjadi blok (dipisah baris kosong);
+  // dalam tiap blok, baris berisi "-->" adalah baris waktu (pengaturan cue sesudah
+  // waktu akhir diabaikan), baris sebelumnya (nomor/id) diabaikan, baris sesudahnya
+  // adalah teks. Blok tanpa "-->" (header WEBVTT, NOTE, STYLE, REGION) dilewati.
+  // Tag penanda seperti <i>, <v Nama>, <00:00:01.000> dibuang dari teks.
+  function uraiCue(teks, entitas) {
+    var blok = String(teks == null ? "" : teks).replace(/^﻿/, "").split(/\r?\n[ \t]*\r?\n/);
+    var cues = [];
+    for (var b = 0; b < blok.length; b++) {
+      var baris = blok[b].split(/\r?\n/);
+      for (var i = 0; i < baris.length; i++) {
+        if (baris[i].indexOf("-->") < 0) continue;
+        var m = POLA_WAKTU.exec(baris[i]);
+        if (m) {
+          var t1 = uraiWaktu(m[1]), t2 = uraiWaktu(m[2]);
+          var isi = baris.slice(i + 1).join("\n")
+            .replace(/<\/?[A-Za-z][^<>]*>|<\d+:\d{2}[.,]\d{1,3}>/g, "");
+          if (entitas) {
+            isi = isi.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ")
+              .replace(/&amp;/g, "&");
+          }
+          isi = isi.replace(/^\s+|\s+$/g, "");
+          if (t1 != null && t2 != null && t2 > t1 && isi !== "") {
+            cues.push({ mulai: t1 / 1000, akhir: t2 / 1000, teks: isi });
+          }
+        }
+        break;
+      }
+    }
+    return cues;
+  }
+  function parseVtt(teks) { return uraiCue(teks, true); }
+  function parseSrt(teks) { return uraiCue(teks, false); }
 
   // ------------------------------------------------------------ defineVideo
   function injectBaseStyle() {
@@ -351,6 +660,18 @@
     urutan: urutan,
     fade: fade,
     acak: acak,
+    ms: ms,
+    durasi: durasi,
+    berjenjang: berjenjang,
+    areaAman: areaAman,
+    luminansRelatif: luminansRelatif,
+    kontras: kontras,
+    pilihTeksKontras: pilihTeksKontras,
+    durasiBaca: durasiBaca,
+    pecahBaris: pecahBaris,
+    captionAktif: captionAktif,
+    parseVtt: parseVtt,
+    parseSrt: parseSrt,
   };
   g.VideoTerprogram = api;
   Object.keys(api).forEach(function (k) { g[k] = api[k]; });
