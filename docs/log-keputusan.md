@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.4.0`
+- Version: `v1.5.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan KP-029 sampai KP-031: angka kebijakan kutipan wajar yang disetujui pemilik 2026-11-07, larangan pengunduh platform dan pemintas DRM, dan gerbang hukum GH berhash dengan tanda draf.`
+- Changeset: `Menambahkan KP-034 (efek klip diterapkan saat ekstraksi lewat registri efek dan kunci cache berhash) dan KP-035 (rumus warna eksplisit di RGB, bukan eq; interpolasi LUT bawaan tetrahedral); nomor KP menyusul saat merge.`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -25,6 +25,8 @@ flowchart TD
     KP11 -->|sumber KUTIPAN-WAJAR<br/>bukan lisensi| KP29[KP-029 angka kutipan wajar]
     KP30[KP-030 tanpa pengunduh<br/>platform] -->|hanya berkas sah| KP29
     KP29 -->|belum disetujui<br/>= ditolak atau draf| KP31[KP-031 gerbang hukum GH]
+    KP12 -->|efek di tahap ekstraksi| KPB1[KP-034 efek klip]
+    KPB1 --> KPB2[KP-035 rumus warna RGB]
     KP15[KP-015 preset bertingkat bukti] -->|konflik lint caption| KP16[KP-016 preset sosial 20 cps]
     KP16 -->|alasan dikoreksi| KP19[KP-019 cps Netflix Indonesia]
     KP15 -->|bukti per atribut| KP20[KP-020 profil audiens dan helper visual]
@@ -63,8 +65,14 @@ flowchart TD
 | KP-029 | Kebijakan kutipan wajar untuk video reaction dan ulasan memakai angka bawaan: tiap klip kutipan maksimum 15 detik; total kutipan per sumber maksimum 45 detik atau 15% durasi sumber (yang lebih kecil); total kutipan maksimum 25% durasi video baru; komentar atau narasi asli aktif minimum 90% dari durasi kutipan; audio musik sumber dibisukan secara bawaan (musik dibahas maksimum 10 detik). Proyek boleh memperketat dan tidak boleh melonggarkan tanpa catatan izin tertulis. Diperiksa `klip.mjs` dan `audio.mjs` sebelum ekstraksi dan Chromium. | 2026-11-07 | Berlaku | Disetujui pemilik 2026-11-07. Hukum tidak menetapkan angka (UU 28/2014 Pasal 44, 17 U.S.C. §107, Konvensi Bern Pasal 10 hanya menyebut tujuan dan kewajaran), jadi angka adalah pagar konservatif yang dapat diperiksa mesin; ia bukan jaminan bahwa kutipan sah dan bukan nasihat hukum. Komentar yang menyasar karya dan dominan menjadi inti penimbangan putusan acuan. | #57 |
 | KP-030 | awvd tidak menyediakan pengunduh dari platform mana pun, perekam layar atau penangkap stream, pemintas DRM, penghapus watermark, pengelak pencocokan otomatis, atau alat yang menyalin naskah, karakter, atau musik. Bahan hanya berkas lokal yang sah dimiliki dan dicatat di `sumber.json`; `bun run pelajari` hanya menghasilkan angka agregat dari berkas lokal dan menolak `--sumber-sah` `unduh-platform`, `rekam-layar-platform`, `rip-stream`, dan URL. | 2026-11-07 | Berlaku | Ketentuan layanan platform umumnya melarang pengunduhan dan akses otomatis di luar fitur resmi, dan UU 28/2014 Pasal 52 dan Pasal 7 ayat 3 melarang pemintasan sarana kontrol teknologi dan penghapusan informasi manajemen hak cipta. awvd tidak dapat memverifikasi asal berkas, sehingga hanya mencatat pernyataan pengguna dan menolak nilai yang jelas melanggar; ada uji yang menjaga agar tidak ada pengunduh di `scripts/`. | #57 |
 | KP-031 | Gerbang tinjauan hukum `GH` berada di manifest (`proyek.gerbangHukum` dengan status, peninjau, tanggal, memo, dan hash SHA-256 gabungan manifest dan memo), bukan di `data/alur-produksi.json`. Sumber `KUTIPAN-WAJAR` tanpa GH disetujui ditolak sebelum render final (kode keluar 2) atau diberi tanda draf dengan `klip.mjs --draf` (`props.draf`, pita DRAF di komposisi). Perubahan manifest atau memo membatalkan persetujuan. | 2026-11-07 | Berlaku | Gerbang harus bekerja untuk repo proyek yang tidak memakai alur produksi konsep, dan penegakannya harus terjadi sebelum Chromium tanpa mengubah `render.mjs`. Hash mengikat persetujuan pada isi yang ditinjau. GH hanya mencatat bahwa peninjauan terjadi; ia tidak menilai isi memo. | #57 |
+| KP-034 | Efek klip (LUT `.cube`, koreksi warna, keseimbangan warna) dideklarasikan di `klip[].efek` pada `sumber.json` dan diterapkan **sekali saat ekstraksi** dalam rantai ffmpeg di `klip.mjs`, bukan per frame di Chromium dan bukan lewat `runtime.js`. Registri jenis efek (`EFEK`) membuat jenis baru cukup satu entri; kunci cache memuat efek kanonik dan sha256 berkas LUT, efek netral dibuang, dan klip tanpa efek tidak berubah kuncinya. | 2026-11-07 | Berlaku | Frame klip sudah dibuat ulang per nomor frame oleh ffmpeg (KP-012), jadi satu kali pengolahan di sana murah, deterministik, dan di-cache; mengolah di Chromium berarti menimpa piksel tiap frame dan menambah risiko determinisme. Kunci yang memuat hash isi LUT mencegah cache basi saat LUT diedit dengan nama sama. Kekurangan: efek konstan sepanjang klip (tanpa keyframe), dan mengubah efek mengekstrak ulang. Skema tervalidasi fail-closed sebelum ffmpeg (kode keluar 2). | menyusul |
+| KP-035 | Koreksi `warna` memakai rumus eksplisit di RGB 8 bit (`lutrgb` untuk gamma, kontras, kecerahan; `colorchannelmixer` dengan luma Rec. 709 untuk saturasi), bukan filter `eq`; `lut3d` memakai interpolasi `tetrahedral` sebagai bawaan, `trilinear` tersedia untuk hasil bit-eksak pada LUT identitas. | 2026-11-07 | Berlaku | Pengukuran ffmpeg 6.1 pada klip uji: `eq` pada RGB planar mengubah piksel walau parameter netral (PSNR 51,6 dB terhadap masukan) dan `saturation=0` menghasilkan abu-abu tak murni (93 96 93 pada hijau murni); lewat YUV 4:4:4 8 bit masih meleset hingga 3 level (53,7 dB) karena pembulatan. Rumus eksplisit netral secara eksak, abu-abu murni pada saturasi 0, dan terdokumentasi. Tetrahedral adalah bawaan ffmpeg dan lebih setia pada sumbu abu-abu, tetapi membulatkan float sehingga identitas tidak bit-eksak (82,6 dB PNG, ~65 dB JPEG); trilinear identik byte demi byte. | menyusul |
 
 ## Changelog
+
+### 2026-11-07 - v1.5.0
+
+- Menambahkan KP-034 dan KP-035 (efek warna klip saat ekstraksi); ID sementara, rujukan PR menyusul.
 
 ### 2026-11-07 - v1.4.0
 

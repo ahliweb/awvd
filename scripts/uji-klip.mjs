@@ -11,8 +11,9 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
-  kreditLengkap, namaLisensi, sha256Berkas, validasiManifest,
+  kreditLengkap, namaLisensi, periksaEfek, sha256Berkas, uraiCube, validasiManifest,
 } from "./klip.mjs";
+import { LUT, bangkitkanCube } from "../templates/klip-tertanam/buat-lut.mjs";
 import {
   batasiKemiringan, ekspresiEnvelope, tabelPemegang, titikPatah, validasiRencana,
 } from "./audio.mjs";
@@ -71,6 +72,22 @@ async function psnr(a, b) {
   tegas(m, `psnr tidak terbaca: ${r.err}`);
   return m[1] === "inf" ? Infinity : Number(m[1]);
 }
+// PSNR per kanal antara dua deret frame (pola %06d.jpg): { r, g, b, rata }; inf = identik
+async function psnrKanal(pola1, pola2) {
+  const r = await jalankan(["ffmpeg", "-hide_banner", "-nostats", "-i", pola1, "-i", pola2, "-lavfi",
+    "[0:v]format=gbrp[a];[1:v]format=gbrp[b];[a][b]psnr", "-f", "null", "-"]);
+  tegas(r.kode === 0, `psnr gagal: ${r.err}`);
+  const m = /PSNR r:(\S+) g:(\S+) b:(\S+) average:(\S+)/.exec(r.err);
+  tegas(m, `psnr tidak terbaca: ${r.err}`);
+  const n = (x) => (x === "inf" ? Infinity : Number(x));
+  return { r: n(m[1]), g: n(m[2]), b: n(m[3]), rata: n(m[4]) };
+}
+// byte RGB mentah satu frame JPEG
+async function pikselRgb(jpg) {
+  const tujuan = `${jpg}.rgb`;
+  await ffmpeg("-i", jpg, "-f", "rawvideo", "-pix_fmt", "rgb24", tujuan);
+  return readFileSync(tujuan);
+}
 async function probeAudio(berkas) {
   const r = await jalankan(["ffprobe", "-v", "error", "-select_streams", "a:0",
     "-show_entries", "stream=sample_rate,channels,duration_ts,codec_name", "-of", "json", berkas]);
@@ -112,7 +129,7 @@ async function klipDengan(nama, ubah, ekstra = []) {
   tulisJson(berkas, m);
   const out = j(`out-${nama}`);
   const r = await bun(klipMjs, berkas, "--fps", "30", "--out", out, ...ekstra);
-  return { ...r, out, berkas };
+  return { ...r, teks: r.out, out, berkas }; // teks = stdout klip.mjs; out = folder keluaran
 }
 
 const uji = [];
@@ -554,6 +571,208 @@ daftar("(i) templat klip-tertanam: sumber.json valid, jadwal props = rencana aud
   r = await bun(renderMjs, join(templat, "index.html"), "--still", "150", "--out", j("templat-tanpa-props.png"));
   samaDengan(r.kode, 1, "tanpa props klip, render harus gagal dengan pesan jelas");
   memuat(r.err, "props tidak lengkap", "pesan props kurang");
+});
+
+
+// ============================================================== (k) efek warna
+const bacaMeta = (out, folder) => JSON.parse(readFileSync(join(out, folder, "meta.json"), "utf8"));
+const folderKlip = (out) => JSON.parse(readFileSync(join(out, "klip-props.json"), "utf8")).klip[0].folder;
+function tulisLut(nama, teks) {
+  writeFileSync(j(nama), teks);
+  return nama;
+}
+const cubeIdentitas = () => bangkitkanCube("identitas", LUT["identitas.cube"][1]);
+
+daftar("(k) efek: skema ditolak dengan pesan tepat (jenis, kunci asing, rentang, LUT hilang/rusak/1D/hash salah)", async () => {
+  tulisLut("id.cube", cubeIdentitas());
+  const galat = (efek) => periksaEfek(efek, tmp).join("\n");
+  memuat(galat("lut"), '"efek" harus array', "bukan array");
+  memuat(galat(["x"]), "efek[0]: harus objek", "butir bukan objek");
+  memuat(galat([{ jenis: "kunci-krom" }]), 'jenis "kunci-krom" tidak dikenal; yang ada: lut, warna, keseimbangan', "jenis tak dikenal");
+  memuat(galat([{ jenis: "warna", saturasi: 1, tajam: 3 }]), "kunci tidak dikenal: tajam", "kunci asing");
+  memuat(galat([{ jenis: "warna", saturasi: 9 }]), '"saturasi" harus angka 0..4', "saturasi di luar rentang");
+  memuat(galat([{ jenis: "warna", kecerahan: "terang" }]), '"kecerahan" harus angka -1..1', "kecerahan bukan angka");
+  memuat(galat([{ jenis: "warna", gamma: 0 }]), '"gamma" harus angka 0.1..10', "gamma 0");
+  memuat(galat([{ jenis: "warna" }]), "butuh sedikitnya satu", "warna kosong");
+  memuat(galat([{ jenis: "keseimbangan", bayangan: [0, 0] }]), "array [merah, hijau, biru]", "triplet salah panjang");
+  memuat(galat([{ jenis: "keseimbangan", tengah: [0, 2, 0] }]), "tiga angka -1..1", "triplet di luar rentang");
+  memuat(galat([{ jenis: "lut" }]), '"berkas" (jalur .cube) wajib', "lut tanpa berkas");
+  memuat(galat([{ jenis: "lut", berkas: "lut.png" }]), "berekstensi .cube", "ekstensi");
+  memuat(galat([{ jenis: "lut", berkas: "tidak-ada.cube" }]), "berkas LUT tidak ditemukan", "LUT hilang");
+  memuat(galat([{ jenis: "lut", berkas: "id.cube", interpolasi: "kubik" }]), '"interpolasi" harus salah satu dari', "interpolasi");
+  memuat(galat([{ jenis: "lut", berkas: "id.cube", sha256: "0".repeat(64) }]), "hash LUT tidak cocok", "hash LUT salah");
+  samaDengan(galat([{ jenis: "lut", berkas: "id.cube", sha256: await sha256Berkas(j("id.cube")), interpolasi: "trilinear" }]), "", "LUT sah dengan hash");
+  tulisLut("satudim.cube", "LUT_1D_SIZE 4\n0 0 0\n0.3 0.3 0.3\n0.6 0.6 0.6\n1 1 1\n");
+  memuat(galat([{ jenis: "lut", berkas: "satudim.cube" }]), "LUT 1D tidak didukung", "LUT 1D");
+  tulisLut("pendek.cube", "LUT_3D_SIZE 2\n0 0 0\n1 0 0\n");
+  memuat(galat([{ jenis: "lut", berkas: "pendek.cube" }]), "butuh 8 baris data, berkas memuat 2", "baris kurang");
+  tulisLut("asing.cube", "LUT_3D_SIZE 2\nFOO 1\n");
+  memuat(galat([{ jenis: "lut", berkas: "asing.cube" }]), 'kata kunci "FOO" tidak dikenal', "kata kunci asing");
+  memuat(uraiCube("LUT_3D_SIZE 2\n0 0 x\n").galat, "baris data harus tiga bilangan", "data bukan angka");
+  memuat(uraiCube("0 0 0\n").galat, "LUT_3D_SIZE tidak ditemukan", "tanpa ukuran");
+  memuat(uraiCube("LUT_3D_SIZE 999\n").galat, "2..256", "ukuran terlalu besar");
+  samaDengan(uraiCube("# komentar\nTITLE \"x\"\nDOMAIN_MIN 0 0 0\nDOMAIN_MAX 1 1 1\nLUT_3D_SIZE 2\n" + "0 0 0\n".repeat(8)).ukuran, 2, "cube sah dengan DOMAIN");
+  samaDengan(uraiCube(cubeIdentitas()).ukuran, 17, "LUT identitas buatan skrip");
+
+  // lewat CLI: pelanggaran = exit 2, tanpa ekstraksi
+  const r = await klipDengan("efek-salah", (m) => { m.klip[0].efek = [{ jenis: "warna", saturasi: 9 }, { jenis: "lut", berkas: "tidak-ada.cube" }]; });
+  samaDengan(r.kode, 2, "efek salah exit");
+  memuat(r.err, 'klip "k1": efek[0] (warna): "saturasi" harus angka 0..4', "pesan CLI efek[0]");
+  memuat(r.err, 'klip "k1": efek[1] (lut): berkas LUT tidak ditemukan', "pesan CLI efek[1]");
+  tegas(!existsSync(r.out), "folder keluaran tidak boleh dibuat saat efek ditolak");
+});
+
+// ============================================================ (l) LUT identitas
+daftar("(l) LUT identitas: trilinear identik byte demi byte dengan tanpa LUT; tetrahedral (bawaan) PSNR >= 60 dB; audio tak berubah", async () => {
+  tulisLut("id.cube", cubeIdentitas());
+  const asli = await klipDengan("lut-asli", null);
+  samaDengan(asli.kode, 0, `asli exit (${asli.err})`);
+  const fa = folderKlip(asli.out), ma = bacaMeta(asli.out, fa);
+
+  const tri = await klipDengan("lut-tri", (m) => { m.klip[0].efek = [{ jenis: "lut", berkas: "id.cube", interpolasi: "trilinear" }]; });
+  samaDengan(tri.kode, 0, `trilinear exit (${tri.err})`);
+  memuat(tri.teks, "efek lut", "log menyebut efek");
+  const ft = folderKlip(tri.out), mt = bacaMeta(tri.out, ft);
+  tegas(ft !== fa, "efek harus mengubah kunci cache");
+  samaDengan(mt.jumlah, ma.jumlah, "jumlah frame");
+  samaDengan(mt.framesSha256, ma.framesSha256, "hash seluruh frame LUT identitas trilinear = tanpa LUT");
+  for (const n of ["000000", "000030", "000059"]) {
+    samaDengan(await sha256Berkas(join(tri.out, ft, `${n}.jpg`)), await sha256Berkas(join(asli.out, fa, `${n}.jpg`)), `frame ${n}`);
+  }
+  samaDengan(await sha256Berkas(join(tri.out, ft, "audio.wav")), await sha256Berkas(join(asli.out, fa, "audio.wav")), "audio tidak terpengaruh efek");
+  tegas(!existsSync(join(tri.out, ft, "lut0.cube")), "salinan kerja LUT harus dibersihkan dari cache");
+
+  // format PNG (lossless): identitas trilinear juga identik byte demi byte
+  const pngAsli = await klipDengan("lut-png-asli", (m) => { m.klip[0].format = "png"; });
+  const pngTri = await klipDengan("lut-png-tri", (m) => { m.klip[0].format = "png"; m.klip[0].efek = [{ jenis: "lut", berkas: "id.cube", interpolasi: "trilinear" }]; });
+  samaDengan(pngTri.kode, 0, `png exit (${pngTri.err})`);
+  samaDengan(bacaMeta(pngTri.out, folderKlip(pngTri.out)).framesSha256, bacaMeta(pngAsli.out, folderKlip(pngAsli.out)).framesSha256, "PNG: LUT identitas trilinear = tanpa LUT");
+
+  // bawaan tetrahedral: ffmpeg membulatkan float sehingga beberapa piksel meleset 1 level
+  // (PSNR 82,6 dB pada PNG; ~65 dB setelah JPEG karena galat kecil itu ikut terkuantisasi ulang)
+  const tet = await klipDengan("lut-tet", (m) => { m.klip[0].efek = [{ jenis: "lut", berkas: "id.cube" }]; });
+  samaDengan(tet.kode, 0, `tetrahedral exit (${tet.err})`);
+  const p = await psnrKanal(join(asli.out, fa, "%06d.jpg"), join(tet.out, folderKlip(tet.out), "%06d.jpg"));
+  console.log(`       LUT identitas tetrahedral: PSNR ${p.rata.toFixed(1)} dB (trilinear: identik)`);
+  tegas(p.rata >= 60, `PSNR LUT identitas tetrahedral ${p.rata} dB < 60`);
+});
+
+daftar("(l2) LUT hangat dan efek warna mengubah frame ke arah yang benar; efek netral = tanpa efek", async () => {
+  tulisLut("hangat.cube", bangkitkanCube("hangat", LUT["hangat.cube"][1]));
+  const asli = await klipDengan("w-asli", null);
+  const fa = folderKlip(asli.out), pola = (out, f) => join(out, f, "%06d.jpg");
+  const lutH = await klipDengan("w-hangat", (m) => { m.klip[0].efek = [{ jenis: "lut", berkas: "hangat.cube" }]; });
+  samaDengan(lutH.kode, 0, `hangat exit (${lutH.err})`);
+  const ph = await psnrKanal(pola(asli.out, fa), pola(lutH.out, folderKlip(lutH.out)));
+  console.log(`       LUT hangat: PSNR r ${ph.r.toFixed(1)}, g ${ph.g.toFixed(1)}, b ${ph.b.toFixed(1)} dB`);
+  tegas(ph.g >= 40, `hijau nyaris tak berubah di LUT hangat: ${ph.g}`);
+  tegas(ph.b < 25 && ph.r < 40 && ph.g > ph.r + 5, `biru dan merah harus berubah jelas, hijau paling sedikit: r ${ph.r} g ${ph.g} b ${ph.b}`);
+
+  // saturasi 0 = abu-abu murni (R=G=B tiap piksel); saturasi 1 + parameter netral lain = tanpa efek
+  const abu = await klipDengan("w-abu", (m) => { m.klip[0].efek = [{ jenis: "warna", saturasi: 0 }]; });
+  samaDengan(abu.kode, 0, `abu exit (${abu.err})`);
+  const px = await pikselRgb(join(abu.out, folderKlip(abu.out), "000030.jpg"));
+  let selisihMaks = 0;
+  for (let i = 0; i < px.length; i += 3) selisihMaks = Math.max(selisihMaks, Math.abs(px[i] - px[i + 1]), Math.abs(px[i + 1] - px[i + 2]));
+  // JPEG yuvj444p menambah galat kuantisasi kecil pada tepi warna; abu-abu murni sebelum JPEG
+  tegas(selisihMaks <= 6, `saturasi 0 harus abu-abu: selisih kanal maksimum ${selisihMaks}`);
+  const netral = await klipDengan("w-netral", (m) => {
+    m.klip[0].efek = [{ jenis: "warna", kecerahan: 0, kontras: 1, saturasi: 1, gamma: 1 }, { jenis: "keseimbangan", bayangan: [0, 0, 0] }];
+  });
+  samaDengan(netral.kode, 0, `netral exit (${netral.err})`);
+  samaDengan(folderKlip(netral.out), fa, "efek netral dibuang: kunci cache sama dengan tanpa efek");
+
+  // kecerahan naik -> rata-rata piksel naik; kontras turun -> simpangan baku turun
+  const rata = (b) => b.reduce((a, x) => a + x, 0) / b.length;
+  const sebar = (b) => { const r = rata(b); return Math.sqrt(b.reduce((a, x) => a + (x - r) ** 2, 0) / b.length); };
+  const p0 = await pikselRgb(join(asli.out, fa, "000030.jpg"));
+  const terang = await klipDengan("w-terang", (m) => { m.klip[0].efek = [{ jenis: "warna", kecerahan: 0.2 }]; });
+  const pt = await pikselRgb(join(terang.out, folderKlip(terang.out), "000030.jpg"));
+  tegas(rata(pt) > rata(p0) + 10, `kecerahan 0.2 harus menaikkan rata-rata (${rata(p0).toFixed(1)} -> ${rata(pt).toFixed(1)})`);
+  const datar = await klipDengan("w-datar", (m) => { m.klip[0].efek = [{ jenis: "warna", kontras: 0.5 }]; });
+  const pd = await pikselRgb(join(datar.out, folderKlip(datar.out), "000030.jpg"));
+  tegas(sebar(pd) < sebar(p0) * 0.7, `kontras 0.5 harus menurunkan sebaran (${sebar(p0).toFixed(1)} -> ${sebar(pd).toFixed(1)})`);
+  // keseimbangan: sorotan merah naik -> kanal merah naik, hijau tetap (bobot tengah colorbalance sempit; sorotan lebih lebar)
+  const cb = await klipDengan("w-cb", (m) => { m.klip[0].efek = [{ jenis: "keseimbangan", sorotan: [0.3, 0, 0] }]; });
+  samaDengan(cb.kode, 0, `keseimbangan exit (${cb.err})`);
+  const pc = await pikselRgb(join(cb.out, folderKlip(cb.out), "000030.jpg"));
+  const kanal = (b, k) => { let t = 0; for (let i = k; i < b.length; i += 3) t += b[i]; return t / (b.length / 3); };
+  tegas(kanal(pc, 0) > kanal(p0, 0) + 3, "keseimbangan sorotan merah harus menaikkan kanal merah");
+  tegas(Math.abs(kanal(pc, 1) - kanal(p0, 1)) < 1.5, "kanal hijau tak berubah");
+});
+
+// =============================================================== (m) cache efek
+daftar("(m) cache efek: dipakai ulang bila efek sama; kunci berubah bila parameter, isi LUT, atau urutan berubah", async () => {
+  tulisLut("c.cube", cubeIdentitas());
+  const efek = [{ jenis: "lut", berkas: "c.cube", interpolasi: "trilinear" }, { jenis: "warna", saturasi: 0.8 }, { jenis: "keseimbangan", tengah: [0.1, 0, 0] }];
+  const a = await klipDengan("cache-a", (m) => { m.klip[0].efek = salin(efek); });
+  samaDengan(a.kode, 0, `a exit (${a.err})`);
+  memuat(a.teks, "ekstraksi", "ekstraksi pertama");
+  memuat(a.teks, "efek lut+warna+keseimbangan", "log efek berurutan");
+  const fa = folderKlip(a.out), frame = join(a.out, fa, "000000.jpg");
+  const meta = bacaMeta(a.out, fa);
+  samaDengan(meta.efek.length, 3, "meta memuat efek kanonik");
+  samaDengan(meta.efek[0].sha256, await sha256Berkas(j("c.cube")), "meta memuat sha256 LUT");
+  tegas(!JSON.stringify(meta.efek).includes(tmp), "jalur mutlak tidak boleh masuk kunci cache");
+
+  // manifest sama di folder keluaran sama: cache hit, berkas tak disentuh
+  const mtime = statSync(frame).mtimeMs;
+  const b = await bun(klipMjs, a.berkas, "--fps", "30", "--out", a.out);
+  samaDengan(b.kode, 0, `b exit (${b.err})`);
+  memuat(b.out, "cache hit", "cache hit dengan efek");
+  samaDengan(statSync(frame).mtimeMs, mtime, "mtime tak berubah pada cache hit");
+  // parameter atau urutan berubah -> kunci baru (ekstraksi di folder keluaran yang sama), kunci lama utuh
+  const ubah = async (nama, fn) => {
+    const m = await manifestDasar();
+    m.klip[0].efek = salin(efek);
+    fn(m.klip[0].efek);
+    tulisJson(j(`${nama}.json`), m);
+    const r = await bun(klipMjs, j(`${nama}.json`), "--fps", "30", "--out", a.out);
+    samaDengan(r.kode, 0, `${nama} exit (${r.err})`);
+    return { teks: r.out, kunci: folderKlip(a.out) };
+  };
+  const p = await ubah("cache-param", (e) => { e[1].saturasi = 0.9; });
+  memuat(p.teks, "ekstraksi", "parameter berubah -> ekstraksi");
+  tegas(p.kunci !== fa, "parameter berubah -> kunci berbeda");
+  const urut = await ubah("cache-urut", (e) => { e.reverse(); });
+  memuat(urut.teks, "ekstraksi", "urutan berubah -> ekstraksi");
+  tegas(urut.kunci !== fa && urut.kunci !== p.kunci, "urutan efek termasuk kunci");
+  tegas(existsSync(frame), "folder cache lama tidak dihapus");
+  // isi LUT berubah pada jalur yang sama -> kunci berbeda
+  writeFileSync(j("c.cube"), bangkitkanCube("lain", LUT["hangat.cube"][1]));
+  const lut = await klipDengan("cache-lut", (m) => { m.klip[0].efek = salin(efek); });
+  samaDengan(lut.kode, 0, `lut exit (${lut.err})`);
+  tegas(folderKlip(lut.out) !== fa, "isi LUT berubah -> kunci berbeda");
+  // sha256 yang dipasang dan tak cocok setelah LUT berubah = ditolak
+  const pin = await klipDengan("cache-pin", (m) => { m.klip[0].efek = [{ jenis: "lut", berkas: "c.cube", sha256: "1".repeat(64) }]; });
+  samaDengan(pin.kode, 2, "sha256 LUT salah exit");
+  memuat(pin.err, "hash LUT tidak cocok", "pesan hash LUT");
+});
+
+// ============================================================ (n) templat efek
+daftar("(n) templat klip-tertanam: LUT contoh sama dengan keluaran buat-lut.mjs; sumber-warna.json terekstrak dengan efek", async () => {
+  for (const [nama, [judul, f]] of Object.entries(LUT)) {
+    samaDengan(readFileSync(join(templat, "lut", nama), "utf8"), bangkitkanCube(judul, f), `lut/${nama} = keluaran buat-lut.mjs`);
+  }
+  const r0 = await bun(join(templat, "buat-lut.mjs"), j("lut-baru"));
+  samaDengan(r0.kode, 0, `buat-lut exit (${r0.err})`);
+  for (const nama of Object.keys(LUT)) {
+    samaDengan(await sha256Berkas(j("lut-baru", nama)), await sha256Berkas(join(templat, "lut", nama)), `CLI buat-lut ${nama}`);
+  }
+  const out = j("out-warna");
+  const r = await bun(klipMjs, join(templat, "sumber-warna.json"), "--fps", "30", "--out", out);
+  samaDengan(r.kode, 0, `sumber-warna exit (${r.err})`);
+  const props = JSON.parse(readFileSync(join(out, "klip-props.json"), "utf8")).klip;
+  samaDengan(props.map((k) => k.id).join(","), "asli,hangat,kusam", "id klip");
+  samaDengan(props.map((k) => k.jumlah).join(","), "60,60,60", "jumlah frame");
+  const [asli, hangat, kusam] = props.map((k) => k.folder);
+  tegas(new Set([asli, hangat, kusam]).size === 3, "tiga klip, tiga kunci cache");
+  memuat(r.out, "efek lut", "log efek lut");
+  memuat(r.out, "efek warna+keseimbangan", "log efek warna+keseimbangan");
+  const r2 = await bun(klipMjs, join(templat, "sumber-warna.json"), "--fps", "30", "--out", out);
+  samaDengan((r2.out.match(/cache hit/g) ?? []).length, 3, "jalan kedua: tiga cache hit");
+  const p = await psnrKanal(join(out, asli, "%06d.jpg"), join(out, hangat, "%06d.jpg"));
+  tegas(p.b < 35, `klip hangat berbeda dari asli (b ${p.b} dB)`);
 });
 
 // ------------------------------------------------------------------ jalankan

@@ -1,0 +1,29 @@
+{
+  "proyek": { "tujuan": "komersial" },
+  "sumber": [
+    {
+      "id": "pola-uji",
+      "berkas": "aset/pola-uji.mkv",
+      "sha256": "7973f46cece109a494846cca91f9300f8c975f9262366c88c6cd0a2dd3da53c7",
+      "judul": "Pola uji awvd",
+      "pencipta": "Proyek awvd",
+      "sumberUrl": "https://github.com/ahliweb/awvd",
+      "lisensi": "CC0-1.0",
+      "perubahan": "dipotong 0-2 detik; diperkecil ke 480x270; diberi koreksi warna; dibuat ulang per frame pada 30 fps"
+    }
+  ],
+  "klip": [
+    { "id": "asli", "sumber": "pola-uji", "lebar": 480, "tinggi": 270, "dari": 0, "panjang": 2 },
+    {
+      "id": "hangat", "sumber": "pola-uji", "lebar": 480, "tinggi": 270, "dari": 0, "panjang": 2,
+      "efek": [{ "jenis": "lut", "berkas": "lut/hangat.cube", "interpolasi": "tetrahedral" }]
+    },
+    {
+      "id": "kusam", "sumber": "pola-uji", "lebar": 480, "tinggi": 270, "dari": 0, "panjang": 2,
+      "efek": [
+        { "jenis": "warna", "kontras": 1.1, "saturasi": 0.7, "gamma": 1.05 },
+        { "jenis": "keseimbangan", "bayangan": [0, 0, 0.06], "sorotan": [0.05, 0, -0.03] }
+      ]
+    }
+  ]
+}
