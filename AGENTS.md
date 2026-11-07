@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.3.1`
+- Version: `v1.4.0`
 - Last updated: `2026-11-07`
-- Changeset: `Memperbarui kondisi GitHub: proteksi main, check wajib, merge commit saja, hapus branch otomatis, dan catatan penulisan ulang riwayat sekali.`
+- Changeset: `Menetapkan awvd hanya sebagai upstream: aturan 11, pemicu perubahan yang memengaruhi repo proyek, dan butir penguncian SHA di Rilis dan Deployment.`
 
 awvd adalah renderer video MP4 dari kode web (lihat [README.md](README.md)). Aturan di dokumen ini menurunkan **pedoman internal AhliWeb** (tidak publik): eksekusi terkelola orchestrator (skill `eksekusi-terkelola`), standar dokumen (skill `standar-dokumen-repo`), standar koordinasi kontributor, standar dokumen formal, dan prosedur pemakaian awvd (skill `video-terprogram`). Nomor keputusan `DL-0xx` merujuk decision log internal tersebut. Isi yang dibutuhkan agent sudah dituangkan di sini, jadi agent di repo ini tidak perlu mengakses pedoman internal.
 
@@ -34,6 +34,7 @@ flowchart LR
 8. **Jalankan `bun run uji`** sampai lolos sebelum membuka PR.
 9. **Dokumentasi ikut setiap perubahan konsep atau fitur**, dalam PR yang sama. Dokumen yang basi adalah cacat. Rinciannya di §Dokumentasi.
 10. Jangan menyatakan rilis atau tag yang belum ada. Lihat §Rilis dan Deployment.
+11. **awvd hanya upstream** (keputusan pemilik, lihat README §Peran repo: upstream). Jangan menambahkan komposisi proyek, aset klien atau merek, naskah atau narasi, maupun hasil render proyek ke repo ini. Template di `templates/` hanya contoh generik berdata fiktif untuk dokumentasi dan uji. Permintaan membuat video diarahkan ke repo proyek video yang memakai awvd sebagai dependensi; perbaikan generik dari repo proyek masuk lewat PR ke repo ini.
 
 ## Pedoman Eksekusi Wajib (Orchestrator & Agent)
 
@@ -146,6 +147,7 @@ flowchart TD
   2. Lewat PR rilis: pindahkan isi `[Unreleased]` ke `## [X.Y.Z] - YYYY-MM-DD`, lalu naikkan `version` di `package.json`.
   3. Setelah merge dan check SUCCESS, buat tag `vX.Y.Z` pada commit merge, lalu GitHub Release. Jangan lampirkan MP4 ke repo; aset rilis hanya bila pemilik memintanya.
   4. Verifikasi tag dan Release benar-benar ada (`gh release view vX.Y.Z`) sebelum menyatakan "sudah rilis", lalu lepas kunci.
+- **Penguncian oleh repo proyek:** repo proyek mengunci awvd ke SHA commit (README §Memakai awvd di repo proyek). Bila kelak ada tag rilis, repo proyek boleh mengunci tag. Karena itu perubahan jalur `scripts/` dan protokol runtime wajib ditandai di `CHANGELOG.md`.
 - Repo ini **tidak** memakai Release Changeset (`.changeset/`).
 
 ## Lisensi dan Aset
@@ -178,6 +180,7 @@ Setiap PR yang mengubah **konsep** (cara kerja komposisi, model render, aturan d
 | Template baru atau berubah | README §Struktur repo; `templates/<nama>/ASET.md` |
 | Uji atau CI | README §Struktur repo (daftar uji dan opsi `bun run uji`); §Git dan PR bila check wajib berubah |
 | Dependensi atau lisensi pihak ketiga | README §Pihak ketiga; cek lisensi (§Lisensi dan Aset) |
+| Perubahan yang memengaruhi cara repo proyek memakai awvd (jalur `scripts/`, protokol runtime `window.video`/`renderFrame`, struktur paket) | README §Peran repo: upstream; `CHANGELOG.md` (tandai butirnya sebagai memengaruhi repo proyek) |
 | Aturan kerja agent, subagent, alur git, rilis | `AGENTS.md`, `.claude/agents/` (CLAUDE.md hanya merujuk ke AGENTS.md) |
 | Semua perubahan software di atas | `CHANGELOG.md` bagian `[Unreleased]` |
 
@@ -203,7 +206,7 @@ Skill internal `video-terprogram` merujuk API awvd. Bila API atau flag berubah, 
 
 - **Dokumen ber-metadata** (`README.md`, `AGENTS.md`, `templates/<nama>/ASET.md`): naikkan `Version`, ganti `Last updated` dan `Changeset` (ringkasan revisi terakhir saja), lalu tambahkan satu entri di `## Changelog` dokumen tanpa menghapus entri lama. Patch untuk koreksi, minor untuk bagian baru yang kompatibel, major untuk perubahan struktur atau kebijakan.
 - **Software** (`CHANGELOG.md`, `package.json`): format Keep a Changelog, perubahan masuk `[Unreleased]`. Versi `package.json` hanya dinaikkan saat rilis yang diputuskan pemilik (§Rilis dan Deployment).
-- Versi dokumen tidak sama dengan versi software. README `v1.3.0` tidak berarti awvd `1.3.0`.
+- Versi dokumen tidak sama dengan versi software. README `v1.4.0` tidak berarti awvd `1.4.0`.
 
 ```mermaid
 flowchart TD
@@ -234,6 +237,11 @@ flowchart TD
 Template PR di `.github/pull_request_template.md` memuat checklist ini.
 
 ## Changelog
+
+### 2026-11-07 - v1.4.0
+
+- Menambahkan aturan 11: awvd hanya upstream; materi proyek video tidak masuk repo ini dan perbaikan generik masuk lewat PR.
+- Peta pemicu memuat perubahan yang memengaruhi repo proyek; Rilis dan Deployment mencatat penguncian SHA (atau tag) oleh repo proyek.
 
 ### 2026-11-07 - v1.3.1
 

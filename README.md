@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.3.1`
+- Version: `v1.4.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menetapkan klasifikasi repo (internal, internal-ops, risiko low) sebagai keputusan pemilik.`
+- Changeset: `Menetapkan awvd sebagai upstream (bukan repo proyek video) dan mendokumentasikan pemakaiannya di repo proyek: bagian Peran repo: upstream.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -18,9 +18,67 @@ Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibua
 | Tingkat risiko | `low` |
 | Source of truth | `primary` untuk kode renderer awvd |
 | Owner operasional | AhliWeb (akun GitHub `ahliweb`) |
-| Risiko dan batasan | Tidak menyentuh production dan tidak di-deploy. Repo publik: tanpa secret, data nyata, aset tanpa lisensi jelas, atau rujukan ke repo internal yang privat. |
+| Risiko dan batasan | Tidak menyentuh production dan tidak di-deploy. Repo publik: tanpa secret, data nyata, aset tanpa lisensi jelas, atau rujukan ke repo internal yang privat. Bukan tempat proyek video: pekerjaan proyek ada di repo proyek terpisah (lihat Peran repo: upstream). |
 
 Klasifikasi ditetapkan pemilik pada 2026-11-07.
+
+## Peran repo: upstream
+
+awvd hanya menjadi **upstream**: mesin renderer, runtime, template contoh generik, dan uji. awvd **bukan** repo proyek pengembangan atau pembuatan video. Pekerjaan proyek video berada di repo proyek terpisah, privat atau publik, dengan lisensi pilihan pemilik proyek itu. Penetapan ini adalah keputusan pemilik pada 2026-11-07.
+
+| Masuk awvd | Tidak masuk awvd (masuk repo proyek) |
+| --- | --- |
+| Renderer `scripts/render.mjs` dan runtime `scripts/runtime.js` | Komposisi proyek (halaman HTML video milik proyek) |
+| Uji otomatis dan CI | Props dan naskah proyek |
+| Template contoh generik berdata fiktif di `templates/` untuk dokumentasi dan uji | Aset klien atau merek (logo, font, gambar, musik, footage) |
+| Dokumentasi API runtime, flag CLI, dan aturan determinisme | Narasi, TTS, dan subtitle proyek |
+| Perbaikan dan fitur generik yang berguna bagi semua proyek | Hasil render (MP4, PNG) dan kode khusus proyek |
+
+```mermaid
+flowchart LR
+    U[awvd<br/>upstream: renderer, runtime,<br/>template generik, uji] -->|bun add, dikunci ke SHA commit| RP[Repo proyek video<br/>privat atau publik]
+    RP -->|render.mjs + runtime.js| H[Hasil render<br/>out/*.mp4, tidak di-commit]
+    RP -.->|perbaikan atau fitur generik<br/>lewat PR| U
+```
+
+Kode khusus proyek tidak masuk awvd. Perbaikan atau fitur yang bersifat generik, yang ditemukan saat mengerjakan proyek, dikirim balik sebagai pull request ke awvd (ikuti [AGENTS.md](AGENTS.md) §Git dan PR).
+
+### Memakai awvd di repo proyek
+
+Repo proyek memasang awvd sebagai dependensi git Bun yang dikunci ke satu commit:
+
+```bash
+bun add "github:ahliweb/awvd#<sha-commit>"
+```
+
+Contoh struktur repo proyek:
+
+```text
+package.json                 dependensi awvd (dikunci ke SHA commit)
+video/<nama>/index.html      komposisi proyek
+video/<nama>/props.json      props dan naskah proyek (data fiktif untuk contoh)
+video/<nama>/aset/           font, gambar, audio milik proyek, dicatat lisensinya
+out/                         hasil render; diabaikan git (tambahkan ke .gitignore)
+```
+
+Komposisi memuat runtime dari paket yang terpasang, dengan jalur relatif dari `video/<nama>/index.html`:
+
+```html
+<script src="../../node_modules/awvd/scripts/runtime.js"></script>
+```
+
+Render dijalankan dengan renderer dari paket yang sama:
+
+```bash
+bun node_modules/awvd/scripts/render.mjs video/<nama>/index.html \
+  --out out/<nama>.mp4 --props-file video/<nama>/props.json
+```
+
+Prasyarat (Bun, `ffmpeg`, Chromium untuk Playwright) sama dengan §Mulai cepat; flag CLI sama dengan §Flag CLI.
+
+**Menaikkan versi.** Baca [CHANGELOG.md](CHANGELOG.md) awvd, terutama butir yang ditandai memengaruhi repo proyek, lalu ulangi `bun add "github:ahliweb/awvd#<sha-baru>"` dan render ulang video yang terdampak. Cara lain sengaja tidak dipakai: git submodule (alurnya lebih rumit) serta menyalin atau mem-fork awvd (menyimpang dari upstream).
+
+**Lisensi.** awvd berlisensi MIT. Pemberitahuan MIT ikut terpasang di `node_modules/awvd/LICENSE` dan wajib dipertahankan. Repo proyek boleh memakai lisensi lain, termasuk non-komersial atau source-available, hanya untuk materi orisinal proyeknya sendiri, bukan untuk kode awvd.
 
 ## Alur render
 
@@ -164,7 +222,7 @@ Perintah: `bun run render <komposisi> --out ...` dan `bun run uji` (delapan uji:
 
 Setiap perubahan lewat branch dan pull request (`<jenis>/<ringkas>`), dan merge hanya setelah semua check (`uji`, GitGuardian) berstatus SUCCESS. Perubahan konsep atau fitur wajib membawa pembaruan dokumen di PR yang sama. Aturan lengkapnya ada di [AGENTS.md](AGENTS.md): §Git dan PR untuk alur git, dan §Dokumentasi untuk peta "perubahan apa memperbarui dokumen mana".
 
-Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata README dan AGENTS.md) menandai revisi dokumen. Versi software ada di `package.json` dan `CHANGELOG.md`. README `v1.3.0` tidak berarti awvd `1.3.0`.
+Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata README dan AGENTS.md) menandai revisi dokumen. Versi software ada di `package.json` dan `CHANGELOG.md`. README `v1.4.0` tidak berarti awvd `1.4.0`.
 
 ## Rilis
 
@@ -172,6 +230,7 @@ Belum ada rilis bertag. Versi paket `0.1.0`, dan semua perubahan dicatat di [CHA
 
 ## Pemakaian di AhliWeb
 
+- Proyek video AhliWeb dikerjakan di repo proyek terpisah yang memakai awvd sebagai dependensi (lihat Peran repo: upstream), bukan di repo ini.
 - AI agent AhliWeb memakai awvd lewat skill internal `video-terprogram`, yang berisi prosedur membuat dan merevisi video.
 - Panduan video formal untuk pemerintah dan swasta mengikuti standar dokumen formal internal AhliWeb; awvd menjadi alat render videonya.
 
@@ -194,6 +253,11 @@ Belum ada rilis bertag. Versi paket `0.1.0`, dan semua perubahan dicatat di [CHA
 Font, musik (`--audio`), gambar, footage, dan suara TTS wajib berlisensi jelas dan dicatat sumbernya. Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.4.0
+
+- Menambahkan bagian Peran repo: upstream: awvd hanya upstream, tabel batas isi awvd dan repo proyek, diagram hubungan dengan repo proyek, dan subbagian Memakai awvd di repo proyek (dependensi git terkunci SHA, struktur repo proyek, naik versi, lisensi).
+- Risiko dan batasan di Klasifikasi repo dan bagian Pemakaian di AhliWeb disesuaikan.
 
 ### 2026-11-07 - v1.3.1
 
