@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.2.0`
+- Version: `v1.3.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan bun run pelajari, bun run kutipan, dan flag klip --draf ke tabel Perintah lain; bagian Jaringan dan font, flag --izinkan-jaringan, dan kode keluar 3 dari fitur aset dipertahankan.`
+- Changeset: `Menambahkan bun run narasi ke tabel Perintah lain.`
 
 Referensi CLI `scripts/render.mjs` (`bun run render`). Alur di balik perintah ini ada di [arsitektur.md](arsitektur.md).
 
@@ -62,6 +62,7 @@ Sebelum frame pertama renderer memuat eksplisit setiap `@font-face` (`FontFace.l
 | `bun run sop <sop.json> --out DIR` | SOP menjadi dokumen cetak dan bahan video | [sop.md](sop.md) |
 | `bun run klip <sumber.json> --fps N [--draf]` | Validasi sumber (termasuk kebijakan kutipan dan gerbang GH) dan ekstraksi frame klip | [video-tertanam-audio.md](video-tertanam-audio.md) |
 | `bun run audio <rencana.json> --fps N --out F` | Perakit timeline audio | [video-tertanam-audio.md](video-tertanam-audio.md) |
+| `bun run narasi <naskah.json> --out DIR` | Naskah narasi dan WAV beku menjadi cue caption VTT/SRT, stempel kata, dan rencana audio | [narasi-caption.md](narasi-caption.md) |
 | `bun run pelajari <video-lokal> --sumber-sah CARA` | Statistik gaya dari video lokal yang sah dimiliki (ritme potongan, palet, kenyaringan, pola); laporan JSON/Markdown | [pelajari-reaction.md](pelajari-reaction.md) |
 | `bun run kutipan -- periksa\|hash <sumber.json>` | Periksa kebijakan kutipan wajar; hitung hash gerbang hukum GH | [pelajari-reaction.md](pelajari-reaction.md#bun-run-kutipan) |
 | `bun run konsep -- <subperintah>` | Konsep video: jenis, alur, brief, persetujuan | [konsep-jenis-alur.md](konsep-jenis-alur.md) |
@@ -69,6 +70,10 @@ Sebelum frame pertama renderer memuat eksplisit setiap `@font-face` (`FontFace.l
 | `bun run uji` | Seluruh uji otomatis | [README](../README.md#perintah-utama) |
 
 ## Changelog
+
+### 2026-11-07 - v1.3.0
+
+- Tabel Perintah lain: `bun run narasi`; `render.mjs` tidak berubah.
 
 ### 2026-11-07 - v1.2.0
 

@@ -1,0 +1,40 @@
+{
+  "versi": 1,
+  "catatan": "Naskah contoh generik berdata fiktif. WAV narasi dibuat buat-audio.mjs (nada sinus bergerak seperti ucapan, bukan suara orang atau TTS); lihat ASET.md dan docs/narasi-caption.md.",
+  "fps": 30,
+  "bahasa": "id",
+  "klasifikasi": "publik",
+  "ukuran": { "lebar": 1280, "tinggi": 720 },
+  "audiens": ["umum"],
+  "caption": { "maksKarakter": 42, "maksBaris": 2 },
+  "suara": {
+    "mesin": "berkas-beku",
+    "kalibrasi": { "awal": 0.1, "akhir": 0.04 },
+    "jedaAwal": 0.3,
+    "jedaKalimat": 0.4,
+    "jedaAdegan": 0.5
+  },
+  "penutur": {
+    "narator": { "nama": "Narator", "italik": true, "label": false },
+    "pak-budi": { "nama": "Pak Budi", "italik": false, "label": true }
+  },
+  "adegan": [
+    {
+      "id": "a1",
+      "berkas": "../../.cache/awvd/narasi-contoh/a1.wav",
+      "kalimat": [
+        { "teks": "Selamat datang di panduan singkat merapikan meja kerja.", "penutur": "narator" },
+        { "teks": "Pertama, singkirkan semua barang yang tidak dipakai hari ini.", "penutur": "narator" },
+        { "teks": "Lalu, kelompokkan alat tulis di satu wadah.", "penutur": "narator" }
+      ]
+    },
+    {
+      "id": "a2",
+      "durasiMin": 5,
+      "kalimat": [
+        { "teks": "Saya biasa menata kabel di bagian belakang meja.", "penutur": "pak-budi", "berkas": "../../.cache/awvd/narasi-contoh/a2-1.wav" },
+        { "teks": "Dengan begitu, kaki tidak mudah tersangkut.", "penutur": "pak-budi", "berkas": "../../.cache/awvd/narasi-contoh/a2-2.wav" }
+      ]
+    }
+  ]
+}
