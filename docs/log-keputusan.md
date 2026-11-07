@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.7.0`
+- Version: `v1.8.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan KP-036 sampai KP-039: timing narasi berjangkar jeda, pemisahan narasi dan render, batas cps profil audiens, klasifikasi naskah dan angka dieja.`
+- Changeset: `Menambahkan KP-043 (chroma key kunciWarna, PNG beralfa, tahap alfa sebelum warna) dan KP-044 (stabilisasi vidstab dengan cadangan deshake, deteksi kemampuan ffmpeg); nomor definitif menyusul saat merge.`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -27,6 +27,8 @@ flowchart TD
     KP29 -->|belum disetujui<br/>= ditolak atau draf| KP31[KP-031 gerbang hukum GH]
     KP12 -->|efek di tahap ekstraksi| KPB1[KP-034 efek klip]
     KPB1 --> KPB2[KP-035 rumus warna RGB]
+    KPB1 --> KPB3[KP-043 chroma key PNG alfa]
+    KPB1 --> KPB4[KP-044 stabilisasi vidstab]
     KP15[KP-015 preset bertingkat bukti] -->|konflik lint caption| KP16[KP-016 preset sosial 20 cps]
     KP16 -->|alasan dikoreksi| KP19[KP-019 cps Netflix Indonesia]
     KP15 -->|bukti per atribut| KP20[KP-020 profil audiens dan helper visual]
@@ -73,8 +75,14 @@ flowchart TD
 | KP-037 | `bun run narasi` menulis aset beku (cue, stempel kata, rencana audio) dan boleh memakai mesin suara; `bun run render` tidak pernah memanggil mesin suara atau alat eksternal. Hash WAV dicatat di rencana dan laporan. | 2026-11-07 | Berlaku | Keluaran TTS daring tidak identik byte demi byte antar panggilan; memisahkan sintesis dari render menjaga determinisme (KP-003, KP-014). | #62 |
 | KP-038 | Batas cps cue adalah `cps` efektif profil audiens (yang paling ketat dari profil yang dipilih) dan menjadi batas `gagal` (kode keluar 1); `caption.cps` boleh melonggarkan sampai 20 dengan peringatan. Caption tidak dipercepat atau diperlambat agar lolos: tampil hanya diperpanjang ke jeda berikutnya sampai 0,5 detik, tanpa menimpa cue berikut. | 2026-11-07 | Berlaku | Menyembunyikan kecepatan baca yang terlalu tinggi merugikan penonton; perbaikannya ada di naskah atau kecepatan narasi. Angka cps dari KP-019; 0,5 detik mengikuti catatan DCMP tentang pergeseran sampai 15 frame. | #62 |
 | KP-039 | `naskah.json` mewajibkan `klasifikasi` (`publik` atau `internal`); mesin suara berpenanda daring ditolak untuk `internal`. Angka di teks yang dibacakan harus ditulis dengan huruf atau diberi `bacaan`. Satu bidang `mesin` dengan registri `daftarkanMesin` membuat adaptor TTS tinggal mendaftarkan mesin. | 2026-11-07 | Berlaku | TTS daring hanya untuk konten publik (AGENTS.md aturan 5); estimator tidak mengeja angka sehingga timing meleset bila angka dibiarkan. | #62 |
+| KP-043 | Chroma key adalah efek klip `kunciWarna` (`colorkey` untuk `rgb`, `chromakey` untuk `yuv`) di tahap `alfa`: setelah penskalaan dan **sebelum** efek warna, dengan keluaran PNG RGBA. Format klip menjadi `png` otomatis bila `format` tidak ditulis dan `jpg` eksplisit ditolak (exit 2); maksimal satu `kunciWarna` per klip; metode `yuv` hanya mengambil alfa dari salinan YUV 4:4:4 lalu `alphamerge` ke RGB asli. Despill dan penghalus matte tidak termasuk. | 2026-11-07 | Berlaku | Kunci sebelum koreksi warna supaya `warna` kunci mengacu ke warna sumber (menggeser warna dulu mengubah warna yang dikunci); alfa dibawa lewat `gbrap` melewati filter warna, yang diuji tidak mengubah alfa. Otomatis png menghindari konfigurasi yang pasti gagal tanpa memaksa penulis manifest menulis format, tetapi `jpg` eksplisit ditolak daripada diabaikan diam-diam. Dua kunci ditolak karena `colorkey` menimpa alfa sebelumnya, bukan menggabungkannya. `alphamerge` menjaga RGB subjek tidak berubah oleh konversi YUV. Kekurangan: PNG jauh lebih besar daripada JPEG; belum diuji pada rekaman layar hijau nyata. | menyusul |
+| KP-044 | Stabilisasi adalah efek klip `stabil` di tahap `pra` (setelah `fps`, **sebelum** penskalaan): `vidstab` dua pass (`vidstabdetect` ke berkas jejak sementara di folder kerja, lalu `vidstabtransform`) bila build ffmpeg memilikinya, cadangan `deshake` satu pass. Kemampuan dideteksi lewat `ffmpeg -filters` hanya bila ada klip yang memakai `stabil`, sebelum ekstraksi apa pun; filter yang diminta tidak ada = exit 2 dengan pesan jelas, `otomatis` jatuh ke deshake dengan peringatan. Mesin terpilih ikut kunci cache dan `meta.json`. | 2026-11-07 | Berlaku | Gerak diperkirakan dan dikoreksi pada resolusi sumber, sebelum skala mengecilkannya; analisis dan transformasi memakai awalan rantai yang sama sehingga frame cocok. Gagal keras bila `vidstab` diminta tetapi tidak ada, karena hasil deshake berbeda nyata (pada kamera sintetis uji: goyangan turun ke sekitar 0,3 kali dengan vidstab; deshake lebih lemah dan bergantung tekstur) dan menggantinya diam-diam menyesatkan; `otomatis` boleh jatuh karena penulis tidak menyebut mesin. Mesin ikut kunci cache agar ekstraksi dari build berbeda tidak saling menimpa. Kekurangan: pass analisis menambah waktu ekstraksi; kualitas pada rekaman genggam nyata belum diverifikasi. | menyusul |
 
 ## Changelog
+
+### 2026-11-07 - v1.8.0
+
+- Menambahkan KP-043 dan KP-044 (chroma key dan stabilisasi klip); nomor definitif dan rujukan PR menyusul.
 
 ### 2026-11-07 - v1.7.0
 

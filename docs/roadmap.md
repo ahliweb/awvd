@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.2.0`
+- Version: `v1.3.0`
 - Last updated: `2026-11-07`
-- Changeset: `Paritas: caption sinkron voice over berstatus sebagian (naskah.json, estimasi timing, cue VTT/SRT selesai; mode tampil caption belum).`
+- Changeset: `Paritas: chroma key dan stabilisasi klip berstatus ada (F3/02 dan F3/03 selesai).`
 
 ## Visi
 
@@ -86,8 +86,8 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Trim, speed, reverse, freeze | sebagian (pemetaan frame manual) | F2/04 |
 | Keyframe generik | sebagian (`interpolasi`, `urutan`) | F2/06 |
 | Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
-| Chroma key | belum | F3/02 |
-| Stabilisasi | belum | F3/03 |
+| Chroma key | ada ([olah-klip.md](olah-klip.md); `kunciWarna`, keluaran PNG beralfa) | F3/02 (selesai) |
+| Stabilisasi | ada ([olah-klip.md](olah-klip.md); `stabil`: vidstab, cadangan deshake) | F3/03 (selesai) |
 | Peredam bising, pengubah suara | belum | F3/04 |
 | Render cepat untuk footage panjang | belum (serial) | F4 |
 | Caption otomatis dari audio (ASR) | belum | F5/01 |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-07 - v1.3.0
+
+- Tabel paritas: chroma key (F3/02) dan stabilisasi (F3/03) menjadi ada.
 
 ### 2026-11-07 - v1.2.0
 
