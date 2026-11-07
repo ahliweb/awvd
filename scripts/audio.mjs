@@ -22,6 +22,12 @@
  *   - Klip dari sumber kutipan (klip-props memuat `kutipan`): audio musik wajib "bisu"
  *     (kebijakan kutipan wajar, scripts/kutipan.mjs); ucapan boleh bergantian atau campur.
  *   - Perakitan ffmpeg deterministik: volume eval=frame, adelay, amix normalize=0.
+ *   - Olah suara per trek (narasi dan klip bersuara), diterapkan sebelum penyamaan level:
+ *       "bersih": { metode: "afftdn" (bawaan; nr, nf, jenis, lacak) | "arnndn" (model: berkas
+ *                   model RNNoise milik pengguna, tidak dibundel; campur) }
+ *       "suara":  { nadaSemiton -12..12, tempo 0.5..2 (hanya narasi), mesin: "otomatis" |
+ *                   "rubberband" | "sederhana" (asetrate + atempo), formant }
+ *     Level diukur SESUDAH olah, jadi kenyaringan akhir tetap ucapanLufs.
  * Kode keluar 0 berhasil, 2 rencana/argumen tidak valid, 1 galat ffmpeg. Karya asli repo ini.
  */
 import { parseArgs } from "node:util";
@@ -32,7 +38,19 @@ import { periksaAudioKutipan } from "./kutipan.mjs";
 export const SR = 48000;
 const MODE = ["bergantian", "campur", "bisu"];
 const BATAS = { fadeMs: [100, 300], turunDb: [8, 20], musikLevelDb: [-20, -8] };
-const GRANULARITAS = 480; // sampel per blok volume: 10 ms, kemiringan fade tidak patah-patah
+const GRANULARITAS = 480;
+const OLAH = {
+  bersihAfftdn: { nr: [0.01, 97], nf: [-80, -20] }, // dB; rentang filter afftdn ffmpeg
+  jenisBising: { putih: "w", vinil: "v", shellac: "s" },
+  semiton: [-12, 12],
+  tempo: [0.5, 2],
+  campur: [0, 1],
+  mesin: ["otomatis", "rubberband", "sederhana"],
+};
+const KUNCI_AFFTDN = ["metode", "nr", "nf", "jenis", "lacak"];
+const KUNCI_ARNNDN = ["metode", "model", "campur"];
+const KUNCI_SUARA = ["nadaSemiton", "tempo", "mesin", "formant"];
+const HEADER_ARNNDN = "rnnoise-nu model file version 1"; // sampel per blok volume: 10 ms, kemiringan fade tidak patah-patah
 
 // ------------------------------------------------------------- envelope murni
 /**
@@ -102,6 +120,16 @@ async function probeAudio(berkas) {
   return { kanal: Number(s.channels), durasi };
 }
 
+let daftarFilter = null;
+/** Nama filter audio yang ada di build ffmpeg ini (satu panggilan `ffmpeg -filters`, di-cache). */
+export async function filterTersedia(nama) {
+  if (!daftarFilter) {
+    const r = await jalankan(["ffmpeg", "-hide_banner", "-filters"]);
+    daftarFilter = new Set(r.kode === 0 ? [...r.out.matchAll(/^\s*\S+\s+(\S+)\s+\S+->\S+/gm)].map((m) => m[1]) : []);
+  }
+  return daftarFilter.has(nama);
+}
+
 // resample ke 48 kHz lalu ke stereo; mono diduplikasi tepat (tanpa potongan -3 dB)
 function rantaiMasuk(kanal) {
   const stereo = kanal === 1 ? "pan=stereo|c0=c0|c1=c0" : kanal === 2 ? "anull" : "aformat=channel_layouts=stereo";
@@ -109,11 +137,11 @@ function rantaiMasuk(kanal) {
 }
 
 /** Kenyaringan terintegrasi (LUFS) bagian sumber yang dipakai; NaN bila senyap/tak terukur. */
-async function ukurLufs(berkas, kanal, { mulai = 0, durasi } = {}) {
+async function ukurLufs(berkas, kanal, { mulai = 0, durasi, efek = "" } = {}) {
   const a = ["-hide_banner", "-nostats"];
   if (mulai) a.push("-ss", mulai.toFixed(6));
   if (durasi) a.push("-t", durasi.toFixed(6));
-  a.push("-i", berkas, "-vn", "-af", `${rantaiMasuk(kanal)},ebur128`, "-f", "null", "-");
+  a.push("-i", berkas, "-vn", "-af", `${rantaiMasuk(kanal)}${efek ? `,${efek}` : ""},ebur128`, "-f", "null", "-");
   const r = await jalankan(["ffmpeg", ...a]);
   if (r.kode !== 0) throw new Error(`ffmpeg ebur128 gagal untuk ${berkas}: ${r.err.trim()}`);
   const ringkas = r.err.slice(r.err.lastIndexOf("Summary:"));
@@ -131,12 +159,127 @@ const bulat = (v) => Number.isInteger(v);
 const adaTeks = (v) => typeof v === "string" && v.trim() !== "";
 const mutlak = (dir, p) => (isAbsolute(p) ? p : resolve(dir, p));
 
+// ------------------------------------------------------------- olah suara
+const angka = (x) => String(Number(x.toFixed(6)));
+const dalam = (v, [a, b]) => typeof v === "number" && Number.isFinite(v) && v >= a && v <= b;
+/** Lolos dua tingkat (opsi filter, lalu graf filter) untuk nilai opsi seperti jalur berkas. */
+export const lolosOpsi = (s) => s.replace(/[\\:']/g, "\\$&").replace(/[\\',;[\]]/g, "\\$&");
+
+/**
+ * Memvalidasi blok `bersih` dan `suara` satu trek. Mengembalikan { galat[], olah } dengan olah
+ * = { bersih, suara } (nilai bawaan terisi) atau null bila tak ada blok. `izinTempo` false untuk
+ * klip (audio klip harus sepanjang rentang frame-nya agar tetap sinkron dengan gambar).
+ */
+export function validasiOlah(k, nama, dir, { izinTempo }) {
+  const galat = [];
+  const g = (p) => galat.push(`${nama}: ${p}`);
+  const olah = {};
+  if (k.bersih !== undefined) {
+    const b = k.bersih;
+    if (b === null || typeof b !== "object" || Array.isArray(b)) g("bersih harus objek");
+    else {
+      const metode = b.metode ?? "afftdn";
+      if (metode === "afftdn") {
+        for (const x of Object.keys(b)) if (!KUNCI_AFFTDN.includes(x)) g(`bersih.${x} tidak dikenal untuk metode afftdn (${KUNCI_AFFTDN.join(", ")})`);
+        const nr = b.nr ?? 12, nf = b.nf ?? -40, jenis = b.jenis ?? "putih", lacak = b.lacak ?? true;
+        if (!dalam(nr, OLAH.bersihAfftdn.nr)) g(`bersih.nr di luar ${OLAH.bersihAfftdn.nr.join("..")} dB (dapat ${JSON.stringify(b.nr)})`);
+        if (!dalam(nf, OLAH.bersihAfftdn.nf)) g(`bersih.nf di luar ${OLAH.bersihAfftdn.nf.join("..")} dB (dapat ${JSON.stringify(b.nf)})`);
+        if (!(jenis in OLAH.jenisBising)) g(`bersih.jenis "${jenis}" tidak dikenal (${Object.keys(OLAH.jenisBising).join(", ")})`);
+        if (typeof lacak !== "boolean") g("bersih.lacak harus true atau false");
+        olah.bersih = { metode, nr, nf, jenis, lacak };
+      } else if (metode === "arnndn") {
+        for (const x of Object.keys(b)) if (!KUNCI_ARNNDN.includes(x)) g(`bersih.${x} tidak dikenal untuk metode arnndn (${KUNCI_ARNNDN.join(", ")})`);
+        const campur = b.campur ?? 1;
+        if (!dalam(campur, OLAH.campur)) g(`bersih.campur di luar ${OLAH.campur.join("..")} (dapat ${JSON.stringify(b.campur)})`);
+        if (!adaTeks(b.model)) {
+          g('bersih.model wajib untuk metode "arnndn": jalur berkas model RNNoise milik Anda (awvd tidak membundel model; lihat docs/video-tertanam-audio.md §Olah suara per trek)');
+        } else {
+          const model = mutlak(dir, b.model);
+          if (!existsSync(model)) g(`bersih.model tidak ditemukan: ${b.model}`);
+          else if (!bacaAwal(model, HEADER_ARNNDN.length).startsWith(HEADER_ARNNDN)) {
+            g(`bersih.model bukan berkas model arnndn ("${HEADER_ARNNDN}" di baris pertama): ${b.model}`);
+          } else olah.bersih = { metode, model, campur };
+        }
+      } else g(`bersih.metode "${metode}" tidak dikenal (afftdn, arnndn)`);
+    }
+  }
+  if (k.suara !== undefined) {
+    const s = k.suara;
+    if (s === null || typeof s !== "object" || Array.isArray(s)) g("suara harus objek");
+    else {
+      for (const x of Object.keys(s)) if (!KUNCI_SUARA.includes(x)) g(`suara.${x} tidak dikenal (${KUNCI_SUARA.join(", ")})`);
+      const nada = s.nadaSemiton ?? 0, tempo = s.tempo ?? 1, mesin = s.mesin ?? "otomatis", formant = s.formant ?? true;
+      if (!dalam(nada, OLAH.semiton)) g(`suara.nadaSemiton di luar ${OLAH.semiton.join("..")} semiton (dapat ${JSON.stringify(s.nadaSemiton)})`);
+      if (!dalam(tempo, OLAH.tempo)) g(`suara.tempo di luar ${OLAH.tempo.join("..")} (dapat ${JSON.stringify(s.tempo)})`);
+      else if (!izinTempo && tempo !== 1) {
+        g("suara.tempo tidak berlaku untuk klip: audio klip harus sepanjang rentang frame-nya agar tetap sinkron dengan gambar; atur tempo hanya pada narasi");
+      }
+      if (!OLAH.mesin.includes(mesin)) g(`suara.mesin "${mesin}" tidak dikenal (${OLAH.mesin.join(", ")})`);
+      if (typeof formant !== "boolean") g("suara.formant harus true atau false");
+      if (nada !== 0 || tempo !== 1) olah.suara = { nadaSemiton: nada, tempo, mesin, formant };
+    }
+  }
+  return { galat, olah: olah.bersih || olah.suara ? olah : null };
+}
+
+function bacaAwal(berkas, n) {
+  try {
+    return readFileSync(berkas).subarray(0, n).toString("latin1");
+  } catch {
+    return "";
+  }
+}
+
+/** Rantai atempo: setiap tahap di 0.5..2 (aman untuk semua versi ffmpeg). */
+function rantaiAtempo(faktor) {
+  const t = [];
+  let f = faktor;
+  while (f < 0.5) { t.push("atempo=0.5"); f /= 0.5; }
+  while (f > 2) { t.push("atempo=2"); f /= 2; }
+  if (Math.abs(f - 1) > 1e-9) t.push(`atempo=${angka(f)}`);
+  return t;
+}
+
+/**
+ * Rantai filter olah suara (string ffmpeg, tanpa koma di ujung) untuk satu trek. `olah.suara.mesinPakai`
+ * ("rubberband" atau "sederhana") sudah ditetapkan validasiRencana; tanpa itu dianggap "sederhana".
+ */
+export function rantaiOlah(olah) {
+  if (!olah) return "";
+  const p = [];
+  const b = olah.bersih;
+  if (b?.metode === "afftdn") p.push(`afftdn=nr=${angka(b.nr)}:nf=${angka(b.nf)}:nt=${OLAH.jenisBising[b.jenis]}:tn=${b.lacak ? 1 : 0}`);
+  if (b?.metode === "arnndn") p.push(`arnndn=m=${lolosOpsi(b.model)}:mix=${angka(b.campur)}`);
+  const s = olah.suara;
+  if (s) {
+    const rasio = 2 ** (s.nadaSemiton / 12);
+    if (s.mesinPakai === "rubberband") {
+      p.push(`rubberband=pitch=${angka(rasio)}:tempo=${angka(s.tempo)}${s.formant ? ":formant=preserved" : ""}`);
+    } else {
+      // asetrate menaikkan nada sekaligus mempercepat; atempo mengembalikan durasi ke 1/tempo
+      const r = Math.round(SR * rasio);
+      if (s.nadaSemiton !== 0) p.push(`asetrate=${r}`, `aresample=${SR}`);
+      p.push(...rantaiAtempo(s.tempo / (s.nadaSemiton !== 0 ? r / SR : 1)));
+    }
+  }
+  return p.join(",");
+}
+
+function ringkasOlah(olah) {
+  const b = olah.bersih, s = olah.suara, r = [];
+  if (b?.metode === "afftdn") r.push(`afftdn nr=${b.nr} dB, nf=${b.nf} dB, ${b.jenis}${b.lacak ? ", lacak bising" : ""}`);
+  if (b?.metode === "arnndn") r.push(`arnndn model ${basename(b.model)}, campur ${b.campur}`);
+  if (s) r.push(`${s.mesinPakai}: nada ${s.nadaSemiton >= 0 ? "+" : ""}${s.nadaSemiton} semiton, tempo x${s.tempo}`);
+  return r.join("; ");
+}
+
 /**
  * Membaca dan memvalidasi rencana. Mengembalikan { galat[], peringatan[], rencana }.
  * rencana = { fps, total, fade, ucapanLufs, narasi[], klip[], musik|null } dengan
- * rentang frame setengah terbuka [mulai, akhir).
+ * rentang frame setengah terbuka [mulai, akhir). Trek beserta blok `bersih`/`suara` membawa
+ * `olah` dan `efek` (rantai filter). `rubberband` (true/false) menimpa deteksi build ffmpeg (uji).
  */
-export async function validasiRencana(r, dir, { fps, klipProps, ketatCampur = false }) {
+export async function validasiRencana(r, dir, { fps, klipProps, ketatCampur = false, rubberband }) {
   const galat = [], peringatan = [];
   const g = (p) => galat.push(p);
   if (r === null || typeof r !== "object" || Array.isArray(r)) return { galat: ["rencana harus objek JSON"], peringatan };
@@ -164,9 +307,12 @@ export async function validasiRencana(r, dir, { fps, klipProps, ketatCampur = fa
     if (!existsSync(berkas)) { g(`${nama}: berkas tidak ditemukan: ${n.berkas}`); continue; }
     const pa = await probeAudio(berkas);
     if (pa.galat) { g(`${nama}: ${pa.galat}`); continue; }
-    const akhir = n.mulai + Math.ceil(pa.durasi * fps - 1e-6);
+    const vo = validasiOlah(n, nama, dir, { izinTempo: true });
+    if (vo.galat.length) { galat.push(...vo.galat); continue; }
+    const durasi = pa.durasi / (vo.olah?.suara?.tempo ?? 1); // tempo mengubah durasi narasi
+    const akhir = n.mulai + Math.ceil(durasi * fps - 1e-6);
     if (akhir > total) peringatan.push(`${nama}: berakhir di frame ${akhir - 1}, melewati durasiFrame (${total}); dipotong`);
-    narasi.push({ id, berkas, mulai: n.mulai, akhir: Math.min(akhir, total), kanal: pa.kanal, durasi: pa.durasi });
+    narasi.push({ id, berkas, mulai: n.mulai, akhir: Math.min(akhir, total), kanal: pa.kanal, durasi, olah: vo.olah });
   }
   const idN = new Set();
   for (const n of narasi) { if (idN.has(n.id)) g(`narasi "${n.id}": id ganda`); idN.add(n.id); }
@@ -219,8 +365,12 @@ export async function validasiRencana(r, dir, { fps, klipProps, ketatCampur = fa
       g(`${nama}: gainDb harus angka dan dariDetik >= 0`);
       continue;
     }
-    const e = { id, mode, mulai: k.mulai, akhir: k.akhir, turunDb, gainDb, dariDetik, berkas: null };
+    const e = { id, mode, mulai: k.mulai, akhir: k.akhir, turunDb, gainDb, dariDetik, berkas: null, olah: null };
+    if (mode === "bisu" && (k.bersih !== undefined || k.suara !== undefined)) peringatan.push(`${nama}: bersih/suara diabaikan pada mode "bisu"`);
     if (mode !== "bisu") {
+      const vo = validasiOlah(k, nama, dir, { izinTempo: false });
+      if (vo.galat.length) { galat.push(...vo.galat); continue; }
+      e.olah = vo.olah;
       let rel = k.berkas;
       if (!adaTeks(rel) && klipProps) {
         const p = (klipProps.dok.klip ?? []).find((x) => x.id === id);
@@ -244,6 +394,26 @@ export async function validasiRencana(r, dir, { fps, klipProps, ketatCampur = fa
       }
     }
     klip.push(e);
+  }
+
+  // olah suara: pastikan filter tersedia di build ffmpeg ini dan tetapkan mesin nada/tempo
+  const adaRubberband = rubberband ?? (await filterTersedia("rubberband"));
+  for (const [e, nama] of [...narasi.map((n) => [n, `narasi "${n.id}"`]), ...klip.map((c) => [c, `klip "${c.id}"`])]) {
+    if (!e.olah) continue;
+    const m = e.olah.bersih?.metode;
+    if (m && !(await filterTersedia(m))) { g(`${nama}: filter ${m} tidak ada di build ffmpeg ini (ffmpeg -filters)`); continue; }
+    const s = e.olah.suara;
+    if (s) {
+      if (s.mesin === "rubberband" && !adaRubberband) {
+        g(`${nama}: suara.mesin "rubberband" diminta tetapi filter rubberband tidak ada di build ffmpeg ini; pasang ffmpeg dengan librubberband, atau pakai mesin "sederhana" (asetrate + atempo) atau "otomatis"`);
+        continue;
+      }
+      s.mesinPakai = s.mesin === "sederhana" || (s.mesin === "otomatis" && !adaRubberband) ? "sederhana" : "rubberband";
+      if (s.mesin === "otomatis" && s.mesinPakai === "sederhana") {
+        peringatan.push(`${nama}: filter rubberband tidak ada di build ffmpeg ini; nada/tempo memakai cadangan asetrate + atempo (formant ikut bergeser, mutu lebih rendah, hasil berbeda dari build ber-rubberband); tulis suara.mesin "sederhana" agar hasilnya sama di semua mesin`);
+      }
+    }
+    e.efek = rantaiOlah(e.olah);
   }
 
   // kebijakan kutipan: musik sumber kutipan dibisukan (scripts/kutipan.mjs)
@@ -365,7 +535,7 @@ export function bangunGrafik(rencana) {
 
   for (const [i, n] of narasi.entries()) {
     const k = tambah(n.berkas);
-    baris.push(`[${k}:a]${rantaiMasuk(n.kanal)},volume=${n.gainEq.toFixed(4)}dB,adelay=${sam(n.mulai, fps)}S|${sam(n.mulai, fps)}S,apad=whole_len=${N},atrim=end_sample=${N}[n${i}]`);
+    baris.push(`[${k}:a]${rantaiMasuk(n.kanal)}${n.efek ? `,${n.efek}` : ""},volume=${n.gainEq.toFixed(4)}dB,adelay=${sam(n.mulai, fps)}S|${sam(n.mulai, fps)}S,apad=whole_len=${N},atrim=end_sample=${N}[n${i}]`);
     label.push(`[n${i}]`);
   }
 
@@ -376,6 +546,7 @@ export function bangunGrafik(rencana) {
     const efektif = Math.min(panjang, c.durasiAudio - c.dariDetik);
     const rant = [`[${k}:a]${rantaiMasuk(c.kanal)}`,
       `atrim=start=${f6(c.dariDetik)}:end=${f6(c.dariDetik + efektif)}`, "asetpts=PTS-STARTPTS",
+      ...(c.efek ? [c.efek] : []),
       `volume=${(c.gainEq + c.gainDb).toFixed(4)}dB`,
       `afade=t=in:st=0:d=${f6(fadeDtk)}`, `afade=t=out:st=${f6(Math.max(0, efektif - fadeDtk))}:d=${f6(fadeDtk)}`,
       `adelay=${sam(c.mulai, fps)}S|${sam(c.mulai, fps)}S`, `apad=whole_len=${N}`, `atrim=end_sample=${N}`];
@@ -414,8 +585,10 @@ function gagal(pesan, kode = 1) {
 
 const PETUNJUK = `Pemakaian:
   bun scripts/audio.mjs <rencana-audio.json> --fps N --out campuran.wav [--klip-props klip-props.json] [--ketat-campur]
-Rencana: { durasiFrame, narasi:[{id?,berkas,mulai}], musik?:{berkas,levelDb?,bebasDb?},
-  klip:[{id,berkas?,mulai,akhir,mode?,gainDb?,turunDb?,dariDetik?}], fadeMs?, ucapanLufs? }
+Rencana: { durasiFrame, narasi:[{id?,berkas,mulai,bersih?,suara?}], musik?:{berkas,levelDb?,bebasDb?},
+  klip:[{id,berkas?,mulai,akhir,mode?,gainDb?,turunDb?,dariDetik?,bersih?,suara?}], fadeMs?, ucapanLufs? }
+Olah per trek (narasi, klip bersuara): bersih:{metode:"afftdn",nr?,nf?,jenis?,lacak?} atau {metode:"arnndn",model,campur?};
+  suara:{nadaSemiton?,tempo? (narasi),mesin?:"otomatis"|"rubberband"|"sederhana",formant?}
 Jalur berkas relatif terhadap folder rencana. Kode keluar 2 untuk rencana tidak valid.`;
 
 async function utama() {
@@ -474,11 +647,13 @@ async function utama() {
   }
   const rencana = v.rencana;
   console.log(tabelPemegang(rencana));
+  const olahan = [...rencana.narasi.map((n) => [`narasi "${n.id}"`, n]), ...rencana.klip.map((c) => [`klip "${c.id}"`, c])].filter(([, e]) => e.olah);
+  if (olahan.length) console.log(`Olah suara (sebelum penyamaan level):\n${olahan.map(([nama, e]) => `  ${nama}: ${ringkasOlah(e.olah)}`).join("\n")}`);
 
   // penyamaan level: ucapan sama kenyaringan (ucapanLufs); musik relatif terhadap ucapan
   const catatan = [];
   async function samakan(sumber, nama, targetLufs, opsi) {
-    const lufs = await ukurLufs(sumber.berkas, sumber.kanal, opsi);
+    const lufs = await ukurLufs(sumber.berkas, sumber.kanal, { ...opsi, efek: sumber.efek ?? "" });
     if (Number.isNaN(lufs)) {
       sumber.gainEq = 0;
       console.error(`peringatan: ${nama}: senyap atau tak terukur, level tidak disamakan`);

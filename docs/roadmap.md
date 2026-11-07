@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.2.0`
+- Version: `v1.3.0`
 - Last updated: `2026-11-07`
-- Changeset: `Paritas: caption sinkron voice over berstatus sebagian (naskah.json, estimasi timing, cue VTT/SRT selesai; mode tampil caption belum).`
+- Changeset: `Paritas: peredam bising dan pengubah suara berstatus ada (F3/04: afftdn, arnndn dengan model pengguna, nada dan tempo).`
 
 ## Visi
 
@@ -88,7 +88,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
 | Chroma key | belum | F3/02 |
 | Stabilisasi | belum | F3/03 |
-| Peredam bising, pengubah suara | belum | F3/04 |
+| Peredam bising, pengubah suara | ada ([video-tertanam-audio.md](video-tertanam-audio.md#olah-suara-per-trek)); `arnndn` butuh model milik pengguna | F3/04 (selesai) |
 | Render cepat untuk footage panjang | belum (serial) | F4 |
 | Caption otomatis dari audio (ASR) | belum | F5/01 |
 | Sinkron ketukan musik | belum | F5/02 |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-07 - v1.3.0
+
+- Tabel paritas: peredam bising dan pengubah suara menjadi ada (F3/04: `bersih` dan `suara` di rencana audio).
 
 ### 2026-11-07 - v1.2.0
 
