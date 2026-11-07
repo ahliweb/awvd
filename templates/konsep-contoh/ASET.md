@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.1`
+- Version: `v1.0.2`
 - Last updated: `2026-11-07`
-- Changeset: `konsep.json memuat audiens.profil (umum) dan brief.md dihasilkan ulang; tetap tanpa aset pihak ketiga.`
+- Changeset: `konsep.json memuat kurangiGerak (false) dan brief.md dihasilkan ulang dengan bagian Transisi dan gerak; tetap tanpa aset pihak ketiga.`
 
 Catatan sumber dan lisensi setiap aset pihak ketiga yang dipakai templat ini (AGENTS.md §Lisensi dan Aset).
 
@@ -15,6 +15,10 @@ Catatan sumber dan lisensi setiap aset pihak ketiga yang dipakai templat ini (AG
 Templat ini hanya berisi `konsep.json` dan `brief.md` berdata fiktif buatan sendiri (peran, tujuan, dan audiens karangan); tidak ada aset pihak ketiga. `brief.md` dihasilkan oleh `bun run konsep -- brief konsep.json --out brief.md` dan diuji agar tidak basi.
 
 ## Changelog
+
+### 2026-11-07 - v1.0.2
+
+- `konsep.json` memuat `kurangiGerak: false`; `brief.md` dihasilkan ulang (bagian Transisi dan gerak). Tidak ada aset pihak ketiga.
 
 ### 2026-11-07 - v1.0.1
 
