@@ -147,6 +147,34 @@ daftar("(g) --skala 0.5 -> 640x360, folder keluaran dibuat otomatis", async () =
   tegas(v.width === 640 && v.height === 360, `dimensi ${v.width}x${v.height}`);
 });
 
+daftar("(j) determinisme pada --skala 0.5 dan 0.75: dua render -> framemd5 identik (regresi #26)", async () => {
+  // Penangkapan dengan clip.scale < 1 menghasilkan raster yang berbeda +-1 pada batas tile secara
+  // acak; 60 frame per render membuat selisih hampir pasti terdeteksi bila perbaikan hilang.
+  for (const s of ["0.5", "0.75"]) {
+    const [a, b] = [join(tmp, `skala-${s}-a.mp4`), join(tmp, `skala-${s}-b.mp4`)];
+    for (const f of [a, b]) {
+      const r = await renderKe([contoh, "--out", f, "--skala", s, "--dari", "0", "--sampai", "59"]);
+      tegas(r.kode === 0, `render --skala ${s} exit ${r.kode}: ${r.err}`);
+    }
+    const lebar = Math.round(1280 * Number(s));
+    const tinggi = Math.round(720 * Number(s)) & ~1;
+    const v = video(await probe(a));
+    tegas(v.width === (lebar & ~1) && v.height === tinggi, `--skala ${s}: dimensi ${v.width}x${v.height}`);
+    const [ma, mb] = [await framemd5(a), await framemd5(b)];
+    tegas(ma.split("\n").length === 60, `--skala ${s}: framemd5 tidak 60 baris`);
+    tegas(ma === mb, `--skala ${s}: framemd5 dua render berbeda`);
+  }
+  // --still ikut jalur yang sama
+  const [p1, p2] = [join(tmp, "skala-a.png"), join(tmp, "skala-b.png")];
+  for (const f of [p1, p2]) {
+    const r = await renderKe([contoh, "--out", f, "--skala", "0.5", "--still", "7"]);
+    tegas(r.kode === 0, `still --skala 0.5 exit ${r.kode}: ${r.err}`);
+  }
+  const vs = video(await probe(p1));
+  tegas(vs.width === 640 && vs.height === 360, `still --skala 0.5: dimensi ${vs.width}x${vs.height}`);
+  tegas((await framemd5(p1)) === (await framemd5(p2)), "still --skala 0.5 berbeda antar render");
+});
+
 daftar("(h) halaman tanpa window.video -> exit != 0", async () => {
   const html = join(tmp, "kosong.html");
   writeFileSync(html, "<!doctype html><title>kosong</title><p>tanpa defineVideo</p>");

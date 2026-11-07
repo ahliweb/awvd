@@ -67,4 +67,5 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/). Ve
 
 ### Diperbaiki
 
+- `render.mjs --skala` di bawah 1 tidak deterministik (dua render menghasilkan `framemd5` berbeda, juga untuk `templates/contoh-dasar`): `clip.scale < 1` pada `Page.captureScreenshot` menghasilkan raster yang berbeda +-1 pada batas tile secara acak. Kini frame ditangkap pada skala 1 lalu diperkecil `ffmpeg` (lanczos); `--still` ikut jalur yang sama. Skala 1 tidak berubah (`framemd5` identik dengan sebelumnya) dan skala di atas 1 tetap lewat `clip.scale`. Uji regresi (j) di `scripts/uji.mjs` (isu #26). Memengaruhi repo proyek: render `--skala` di bawah 1 kini byte-identik antar jalankan tetapi hasil piksel berbeda tipis dari sebelumnya (perkecilan lanczos); tanpa perubahan flag atau protokol.
 - Renderer: `--out` ke folder yang belum ada gagal di mode video (ffmpeg tidak membuat folder), sedangkan mode `--still` berhasil. Kini folder tujuan dibuat otomatis di kedua mode; uji (g) mencakup kasus ini. Memengaruhi repo proyek: tidak perlu lagi membuat `out/` sendiri.

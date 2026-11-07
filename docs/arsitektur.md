@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.1.1`
 - Last updated: `2026-11-07`
-- Changeset: `Protokol renderer diperbarui: semua permintaan non-lokal diblokir (kode keluar 3), setiap @font-face dimuat eksplisit sebelum frame pertama; aturan determinisme memuat larangan sumber luar.`
+- Changeset: `Alur renderer: skala di bawah 1 diperkecil ffmpeg dari tangkapan skala 1.`
 
 Dokumen ini menjelaskan cara awvd bekerja: dari komposisi web sampai MP4, kontrak antara komposisi dan renderer, aturan yang menjaga hasil tetap deterministik, serta peran awvd sebagai upstream bagi repo proyek video. Referensi rinci ada di [api-runtime.md](api-runtime.md) dan [cli.md](cli.md).
 
@@ -73,7 +73,7 @@ sequenceDiagram
 | `window.video` | komposisi ke renderer | `{ width, height, fps, durationInFrames, renderFrame(n) }`. Renderer menunggu paling lama 15 detik; tanpa itu render gagal dengan kode keluar `1`. Keempat angka harus positif. |
 | `renderFrame(n)` | renderer memanggil | Membulatkan `n`, menolak di luar `0..durationInFrames-1`, dan berjalan berurutan (satu pada satu waktu). Boleh `async`; renderer menunggu hasilnya. |
 
-Langkah renderer sesudah `window.video` siap: viewport diatur ke `width` x `height` komposisi; renderer memuat eksplisit setiap `@font-face` (`FontFace.load()` untuk semua `document.fonts`; render gagal bila ada yang gagal dimuat), menunggu `document.fonts.ready` dan semua `<img>` (render gagal bila ada gambar rusak); tiap frame ditangkap sebagai PNG lewat CDP dengan faktor `--skala` (layout tetap, raster dibuat ulang tajam); PNG dialirkan ke stdin ffmpeg tanpa berkas sementara. Mode `--still N` memanggil `renderFrame(N)` satu kali dan menyimpan PNG.
+Langkah renderer sesudah `window.video` siap: viewport diatur ke `width` x `height` komposisi; renderer memuat eksplisit setiap `@font-face` (`FontFace.load()` untuk semua `document.fonts`; render gagal bila ada yang gagal dimuat), menunggu `document.fonts.ready` dan semua `<img>` (render gagal bila ada gambar rusak); tiap frame ditangkap sebagai PNG lewat CDP dengan `clip.scale` = `max(--skala, 1)` (layout tetap, raster dibuat ulang tajam untuk skala di atas 1); untuk `--skala` di bawah 1 `ffmpeg` memperkecil tangkapan skala 1 ke ukuran akhir (lanczos), karena `clip.scale` di bawah 1 menghasilkan raster yang berbeda acak pada batas tile; PNG dialirkan ke stdin ffmpeg tanpa berkas sementara. Mode `--still N` memanggil `renderFrame(N)` satu kali dan menyimpan PNG.
 
 Mode URL untuk pratinjau dan debug (tanpa query, halaman diam menunggu renderer): `?preview`, `?frame=N`, `?props={...}`. Rinciannya ada di [api-runtime.md](api-runtime.md#mode-url).
 
@@ -154,6 +154,10 @@ Prasyarat (Bun, `ffmpeg`, Chromium untuk Playwright) sama dengan [Mulai cepat di
 - Panduan video formal untuk pemerintah dan swasta mengikuti standar dokumen formal internal AhliWeb; awvd menjadi alat render videonya.
 
 ## Changelog
+
+### 2026-11-07 - v1.1.1
+
+- Langkah penangkapan frame memuat jalur skala di bawah 1 (isu #26).
 
 ### 2026-11-07 - v1.1.0
 
