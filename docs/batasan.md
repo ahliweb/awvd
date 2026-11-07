@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.3.0`
+- Version: `v1.4.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan batasan jaringan (semua permintaan non-lokal diblokir) dan penunjuk ke batasan aset.`
+- Changeset: `Tabel Batasan di dokumen lain memuat batasan pelajari dan kebijakan kutipan wajar.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -30,8 +30,13 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | SOP | [sop.md](sop.md#keputusan-desain-bukan-aturan-regulasi) |
 | Visual dan audiens (ukuran teks, palet buta warna, profil, efek) | [visual-audiens.md](visual-audiens.md#kesenjangan) |
 | Aset (gambar, logo, ikon, SVG, font, audio) | [aset.md](aset.md#batasan) |
+| Mempelajari gaya video dan kutipan wajar | [pelajari-reaction.md](pelajari-reaction.md#batasan) |
 
 ## Changelog
+
+### 2026-11-07 - v1.4.0
+
+- Menambahkan penunjuk batasan pelajari dan kebijakan kutipan wajar.
 
 ### 2026-11-07 - v1.3.0
 

@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.2.0`
+- Version: `v1.3.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan bagian Aset: ringkasan matriks lisensi per jenis, aturan OFL, merek dan lambang, hak potret, hasil AI, serta rujukan ke docs/aset.md; bukan nasihat hukum.`
+- Changeset: `Menambahkan bagian Video pihak ketiga dan kutipan wajar: awvd tidak menyediakan pengunduh platform, hanya berkas sah dengan manifest, KUTIPAN-WAJAR sebagai klaim pengecualian (bukan lisensi) dengan gerbang hukum GH, dan peringatan bukan nasihat hukum.`
 
 Catatan hukum di dokumen ini bukan nasihat hukum.
 
@@ -48,6 +48,12 @@ Manifest `aset.json` ([aset.md](aset.md)) mencatat sumber, lisensi, dan bukti ti
 
 Lisensi lain (GPL/AGPL, Ubuntu Font License, dan seterusnya) ditolak sampai ada keputusan pemilik, sejalan dengan aturan dependensi di bawah. Aset pihak ketiga di repo ini tidak ada; setiap aset dicatat di `templates/<nama>/ASET.md` dan `aset.json`.
 
+## Video pihak ketiga dan kutipan wajar
+
+**Peringatan hukum.** awvd tidak menyediakan dan tidak akan menyediakan pengunduh atau perekam video platform (YouTube, TikTok, Facebook, Instagram, X, dan sejenisnya). Ketentuan layanan platform umumnya melarang pengunduhan dan akses otomatis di luar fitur resmi. Fitur sumber hanya menerima berkas yang sah dimiliki: milik sendiri, izin tertulis, lisensi terbuka (CC BY, CC BY-SA, CC0), stok berlisensi, atau arsip publik, dengan manifest `sumber.json` dan atribusi otomatis.
+
+`KUTIPAN-WAJAR` (kritik, ulasan, pendidikan, penelitian, berita aktual) adalah klaim pengecualian hak cipta (UU 28/2014 Pasal 44; di yurisdiksi lain fair use atau fair dealing), **bukan lisensi**. awvd hanya memeriksa syarat terukur yang merupakan kebijakan internal (bukan batas hukum) dan mensyaratkan persetujuan peninjau hukum tercatat (gerbang `GH`). `bun run pelajari` mengekstrak statistik gaya dari berkas lokal yang sah dan tidak menyimpan frame, audio, atau teks sumber; menyalin naskah, karakter, musik, gaya grafis khas, atau merek tetap dilarang. Dokumentasi ini bukan nasihat hukum; konsultasikan ahli hukum sebelum menayangkan, terutama untuk penggunaan komersial, orang yang dapat dikenali, dan musik. Rincian: [pelajari-reaction.md](pelajari-reaction.md).
+
 ## Aturan bagi kontributor
 
 Ringkasan dari [AGENTS.md](../AGENTS.md) §Lisensi dan Aset:
@@ -58,6 +64,10 @@ Ringkasan dari [AGENTS.md](../AGENTS.md) §Lisensi dan Aset:
 - Atribusi mulberry32 di `scripts/runtime.js` dipertahankan.
 
 ## Changelog
+
+### 2026-11-07 - v1.3.0
+
+- Bagian baru Video pihak ketiga dan kutipan wajar (tanpa pengunduh platform, `KUTIPAN-WAJAR` bukan lisensi, gerbang GH, bukan nasihat hukum).
 
 ### 2026-11-07 - v1.2.0
 

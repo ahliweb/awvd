@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.3.0`
+- Version: `v1.4.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan KP-025 sampai KP-028: pemblokiran jaringan renderer, manifest aset.json fail-closed, SVG berdaftar-izin, dan konversi sRGB lewat Chromium.`
+- Changeset: `Menambahkan KP-029 sampai KP-031: angka kebijakan kutipan wajar yang disetujui pemilik 2026-11-07, larangan pengunduh platform dan pemintas DRM, dan gerbang hukum GH berhash dengan tanda draf.`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -22,6 +22,9 @@ flowchart TD
     KP26 --> KP28[KP-028 sRGB lewat Chromium]
     KP3 --> KP25[KP-025 jaringan diblokir]
     KP25 -->|aset hanya lokal| KP26
+    KP11 -->|sumber KUTIPAN-WAJAR<br/>bukan lisensi| KP29[KP-029 angka kutipan wajar]
+    KP30[KP-030 tanpa pengunduh<br/>platform] -->|hanya berkas sah| KP29
+    KP29 -->|belum disetujui<br/>= ditolak atau draf| KP31[KP-031 gerbang hukum GH]
     KP15[KP-015 preset bertingkat bukti] -->|konflik lint caption| KP16[KP-016 preset sosial 20 cps]
     KP16 -->|alasan dikoreksi| KP19[KP-019 cps Netflix Indonesia]
     KP15 -->|bukti per atribut| KP20[KP-020 profil audiens dan helper visual]
@@ -57,8 +60,16 @@ flowchart TD
 | KP-026 | Aset dicatat di satu manifest `aset.json` (skema 1) berjenis (gambar, logo, ikon, svg, font, audio) dengan validasi fail-closed sebelum Chromium (kode keluar 2): lisensi dari daftar izin per jenis, `sha256`, berkas lokal di `aset/`, TASL lengkap, bukti, serta aturan khusus (OFL, merek, hak potret, hasil AI, ShareAlike). awvd tidak mengunduh aset dari URL. | 2026-11-07 | Berlaku | Memperluas pola manifest sumber klip (KP-011) agar semua aset melewati satu gerbang yang sama dan bukti lisensi tersimpan bersama aset. Validator hanya memeriksa kelengkapan dan kecocokan dengan matriks lisensi; tinjauan hukum (merek, lambang, hak potret, musik, hasil AI) tetap manusia. Bukan nasihat hukum. | #56 |
 | KP-027 | SVG diperiksa dan dibersihkan dengan pemeriksa berdaftar-izin buatan sendiri (`scripts/aset-svg.js`), tanpa dependensi; SVG berbahaya ditolak, bukan diperbaiki, bila rusak secara struktural. | 2026-11-07 | Berlaku | SVG inline menjalankan skrip dan memuat sumber luar, dan komposisi sering menyisipkan SVG inline. Daftar-larang mudah dilewati (escape CSS, entitas, namespace); daftar-izin fail-closed lebih aman. Tanpa DOM di Bun, pustaka seperti DOMPurify membutuhkan DOM tambahan (dependensi baru). Batasan: belum diuji dengan korpus XSS publik dan bukan pengganti pustaka matang untuk SVG tak tepercaya dari internet. | #56 |
 | KP-028 | Konversi gambar ke sRGB dan normalisasi orientasi EXIF dilakukan lewat Chromium yang sama dengan renderer (`aset tambah --konversi`), bukan alat tambahan; keluaran PNG tanpa profil. | 2026-11-07 | Berlaku | Chromium sudah dikelola warna sedangkan ffmpeg 6 mengabaikan ICC dan orientasi EXIF; konversi sekali saat impor membuat piksel di disk sama dengan yang dirender. Tanpa dependensi baru. Trade-off: hasil bergantung build Chromium (selisih 1 pada satu kanal dimungkinkan), alpha melewati kanvas pra-kali, dan PNG lebih besar daripada JPEG asal. | #56 |
+| KP-029 | Kebijakan kutipan wajar untuk video reaction dan ulasan memakai angka bawaan: tiap klip kutipan maksimum 15 detik; total kutipan per sumber maksimum 45 detik atau 15% durasi sumber (yang lebih kecil); total kutipan maksimum 25% durasi video baru; komentar atau narasi asli aktif minimum 90% dari durasi kutipan; audio musik sumber dibisukan secara bawaan (musik dibahas maksimum 10 detik). Proyek boleh memperketat dan tidak boleh melonggarkan tanpa catatan izin tertulis. Diperiksa `klip.mjs` dan `audio.mjs` sebelum ekstraksi dan Chromium. | 2026-11-07 | Berlaku | Disetujui pemilik 2026-11-07. Hukum tidak menetapkan angka (UU 28/2014 Pasal 44, 17 U.S.C. §107, Konvensi Bern Pasal 10 hanya menyebut tujuan dan kewajaran), jadi angka adalah pagar konservatif yang dapat diperiksa mesin; ia bukan jaminan bahwa kutipan sah dan bukan nasihat hukum. Komentar yang menyasar karya dan dominan menjadi inti penimbangan putusan acuan. | #57 |
+| KP-030 | awvd tidak menyediakan pengunduh dari platform mana pun, perekam layar atau penangkap stream, pemintas DRM, penghapus watermark, pengelak pencocokan otomatis, atau alat yang menyalin naskah, karakter, atau musik. Bahan hanya berkas lokal yang sah dimiliki dan dicatat di `sumber.json`; `bun run pelajari` hanya menghasilkan angka agregat dari berkas lokal dan menolak `--sumber-sah` `unduh-platform`, `rekam-layar-platform`, `rip-stream`, dan URL. | 2026-11-07 | Berlaku | Ketentuan layanan platform umumnya melarang pengunduhan dan akses otomatis di luar fitur resmi, dan UU 28/2014 Pasal 52 dan Pasal 7 ayat 3 melarang pemintasan sarana kontrol teknologi dan penghapusan informasi manajemen hak cipta. awvd tidak dapat memverifikasi asal berkas, sehingga hanya mencatat pernyataan pengguna dan menolak nilai yang jelas melanggar; ada uji yang menjaga agar tidak ada pengunduh di `scripts/`. | #57 |
+| KP-031 | Gerbang tinjauan hukum `GH` berada di manifest (`proyek.gerbangHukum` dengan status, peninjau, tanggal, memo, dan hash SHA-256 gabungan manifest dan memo), bukan di `data/alur-produksi.json`. Sumber `KUTIPAN-WAJAR` tanpa GH disetujui ditolak sebelum render final (kode keluar 2) atau diberi tanda draf dengan `klip.mjs --draf` (`props.draf`, pita DRAF di komposisi). Perubahan manifest atau memo membatalkan persetujuan. | 2026-11-07 | Berlaku | Gerbang harus bekerja untuk repo proyek yang tidak memakai alur produksi konsep, dan penegakannya harus terjadi sebelum Chromium tanpa mengubah `render.mjs`. Hash mengikat persetujuan pada isi yang ditinjau. GH hanya mencatat bahwa peninjauan terjadi; ia tidak menilai isi memo. | #57 |
 
 ## Changelog
+
+### 2026-11-07 - v1.4.0
+
+- Menambahkan KP-029 (angka kebijakan kutipan wajar, disetujui pemilik 2026-11-07), KP-030 (tanpa pengunduh platform dan pemintas DRM), dan KP-031 (gerbang hukum GH berhash dengan tanda draf).
+
 
 ### 2026-11-07 - v1.3.0
 

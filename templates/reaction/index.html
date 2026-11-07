@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Reaction video-terprogram</title>
+<meta name="viewport" content="width=1280">
+<style>
+  html, body { margin: 0; background: #0b1220; }
+  #layar {
+    position: relative; width: 1280px; height: 720px; overflow: hidden;
+    font-family: system-ui, "Segoe UI", Roboto, "DejaVu Sans", sans-serif;
+    color: #f8fafc; background: linear-gradient(135deg, #0b1220 0%, #1b2a4a 100%);
+  }
+  #garis { position: absolute; height: 8px; border-radius: 4px; }
+  #judul { position: absolute; margin: 0; font-size: 44px; font-weight: 800; letter-spacing: -1px; max-width: 1000px; line-height: 1.1; }
+  #subjudul { position: absolute; margin: 0; font-size: 22px; color: #cbd5e1; max-width: 1000px; line-height: 1.3; }
+  #komentar { position: absolute; font-size: 38px; font-weight: 600; line-height: 1.3; border-left: 8px solid; padding-left: 24px; }
+  #komentar-jenis { position: absolute; font-size: 20px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #cbd5e1; }
+  #pip { position: absolute; display: none; }
+  #pip-label { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+  #pip-bingkai { border: 6px solid; border-radius: 14px; overflow: hidden; line-height: 0; background: #000; }
+  #pip-kanvas { display: block; }
+  #pip-kredit { margin-top: 12px; font-size: 18px; line-height: 1.3; color: #e2e8f0; max-width: 492px; }
+  #draf { position: absolute; left: 0; right: 0; top: 0; padding: 10px 0; text-align: center; font-size: 24px; font-weight: 800; background: #b91c1c; color: #fff; display: none; }
+  #kredit { position: absolute; inset: 0; display: none; background: #0b1220; }
+  #kredit h2 { position: absolute; margin: 0; font-size: 44px; font-weight: 800; }
+  #kredit ol { position: absolute; margin: 0; padding: 0 0 0 36px; font-size: 24px; line-height: 1.4; color: #e2e8f0; }
+  #kredit li { margin: 0 0 20px 0; }
+  #kredit p { position: absolute; margin: 0; font-size: 20px; color: #94a3b8; max-width: 1000px; }
+  #progres { position: absolute; left: 0; bottom: 0; height: 8px; }
+</style>
+</head>
+<body>
+<div id="layar">
+  <div id="garis"></div>
+  <h1 id="judul"></h1>
+  <p id="subjudul"></p>
+  <div id="komentar-jenis"></div>
+  <div id="komentar"></div>
+  <div id="pip">
+    <div id="pip-label"></div>
+    <div id="pip-bingkai"><canvas id="pip-kanvas" role="img" aria-label="Klip kutipan"></canvas></div>
+    <div id="pip-kredit"></div>
+  </div>
+  <div id="kredit"><h2>Kredit</h2><ol></ol><p></p></div>
+  <div id="draf">DRAF: belum ditinjau hukum. Jangan dipublikasikan.</div>
+  <div id="progres"></div>
+</div>
+<script src="../../scripts/runtime.js"></script>
+<script>
+  // Props: props.json (teks, jadwal, komentar) digabung dengan klip-props.json lewat
+  //   bun scripts/klip.mjs templates/reaction/sumber.json --fps 30 --out .cache/awvd/klip-reaction \
+  //     --gabung templates/reaction/props.json
+  // lalu render dengan --props-file .cache/awvd/klip-reaction/props-gabungan.json.
+  // Susunan reaction: komentar asli adalah layar utama; klip kutipan kecil di sudut dan hanya
+  // tampil sebentar. Jadwal klip di props.jadwal harus sama dengan rencana-audio.json dan
+  // mulaiVideo di sumber.json; teks komentar sama dengan proyek.komentar (diuji di uji-pelajari).
+  // props.draf (diisi klip.mjs --draf bila gerbang hukum GH belum disetujui) menampilkan
+  // pita DRAF; jangan dihapus pada proyek nyata.
+  // Determinisme: frame klip digambar ke <canvas> lewat klipGambar; latar bersudut siku
+  // (lihat komentar di templates/klip-tertanam/index.html).
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    garis: $("garis"), judul: $("judul"), sub: $("subjudul"), kom: $("komentar"), komJenis: $("komentar-jenis"),
+    pip: $("pip"), label: $("pip-label"), bingkai: $("pip-bingkai"), kanvas: $("pip-kanvas"), kredit: $("pip-kredit"),
+    akhir: $("kredit"), akhirJudul: $("kredit").querySelector("h2"), akhirDaftar: $("kredit").querySelector("ol"),
+    akhirCatatan: $("kredit").querySelector("p"), draf: $("draf"), progres: $("progres"),
+  };
+
+  defineVideo({
+    width: 1280, height: 720, fps: 30, durationInFrames: 1440,
+    async render(frame, ctx) {
+      const P = ctx.props;
+      if (!Array.isArray(P.klip) || !P.jadwal) {
+        throw new Error("props tidak lengkap: jalankan scripts/klip.mjs dengan --gabung props.json (lihat komentar di index.html)");
+      }
+      const A = areaAman(ctx.width, ctx.height).grafis;
+      const aksen = P.warnaAksen || "#f59f00";
+      const klipPerId = Object.fromEntries(P.klip.map((k) => [k.id, k]));
+      const masuk = ms(durasi.masuk, ctx.fps);
+      const kr = P.jadwal.kredit;
+      const dikredit = frame >= kr.mulai;
+
+      // judul dan subjudul (kecil: komentar adalah layar utama)
+      const naik = interpolasi(frame, [0, masuk * 2], [0, 1], { easing: easing.keluarCubic });
+      el.garis.style.cssText = "left:" + A.x + "px;top:" + (A.y + 24) + "px;width:" + (naik * 180) + "px;background:" + aksen;
+      el.judul.textContent = P.judul || "";
+      el.judul.style.left = A.x + "px";
+      el.judul.style.top = (A.y + 44) + "px";
+      el.judul.style.opacity = String(naik);
+      el.sub.textContent = P.subjudul || "";
+      el.sub.style.left = A.x + "px";
+      el.sub.style.top = (A.y + 104) + "px";
+      el.sub.style.opacity = String(interpolasi(frame, [masuk, masuk * 3], [0, 1]));
+
+      // komentar asli sebagai layar utama (cue dalam detik)
+      const cue = captionAktif(P.komentar || [], frame, ctx.fps);
+      const lebarKom = 640;
+      el.kom.style.display = cue && !dikredit ? "block" : "none";
+      el.komJenis.style.display = cue && !dikredit ? "block" : "none";
+      if (cue) {
+        const buram = fade(frame - Math.round(cue.mulai * ctx.fps), Math.round((cue.akhir - cue.mulai) * ctx.fps), { masuk: masuk, keluar: masuk });
+        el.komJenis.textContent = cue.jenis === "anotasi" ? "Anotasi pada kutipan" : "Komentar";
+        el.komJenis.style.left = A.x + "px";
+        el.komJenis.style.top = (A.y + 170) + "px";
+        el.kom.style.cssText = "display:block;left:" + A.x + "px;top:" + (A.y + 205) + "px;width:" + lebarKom + "px;border-color:" + aksen + ";opacity:" + buram;
+        el.kom.replaceChildren(...pecahBaris(cue.teks, { maks: 28 }).flatMap((b, i) => (i ? [document.createElement("br"), b] : [b])));
+      }
+
+      // klip kutipan kecil di sudut kanan; tampil hanya pada jadwalnya
+      const j = P.jadwal.klip.find((x) => frame >= x.mulai && frame < x.akhir);
+      if (j && !dikredit) {
+        const k = klipPerId[j.id];
+        if (!k) throw new Error("klip tidak ada di props: " + j.id);
+        const lokal = frame - j.mulai;
+        await klipGambar(el.kanvas, k, lokal);
+        const buram = fade(lokal, j.akhir - j.mulai, { masuk: masuk, keluar: masuk });
+        el.kanvas.style.width = k.lebar + "px";
+        el.kanvas.style.height = k.tinggi + "px";
+        el.pip.style.cssText = "display:block;left:" + (A.x + A.w - (k.lebar + 12)) + "px;top:" + (A.y + 190) +
+          "px;opacity:" + buram + ";transform:translateY(" + ((1 - buram) * 24) + "px)";
+        el.bingkai.style.borderColor = aksen;
+        el.label.textContent = "Kutipan " + k.id + " · audio " + j.mode;
+        el.kredit.textContent = kreditKlip(k);
+      } else {
+        el.pip.style.display = "none";
+      }
+
+      // kredit akhir: atribusi lengkap (TASL) semua sumber kutipan
+      if (dikredit) {
+        const unik = [];
+        for (const x of P.jadwal.klip) {
+          const k = klipPerId[x.id];
+          if (k && !unik.some((u) => u.sumber === k.sumber)) unik.push(k);
+        }
+        el.akhir.style.display = "block";
+        el.akhir.style.opacity = String(interpolasi(frame - kr.mulai, [0, ms(durasi.sedang, ctx.fps)], [0, 1]));
+        el.akhirJudul.style.cssText = "left:" + A.x + "px;top:" + (A.y + 40) + "px";
+        el.akhirDaftar.style.cssText = "left:" + A.x + "px;top:" + (A.y + 140) + "px;width:" + (A.w - 40) + "px";
+        el.akhirDaftar.replaceChildren(...unik.map((k) => {
+          const li = document.createElement("li");
+          li.textContent = kreditKlip(k, { ringkas: false });
+          return li;
+        }));
+        el.akhirCatatan.style.cssText = "left:" + A.x + "px;top:" + (A.y + A.h - 60) + "px";
+        el.akhirCatatan.textContent = "Kutipan singkat untuk ulasan; hak cipta tetap pada pencipta. Tonton karya aslinya lewat tautan sumber.";
+      } else {
+        el.akhir.style.display = "none";
+      }
+
+      el.draf.style.display = P.draf === true ? "block" : "none";
+      el.progres.style.background = aksen;
+      el.progres.style.width = (frame / (ctx.durationInFrames - 1)) * ctx.width + "px";
+    },
+  });
+</script>
+</body>
+</html>

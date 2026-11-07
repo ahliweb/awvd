@@ -1,0 +1,68 @@
+{
+  "proyek": {
+    "tujuan": "nonkomersial",
+    "durasiVideoDetik": 48,
+    "komentar": [
+      { "mulai": 0, "akhir": 3.5, "jenis": "narasi" },
+      { "mulai": 0, "akhir": 3.5, "jenis": "caption" },
+      { "mulai": 4, "akhir": 8, "jenis": "narasi" },
+      { "mulai": 4, "akhir": 8, "jenis": "caption" },
+      { "mulai": 8.5, "akhir": 13, "jenis": "narasi" },
+      { "mulai": 8.5, "akhir": 13, "jenis": "caption" },
+      { "mulai": 14, "akhir": 18, "jenis": "narasi" },
+      { "mulai": 14, "akhir": 18, "jenis": "caption" },
+      { "mulai": 18.5, "akhir": 25.5, "jenis": "narasi" },
+      { "mulai": 18.5, "akhir": 25.5, "jenis": "caption" },
+      { "mulai": 26, "akhir": 29, "jenis": "anotasi" },
+      { "mulai": 29.5, "akhir": 39.5, "jenis": "narasi" },
+      { "mulai": 29.5, "akhir": 43.5, "jenis": "caption" }
+    ]
+  },
+  "sumber": [
+    {
+      "id": "karya-1",
+      "berkas": "aset/karya-fiktif-1.mkv",
+      "sha256": "d68f16c03e35043c4db302df7278f65e74926cf3f7b78bb249225a147f478b5e",
+      "judul": "Karya fiktif satu",
+      "pencipta": "Proyek awvd",
+      "sumberUrl": "https://github.com/ahliweb/awvd",
+      "lisensi": "CC0-1.0",
+      "perubahan": "dipotong menjadi dua kutipan pendek; dibuat ulang per frame pada 30 fps",
+      "kutipan": {
+        "tujuan": "ulasan",
+        "isiAudio": "ucapan",
+        "musikDibahas": false,
+        "menyasarKarya": true,
+        "bukanBagianKhas": true,
+        "perubahanMakna": false,
+        "orangDikenali": false,
+        "sintetis": false
+      }
+    },
+    {
+      "id": "karya-2",
+      "berkas": "aset/karya-fiktif-2.mkv",
+      "sha256": "90b8e736ca117519925e25039eb872d180c923b0b34acc5db47531e63a51fa28",
+      "judul": "Karya fiktif dua",
+      "pencipta": "Proyek awvd",
+      "sumberUrl": "https://github.com/ahliweb/awvd",
+      "lisensi": "CC-BY-4.0",
+      "perubahan": "dipotong menjadi satu kutipan pendek; audio dibisukan; dibuat ulang per frame pada 30 fps",
+      "kutipan": {
+        "tujuan": "ulasan",
+        "isiAudio": "musik",
+        "musikDibahas": false,
+        "menyasarKarya": true,
+        "bukanBagianKhas": true,
+        "perubahanMakna": false,
+        "orangDikenali": false,
+        "sintetis": false
+      }
+    }
+  ],
+  "klip": [
+    { "id": "k1", "sumber": "karya-1", "lebar": 480, "tinggi": 270, "dari": 6, "panjang": 4, "mulaiVideo": 4 },
+    { "id": "k2", "sumber": "karya-2", "lebar": 480, "tinggi": 270, "dari": 20, "panjang": 4, "mulaiVideo": 14 },
+    { "id": "k3", "sumber": "karya-1", "lebar": 480, "tinggi": 270, "dari": 30, "panjang": 3, "mulaiVideo": 26 }
+  ]
+}

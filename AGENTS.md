@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.7.0`
+- Version: `v1.8.0`
 - Last updated: `2026-11-07`
-- Changeset: `Fitur aset: area saling bergantung scripts/aset*, peta pemicu aset dan pemblokiran jaringan renderer, serta risiko tinggi untuk perubahan aturan jaringan dan pemuatan font di render.mjs.`
+- Changeset: `Peta pemicu dan paralelisme memuat kebijakan kutipan wajar dan bun run pelajari (scripts/pelajari.mjs, scripts/kutipan.mjs, docs/pelajari-reaction.md); aturan 11 diperjelas: karya yang dikutip di template harus buatan sendiri.`
 
 awvd adalah renderer video MP4 dari kode web (lihat [README.md](README.md)). Aturan di dokumen ini menurunkan **pedoman internal AhliWeb** (tidak publik): eksekusi terkelola orchestrator (skill `eksekusi-terkelola`), standar dokumen (skill `standar-dokumen-repo`), standar koordinasi kontributor, standar dokumen formal, dan prosedur pemakaian awvd (skill `video-terprogram`). Nomor keputusan `DL-0xx` merujuk decision log internal tersebut. Isi yang dibutuhkan agent sudah dituangkan di sini, jadi agent di repo ini tidak perlu mengakses pedoman internal.
 
@@ -34,7 +34,7 @@ flowchart LR
 8. **Jalankan `bun run uji`** sampai lolos sebelum membuka PR.
 9. **Dokumentasi ikut setiap perubahan konsep atau fitur**, dalam PR yang sama. Dokumen yang basi adalah cacat. Rinciannya di §Dokumentasi.
 10. Jangan menyatakan rilis atau tag yang belum ada. Lihat §Rilis dan Deployment.
-11. **awvd hanya upstream** (keputusan pemilik, lihat [docs/arsitektur.md](docs/arsitektur.md) §Peran repo: upstream). Jangan menambahkan komposisi proyek, aset klien atau merek, naskah atau narasi, maupun hasil render proyek ke repo ini. Template di `templates/` hanya contoh generik berdata fiktif untuk dokumentasi dan uji. Permintaan membuat video diarahkan ke repo proyek video yang memakai awvd sebagai dependensi; perbaikan generik dari repo proyek masuk lewat PR ke repo ini.
+11. **awvd hanya upstream** (keputusan pemilik, lihat [docs/arsitektur.md](docs/arsitektur.md) §Peran repo: upstream). Jangan menambahkan komposisi proyek, aset klien atau merek, naskah atau narasi, maupun hasil render proyek ke repo ini. Template di `templates/` hanya contoh generik berdata fiktif untuk dokumentasi dan uji; karya yang dikutip di template (mis. `templates/reaction`) harus buatan sendiri, bukan karya pihak ketiga. Permintaan membuat video diarahkan ke repo proyek video yang memakai awvd sebagai dependensi; perbaikan generik dari repo proyek masuk lewat PR ke repo ini.
 
 ## Pedoman Eksekusi Wajib (Orchestrator & Agent)
 
@@ -84,7 +84,7 @@ Aturan:
 
 ### Penerapan di awvd
 
-- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`; `scripts/transisi.js` bersama `docs/transisi-animasi.md` dan `scripts/uji-transisi.mjs`; `scripts/aset.mjs` bersama `scripts/aset-lib.js`, `scripts/aset-svg.js`, dan `docs/aset.md`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
+- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`; `scripts/transisi.js` bersama `docs/transisi-animasi.md` dan `scripts/uji-transisi.mjs`; `scripts/aset.mjs` bersama `scripts/aset-lib.js`, `scripts/aset-svg.js`, dan `docs/aset.md`; `scripts/kutipan.mjs` bersama `scripts/klip.mjs`, `scripts/audio.mjs`, dan `docs/pelajari-reaction.md`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
 - Perubahan pada determinisme, protokol `window.video`/`renderFrame`, pipa ffmpeg, pemblokiran jaringan atau pemuatan font di `render.mjs`, dan pemeriksa SVG (`scripts/aset-svg.js`) tergolong risiko tinggi: delegasikan ke `pelaksana-kompleks` dengan effort `high`, atau kerjakan langsung oleh Opus.
 - Perintah verifikasi yang wajib ada di setiap brief: `bun run uji`.
 - Papan koordinasi: belum ada (dicek 2026-11-07). Penggantinya `gh pr list --state open`; usulkan papan ke pemilik bila kontributor aktif lebih dari satu.
@@ -195,6 +195,7 @@ README akar hanya ringkasan dan indeks. Dokumentasi rinci ada di folder [`docs/`
 | Pemblokiran jaringan atau pemuatan font di `render.mjs` | `docs/cli.md` §Jaringan dan font; `docs/arsitektur.md` §Protokol window.video dan renderFrame; `docs/batasan.md` |
 | Fitur aksesibilitas | `docs/aksesibilitas.md` |
 | Transisi, animasi elemen, profil audiens, `kurangiGerak` (`scripts/transisi.js`, `templates/transisi-galeri/`) | `docs/transisi-animasi.md`; `docs/aksesibilitas.md` bila aturan gerak atau kilatan berubah; komentar kepala `scripts/transisi.js` |
+| Mempelajari gaya video, kebijakan kutipan wajar, gerbang hukum GH, lisensi `KUTIPAN-WAJAR`, template `reaction` (`scripts/pelajari.mjs`, `scripts/kutipan.mjs`) | `docs/pelajari-reaction.md`; `docs/video-tertanam-audio.md` bila aturan sumber atau audio berubah; `docs/lisensi-kepatuhan.md`; `docs/log-keputusan.md` bila angka kebijakan berubah (angka hanya boleh diperketat tanpa keputusan pemilik) |
 | Template baru atau berubah | README §Struktur repo; `templates/<nama>/ASET.md` |
 | Uji atau CI | README §Perintah utama dan §Struktur repo (daftar uji dan opsi `bun run uji`); §Git dan PR bila check wajib berubah |
 | Dependensi atau lisensi pihak ketiga | `docs/lisensi-kepatuhan.md`; cek lisensi (§Lisensi dan Aset) |
@@ -263,6 +264,11 @@ flowchart TD
 Template PR di `.github/pull_request_template.md` memuat checklist ini.
 
 ## Changelog
+
+### 2026-11-07 - v1.8.0
+
+- Peta pemicu: baris kebijakan kutipan wajar, `bun run pelajari`, dan template `reaction`; paralelisme: `scripts/kutipan.mjs` bersama `klip.mjs`, `audio.mjs`, dan `docs/pelajari-reaction.md`.
+- Aturan 11: karya yang dikutip di template harus buatan sendiri; karya pihak ketiga masuk lewat repo proyek.
 
 ### 2026-11-07 - v1.7.0
 

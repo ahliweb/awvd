@@ -4,7 +4,7 @@
  * frame klip per nomor frame komposisi ke cache.
  *
  *   bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip]
- *        [--gabung props.json] [--paksa]
+ *        [--gabung props.json] [--paksa] [--draf]
  *
  * Alur (semuanya sebelum Chromium diluncurkan; pelanggaran = kode keluar 2):
  *   1. Manifest divalidasi: lisensi yang mengizinkan penggunaan dengan menyebut sumber,
@@ -13,6 +13,9 @@
  *   3. ffmpeg mengekstrak frame JPEG/PNG pada fps komposisi, satu berkas per nomor
  *      frame, ke cache berkunci (hash berkas + fps + ukuran + rentang + matriks + ...).
  *      Cache hit tidak mengekstrak ulang. Audio klip diekstrak ke audio.wav.
+ *   3b. Sumber berlisensi KUTIPAN-WAJAR atau berblok `kutipan` diperiksa kebijakan kutipan
+ *      wajar (scripts/kutipan.mjs: batas durasi, proporsi, komentar aktif) dan gerbang hukum
+ *      GH; gerbang belum disetujui = kode keluar 2, atau tanda draf dengan --draf.
  *   4. Menulis klip-props.json (daftar klip untuk props komposisi), atribusi.txt
  *      (format TASL), dan bila --gabung: props-gabungan.json.
  *
@@ -28,6 +31,7 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { barisRingkasan, dalamCakupan, periksaKutipan } from "./kutipan.mjs";
 
 const VERSI_SKEMA = 1;
 const POLA_ID = /^[a-z0-9][a-z0-9_-]*$/;
@@ -44,7 +48,8 @@ const PIX_RGB = /^(rgb|bgr|gbr|argb|abgr|rgba|bgra|pal8|gray)/;
 /**
  * Mengurai kode lisensi. Diizinkan: CC-BY-x.y, CC-BY-SA-x.y, CC-BY-NC-x.y,
  * CC-BY-NC-SA-x.y, (varian ND dikenali agar bisa ditolak dengan pesan tepat),
- * CC0-1.0, PDM-1.0, STOK:<penyedia>. Selain itu null.
+ * CC0-1.0, PDM-1.0, STOK:<penyedia>, KUTIPAN-WAJAR (bukan lisensi: klaim pengecualian hak
+ * cipta; wajib blok `kutipan` dan gerbang GH, lihat kutipan.mjs). Selain itu null.
  */
 export function uraiLisensi(kode) {
   if (typeof kode !== "string") return null;
@@ -57,6 +62,7 @@ export function uraiLisensi(kode) {
   }
   if (kode === "CC0-1.0") return { jenis: "cc0", nc: false, sa: false, nd: false };
   if (kode === "PDM-1.0") return { jenis: "pdm", nc: false, sa: false, nd: false };
+  if (kode === "KUTIPAN-WAJAR") return { jenis: "kutipan", nc: false, sa: false, nd: false };
   m = /^STOK:(.+)$/.exec(kode);
   if (m && m[1].trim()) return { jenis: "stok", penyedia: m[1].trim(), nc: false, sa: false, nd: false };
   return null;
@@ -70,6 +76,7 @@ export function namaLisensi(kode) {
   }
   if (u.jenis === "cc0") return "CC0 1.0";
   if (u.jenis === "pdm") return "Public Domain Mark 1.0";
+  if (u.jenis === "kutipan") return "KUTIPAN-WAJAR"; // sama dengan runtime.js (kode apa adanya)
   return `Lisensi stok ${u.penyedia}`;
 }
 
@@ -82,6 +89,7 @@ function urlLisensiBawaan(kode, bukti) {
   }
   if (u.jenis === "cc0") return "https://creativecommons.org/publicdomain/zero/1.0/";
   if (u.jenis === "pdm") return "https://creativecommons.org/publicdomain/mark/1.0/";
+  if (u.jenis === "kutipan") return "";
   return /^https?:\/\//i.test(bukti ?? "") ? bukti : "";
 }
 
@@ -157,7 +165,7 @@ export async function validasiManifest(manifest, dirManifest) {
     } else {
       const u = uraiLisensi(s.lisensi);
       if (!u) {
-        g(`lisensi "${s.lisensi}" tidak dikenal; yang diizinkan: CC-BY-x.y, CC-BY-SA-x.y, CC0-1.0, PDM-1.0, STOK:<penyedia> (CC-BY-NC-* hanya bila tujuan nonkomersial)`);
+        g(`lisensi "${s.lisensi}" tidak dikenal; yang diizinkan: CC-BY-x.y, CC-BY-SA-x.y, CC0-1.0, PDM-1.0, STOK:<penyedia>, KUTIPAN-WAJAR (blok kutipan + gerbang GH) (CC-BY-NC-* hanya bila tujuan nonkomersial)`);
       } else if (u.nd) {
         g(`lisensi ${s.lisensi} (ND) ditolak: ND tidak mengizinkan adaptasi, dan frame klip dibuat ulang (di-resample, dipotong, ditimpa elemen komposisi)`);
       } else if (u.nc && komersial) {
@@ -397,9 +405,11 @@ function gagal(pesan, kode = 1) {
 }
 
 const PETUNJUK = `Pemakaian:
-  bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung props.json] [--paksa]
+  bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung props.json] [--paksa] [--draf]
 Keluaran di --out: klip-props.json, atribusi.txt, <kunci>/ (frame + audio.wav + meta.json),
-dan props-gabungan.json bila --gabung. Kode keluar 2 untuk manifest/argumen tidak valid.`;
+dan props-gabungan.json bila --gabung. Kode keluar 2 untuk manifest/argumen tidak valid.
+--draf: izinkan sumber KUTIPAN-WAJAR yang gerbang hukum GH-nya belum disetujui; props memuat
+"draf": true (komposisi wajib menampilkan tanda draf). Pelanggaran angka kutipan tidak bisa dilewati.`;
 
 async function utama() {
   let args;
@@ -411,6 +421,7 @@ async function utama() {
         out: { type: "string", default: ".cache/awvd/klip" },
         gabung: { type: "string" },
         paksa: { type: "boolean", default: false },
+        draf: { type: "boolean", default: false },
         help: { type: "boolean", short: "h" },
       },
     });
@@ -495,6 +506,30 @@ async function utama() {
     process.exit(2);
   }
 
+  // 2b. kebijakan kutipan wajar + gerbang hukum GH (butuh durasi sumber dari ffprobe)
+  const durasiSumber = {};
+  for (const [id, x] of infoSumber) if (x.info.durasi !== undefined) durasiSumber[id] = x.info.durasi;
+  const kutipan = periksaKutipan(manifest, dirManifest, durasiSumber);
+  for (const p of kutipan.peringatan) console.error(`peringatan: ${p}`);
+  if (kutipan.galat.length) {
+    console.error(`klip.mjs: kebijakan kutipan wajar dilanggar (${kutipan.galat.length} pelanggaran); tidak ada ekstraksi dan tidak ada render:`);
+    for (const g of kutipan.galat) console.error(`  - ${g}`);
+    process.exit(2);
+  }
+  if (kutipan.ringkasan) console.log(barisRingkasan(kutipan));
+  let draf = false;
+  if (kutipan.gerbang.perlu && !kutipan.gerbang.disetujui) {
+    if (!o.draf) {
+      console.error(`klip.mjs: render final ditolak: ${kutipan.gerbang.pesan}`);
+      console.error("  Dapatkan persetujuan peninjau hukum (memo ber-hash, lihat docs/pelajari-reaction.md), atau jalankan dengan --draf untuk hasil bertanda draf (bukan untuk publikasi).");
+      process.exit(2);
+    }
+    draf = true;
+    console.error(`peringatan: DRAF: ${kutipan.gerbang.pesan}; props memuat "draf": true dan hasil tidak boleh dipublikasikan`);
+  } else if (kutipan.gerbang.perlu) {
+    console.log(kutipan.gerbang.pesan);
+  }
+
   // 3. ekstraksi ke cache
   const keluar = resolve(o.out);
   try {
@@ -529,22 +564,27 @@ async function utama() {
         urlLisensi: s.urlLisensi || urlLisensiBawaan(s.lisensi, s.bukti),
         perubahan: s.perubahan,
       },
+      ...(dalamCakupan(s) ? { kutipan: { isiAudio: s.kutipan?.isiAudio ?? "musik", musikDibahas: s.kutipan?.musikDibahas === true } } : {}),
     });
   }
 
   // 4. keluaran: klip-props.json, atribusi.txt, props-gabungan.json
-  writeFileSync(join(keluar, "klip-props.json"), `${JSON.stringify({ klip: props }, null, 2)}\n`);
+  writeFileSync(join(keluar, "klip-props.json"), `${JSON.stringify({ klip: props, ...(draf ? { draf: true } : {}) }, null, 2)}\n`);
   const urut = [];
   for (const p of props) if (!urut.some((x) => x.sumber === p.sumber)) urut.push({ sumber: p.sumber, atribusi: p.atribusi, klip: [] });
   for (const p of props) urut.find((x) => x.sumber === p.sumber).klip.push(p.id);
   const baris = ["ATRIBUSI KLIP TERTANAM (format TASL: Title, Author, Source, License)", ""];
+  if (draf) baris.unshift("DRAF: gerbang hukum GH belum disetujui; bukan untuk publikasi.", "");
   urut.forEach((x, i) => {
     baris.push(`${i + 1}. ${kreditLengkap(x.atribusi)}`, `   Dipakai di klip: ${x.klip.join(", ")}`);
   });
   const keluaranSA = manifest.proyek.lisensiKeluaran;
   if (adaTeks(keluaranSA)) baris.push("", `Lisensi keluaran video: ${namaLisensi(keluaranSA)}`);
+  if (props.some((x) => x.atribusi.lisensi === "KUTIPAN-WAJAR")) {
+    baris.push("", "KUTIPAN-WAJAR bukan lisensi: klip dikutip sebagai kritik, ulasan, atau pendidikan dengan menyebut sumber; hak cipta tetap pada pencipta.");
+  }
   writeFileSync(join(keluar, "atribusi.txt"), `${baris.join("\n")}\n`);
-  if (dasar) writeFileSync(join(keluar, "props-gabungan.json"), `${JSON.stringify({ ...dasar, klip: props }, null, 2)}\n`);
+  if (dasar) writeFileSync(join(keluar, "props-gabungan.json"), `${JSON.stringify({ ...dasar, klip: props, ...(draf ? { draf: true } : {}) }, null, 2)}\n`);
   console.log(`selesai: ${props.length} klip -> ${join(keluar, "klip-props.json")}${dasar ? `, ${join(keluar, "props-gabungan.json")}` : ""}`);
 }
 

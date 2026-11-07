@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.2.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan flag --izinkan-jaringan, kode keluar 3 (permintaan jaringan diblokir), bagian Jaringan dan font (pemblokiran non-lokal, pemuatan eksplisit font), dan perintah bun run aset di tabel Perintah lain.`
+- Changeset: `Menambahkan bun run pelajari, bun run kutipan, dan flag klip --draf ke tabel Perintah lain; bagian Jaringan dan font, flag --izinkan-jaringan, dan kode keluar 3 dari fitur aset dipertahankan.`
 
 Referensi CLI `scripts/render.mjs` (`bun run render`). Alur di balik perintah ini ada di [arsitektur.md](arsitektur.md).
 
@@ -60,13 +60,19 @@ Sebelum frame pertama renderer memuat eksplisit setiap `@font-face` (`FontFace.l
 | --- | --- | --- |
 | `bun run periksa <video.mp4>` | Pemeriksaan mutu pasca-render | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) |
 | `bun run sop <sop.json> --out DIR` | SOP menjadi dokumen cetak dan bahan video | [sop.md](sop.md) |
-| `bun run klip <sumber.json> --fps N` | Validasi sumber dan ekstraksi frame klip | [video-tertanam-audio.md](video-tertanam-audio.md) |
+| `bun run klip <sumber.json> --fps N [--draf]` | Validasi sumber (termasuk kebijakan kutipan dan gerbang GH) dan ekstraksi frame klip | [video-tertanam-audio.md](video-tertanam-audio.md) |
 | `bun run audio <rencana.json> --fps N --out F` | Perakit timeline audio | [video-tertanam-audio.md](video-tertanam-audio.md) |
+| `bun run pelajari <video-lokal> --sumber-sah CARA` | Statistik gaya dari video lokal yang sah dimiliki (ritme potongan, palet, kenyaringan, pola); laporan JSON/Markdown | [pelajari-reaction.md](pelajari-reaction.md) |
+| `bun run kutipan -- periksa\|hash <sumber.json>` | Periksa kebijakan kutipan wajar; hitung hash gerbang hukum GH | [pelajari-reaction.md](pelajari-reaction.md#bun-run-kutipan) |
 | `bun run konsep -- <subperintah>` | Konsep video: jenis, alur, brief, persetujuan | [konsep-jenis-alur.md](konsep-jenis-alur.md) |
 | `bun run aset tambah\|impor\|periksa` | Aset (gambar, logo, ikon, SVG, font, audio): manifest `aset.json`, validasi, pembersih SVG, konversi sRGB, atribusi | [aset.md](aset.md) |
 | `bun run uji` | Seluruh uji otomatis | [README](../README.md#perintah-utama) |
 
 ## Changelog
+
+### 2026-11-07 - v1.2.0
+
+- Tabel Perintah lain: `bun run pelajari`, `bun run kutipan`, dan flag `--draf` pada `bun run klip`; `render.mjs` tidak berubah.
 
 ### 2026-11-07 - v1.1.0
 
