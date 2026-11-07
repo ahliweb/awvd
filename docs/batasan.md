@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.6.1`
+- Version: `v1.7.0`
 - Last updated: `2026-11-07`
-- Changeset: `Penunjuk batasan narasi memuat ASR lokal opsional. Sebelumnya: menambahkan penunjuk batasan deteksi ketukan.`
+- Changeset: `Menambahkan penunjuk batasan timeline. Sebelumnya: penunjuk batasan narasi memuat ASR lokal opsional.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -33,9 +33,14 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | Aset (gambar, logo, ikon, SVG, font, audio) | [aset.md](aset.md#batasan) |
 | Narasi dan caption sinkron (estimasi timing, mesin suara, TTS dan ASR lokal opsional) | [narasi-caption.md](narasi-caption.md#batasan) |
 | Deteksi ketukan musik (hanya sinyal sintetis yang diuji, tempo tetap) | [ketukan.md](ketukan.md#batasan) |
+| Timeline deklaratif (`timeline.json`, validator; render menyusul) | [timeline.md](timeline.md#batasan) |
 | Mempelajari gaya video dan kutipan wajar | [pelajari-reaction.md](pelajari-reaction.md#batasan) |
 
 ## Changelog
+
+### 2026-11-07 - v1.7.0
+
+- Menambahkan penunjuk batasan timeline deklaratif.
 
 ### 2026-11-07 - v1.6.1
 

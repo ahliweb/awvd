@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 80" width="240" height="80">
+  <title>Logo Contoh Karya</title>
+  <defs>
+    <linearGradient id="lambang" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b5fa5"/>
+      <stop offset="1" stop-color="#1e9bd7"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="72" height="72" rx="16" fill="url(#lambang)"/>
+  <path d="M24 58 L40 20 L56 58 Z" fill="#ffffff"/>
+  <path d="M30 46 H50" stroke="#0b5fa5" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M96 24 H112 V56 H96 Z M120 24 H168 V34 H120 Z M120 46 H156 V56 H120 Z" fill="#0b5fa5"/>
+  <path d="M176 24 H232 V32 H176 Z M176 40 H220 V48 H176 Z M176 56 H232 V64 H176 Z" fill="#1e9bd7"/>
+</svg>

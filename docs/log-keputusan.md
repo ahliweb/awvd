@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.15.0`
+- Version: `v1.16.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan KP-056 sampai KP-058: ASR whisper.cpp lokal opsional, penyelarasan narasi dengan skor dan koreksi, transkripsi yang ditandai wajib ditinjau manusia. Sebelumnya: KP-053 sampai KP-055 tentang deteksi ketukan.`
+- Changeset: `Menambahkan KP-059 sampai KP-062 (keputusan pemilik tentang timeline.json: frame bulat, transisi tumpang tindih, sumber tunggal jadwal dan fail-closed, OTIO bukan format asli). Sebelumnya: KP-056 sampai KP-058 tentang ASR lokal opsional.`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -36,6 +36,10 @@ flowchart TD
     KP3 -->|tanpa jam atau acak| KPK1[KP-053 deteksi ketukan Bun murni]
     KPK1 --> KPK2[KP-054 tempo tetap + keyakinan]
     KPK1 --> KPK3[KP-055 helper terpisah]
+    KP3 -->|gerak dari nomor frame| KPW1[KP-059 waktu frame bulat]
+    KPW1 --> KPW2[KP-060 transisi tumpang tindih]
+    KPW1 --> KPW3[KP-061 timeline sumber tunggal]
+    KPW3 -.->|konverter ditunda| KPW4[KP-062 OTIO bukan format asli]
     KP15[KP-015 preset bertingkat bukti] -->|konflik lint caption| KP16[KP-016 preset sosial 20 cps]
     KP16 -->|alasan dikoreksi| KP19[KP-019 cps Netflix Indonesia]
     KP15 -->|bukti per atribut| KP20[KP-020 profil audiens dan helper visual]
@@ -101,8 +105,16 @@ flowchart TD
 | KP-056 | ASR hanya sebagai adaptor opsional whisper.cpp di `bun run narasi` (`scripts/narasi-asr.mjs`), tidak dibundel: pengguna membangun biner dan mengunduh model GGML sendiri (kode MIT, bobot Whisper MIT), ditunjuk lewat `--whisper-bin`/`AWVD_WHISPER_BIN` dan `--whisper-model`/`AWVD_WHISPER_MODEL`; tanpa itu fitur gagal dengan pesan (kode 1, tanpa keluaran). Karena berjalan lokal tanpa jaringan, ASR ini boleh untuk naskah dan rekaman `internal` (aturan 5 AGENTS.md hanya melarang layanan daring), dan `laporan.json` mencatat `asr.lokal`. Keluaran JSON dicache sebagai turunan. | 2026-11-07 | Berlaku | Riset awvd 2026-11-07: whisper.cpp dengan model base atau small q5_1 berjalan lokal 4 sampai 15 detik untuk audio 25 sampai 33 detik dan deterministik (JSON identik antar-jalan). Tidak membundel menjaga repo ringan dan lisensi bersih, sama dengan pola TTS (KP-048). Cache tidak dijadikan aset beku karena whisper.cpp deterministik; ia hanya mempercepat. | menyusul |
 | KP-057 | `--selaras whisper` menyelaraskan teks ASR dan naskah (Needleman-Wunsch pada kata ternormalisasi, kemiripan Levenshtein 0,6 ke atas dianggap sama) dan memakai stempel DTW token pertama tiap kata dikurangi koreksi 0,23 s; kata naskah tak berpasangan diisi dengan menarik garis waktu estimasi di antara jangkar ASR. Skor penyelarasan di bawah 0,6 membuang hasil ASR dan jatuh ke estimasi dengan peringatan. Urutan sumber waktu: penanda mesin TTS, whisper, estimasi. Teks caption tetap teks naskah. | 2026-11-07 | Berlaku | Pada 276 kata TTS bersih, MAE waktu mulai 50 ms (small) dan 61 ms (base) setelah koreksi, dibanding 78 ms estimasi, tetapi DTW mentah 228 sampai 237 ms (lebih buruk dari estimasi), dan 5 sampai 9 persen kata tak berpasangan karena whisper mengenali, bukan menyelaraskan paksa. Koreksi 0,23 s disetel pada data yang sama (in-sample) dan belum diuji pada suara manusia; karena itu dapat diatur (`--koreksi-asr`), skor dijadikan pelindung, dan estimasi tetap bawaan. | menyusul |
 | KP-058 | `bun run narasi transkripsi <audio>` membuat caption dari audio tanpa naskah, dan semua keluarannya ditandai "hasil ASR, wajib ditinjau manusia": blok `NOTE` di VTT, `tinjauan` di `kata.json` dan `laporan.json`, berkas `PERLU-TINJAUAN.txt`, dan peringatan CLI. Lint cps pada transkripsi hanya saran (kode keluar 0); audio senyap dan ASR tanpa kata ditolak. | 2026-11-07 | Berlaku | ASR dapat salah dengar, melewatkan kata, atau mengarang kata pada derau; nama diri, istilah, dan angka paling rawan, sehingga caption ASR tidak boleh dianggap siap tayang (aksesibilitas bergantung pada ketepatan caption). Tanda ditaruh di beberapa tempat karena SRT tidak punya komentar dan berkas dapat berpindah tangan sendirian. Lint tidak menggagalkan karena tidak ada naskah yang dapat dipersingkat dan ucapan nyata tidak boleh dipercepat atau diperlambat (KP-038). | menyusul |
+| KP-059 | Waktu di `timeline.json` adalah frame bilangan bulat pada `proyek.fps` bulat; `mulai`, `durasi`, `dari`, dan `pada` semuanya frame, dan rentang butir setengah terbuka `[mulai, mulai + durasi)`. fps pecahan (29,97) ditunda ke skema 2. Pemetaan waktu klip memakai bilangan bulat permil. | 2026-11-07 | Berlaku | Tanpa pembulatan, satu satuan waktu di seluruh kode (`renderFrame(n)`, rencana audio, `susunAdegan`), pemeriksaan tumpang tindih pasti, dan `Math.floor(100 * 0.29)` yang salah (28, benarnya 29) tidak bisa terjadi. Keputusan pemilik setelah riset #30; konsekuensinya penulis menghitung frame (alat bantu konversi menyusul). | #30, #31, PR menyusul |
+| KP-060 | Transisi di timeline adalah tumpang tindih dua butir pada track `video` (objek `transisi` di butir masuk); panjang tumpang tindih wajib sama dengan `transisi.durasi`, tanpa objek = potong, dan hanya satu transisi aktif per frame di seluruh timeline. | 2026-11-07 | Berlaku | Identik dengan `susunAdegan` dan semua pemakaian `transisi.js`, tidak butuh handle di luar rentang trim, dan id filter SVG `transisi.js` bersifat global sehingga dua transisi bersamaan akan bertabrakan. Konsekuensinya durasi butir mencakup bagian yang tumpang tindih; dapat dilonggarkan kelak dengan id filter per track. Keputusan pemilik. | #30, #31, PR menyusul |
+| KP-061 | `timeline.json` adalah sumber tunggal jadwal: rencana audio, mulai klip, durasi, dan kebijakan kutipan diturunkan darinya (validator menghitung kebijakan kutipan dari durasi tampil dan menolak nilai manual di `sumber.json` yang bertentangan), dan audio klip bawaannya bisu (`audio.mode` yang tidak ditulis = `bisu`). Timeline merujuk media hanya lewat id di `aset.json` dan `sumber.json`, dan validasinya fail-closed (skema dibaca langsung dari `data/skema-timeline.json`, bidang dan versi skema asing ditolak, galat berlokasi JSON pointer, kode keluar 2). | 2026-11-07 | Berlaku | Menghilangkan jadwal ganda yang kini ada di empat tempat pada templat reaction; bawaan bisu mencegah suara tak sengaja dari klip pihak ketiga (risiko hak cipta musik). Fail-closed karena bidang yang diabaikan dapat meloloskan atribusi atau lisensi yang tak diperiksa; validator ditulis tangan tanpa dependensi (Ajv akan menambah dependensi runtime dan memberi pesan tak berlokasi). Keputusan pemilik; rincian di [timeline.md](timeline.md). | #30, #31, PR menyusul |
+| KP-062 | OpenTimelineIO bukan format asli awvd; konverter impor/ekspor opsional masuk backlog setelah F6. | 2026-11-07 | Berlaku | Skema belum teruji pemakaian nyata dan konversi menambah permukaan pemeliharaan; pustaka OTIO tidak bisa menjadi dependensi (Bun-only) dan sikap OTIO mengabaikan bidang tak dikenal bertentangan dengan fail-closed. Konsekuensinya tidak ada interoperabilitas dengan penyunting lain sampai backlog dikerjakan. Keputusan pemilik. | #30, PR menyusul |
 
 ## Changelog
+
+### 2026-11-07 - v1.16.0
+
+- Menambahkan KP-059 sampai KP-062 (keputusan pemilik tentang `timeline.json`; rujukan PR menyusul).
 
 ### 2026-11-07 - v1.15.0
 

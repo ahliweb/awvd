@@ -1,0 +1,130 @@
+{
+  "$schema": "../../data/skema-timeline.json",
+  "skema": 1,
+  "proyek": {
+    "judul": "Salam pembuka (contoh fiktif)",
+    "lebar": 1280,
+    "tinggi": 720,
+    "fps": 30,
+    "durasi": 240,
+    "jenisVideo": "promo",
+    "latar": "#0b1220"
+  },
+  "manifes": {
+    "aset": "aset.json"
+  },
+  "track": [
+    {
+      "id": "t-latar",
+      "jenis": "video",
+      "butir": [
+        {
+          "id": "latar",
+          "jenis": "warna",
+          "mulai": 0,
+          "durasi": 240,
+          "warna": "#0b1220"
+        }
+      ]
+    },
+    {
+      "id": "t-logo",
+      "jenis": "overlay",
+      "butir": [
+        {
+          "id": "logo",
+          "jenis": "gambar",
+          "aset": "logo-contoh",
+          "mulai": 0,
+          "durasi": 240,
+          "tata": {
+            "x": 48,
+            "y": 40,
+            "lebar": 192,
+            "tinggi": 64,
+            "fit": "contain"
+          },
+          "animasi": {
+            "masuk": {
+              "jenis": "pudar",
+              "durasi": 12
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "t-judul",
+      "jenis": "teks",
+      "butir": [
+        {
+          "id": "judul",
+          "jenis": "teks",
+          "peran": "judul",
+          "isi": "Halo, awvd",
+          "mulai": 15,
+          "durasi": 180,
+          "gaya": {
+            "ukuran": 72,
+            "bobot": 800,
+            "warna": "#f8fafc",
+            "rata": "tengah"
+          },
+          "tata": {
+            "x": 140,
+            "y": 260,
+            "lebar": 1000,
+            "tinggi": 100
+          },
+          "animasi": {
+            "masuk": {
+              "jenis": "geser",
+              "arah": "atas",
+              "jarak": 40,
+              "durasi": 15
+            },
+            "keluar": {
+              "jenis": "pudar",
+              "durasi": 12
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "t-subjudul",
+      "jenis": "teks",
+      "butir": [
+        {
+          "id": "subjudul",
+          "jenis": "teks",
+          "peran": "subjudul",
+          "isi": "Video dari berkas timeline.json",
+          "mulai": 45,
+          "durasi": 150,
+          "gaya": {
+            "ukuran": 40,
+            "warna": "#cbd5e1",
+            "rata": "tengah"
+          },
+          "tata": {
+            "x": 140,
+            "y": 380,
+            "lebar": 1000,
+            "tinggi": 60
+          },
+          "animasi": {
+            "masuk": {
+              "jenis": "pudar",
+              "durasi": 15
+            },
+            "keluar": {
+              "jenis": "pudar",
+              "durasi": 12
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

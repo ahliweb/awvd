@@ -1,0 +1,1637 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:awvd:timeline:skema-1",
+  "title": "awvd timeline.json, skema 1",
+  "description": "Timeline deklaratif awvd. Waktu = frame bilangan bulat pada fps bulat tetap proyek; rentang setengah terbuka [mulai, mulai + durasi). Urutan track visual = urutan lapisan (indeks 0 paling bawah). Skema ini adalah kontrak struktur dan bantuan penyunting; `bun run timeline periksa` membacanya langsung (satu sumber kebenaran) lalu menambah aturan lintas-bidang (rujukan manifest, tumpang tindih, transisi, pemetaan waktu, audio, atribusi, kutipan) yang tidak dapat dinyatakan di skema. Bidang tak dikenal ditolak (fail-closed).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "skema",
+    "proyek",
+    "track"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "skema": {
+      "const": 1,
+      "description": "Versi skema (bilangan bulat). Validator hanya menerima versi yang dikenalnya."
+    },
+    "proyek": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lebar",
+        "tinggi",
+        "fps",
+        "durasi"
+      ],
+      "properties": {
+        "judul": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "lebar": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 7680
+        },
+        "tinggi": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 4320
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120,
+          "description": "Bilangan bulat; fps pecahan (29,97) belum didukung di skema 1."
+        },
+        "durasi": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total frame video (maksimal 1.000.000, batas keamanan validator). Harus >= akhir butir terakhir.",
+          "maximum": 1000000
+        },
+        "jenisVideo": {
+          "enum": [
+            "formal",
+            "edukasi",
+            "kreatif",
+            "promo",
+            "produk",
+            "panduan",
+            "dokumenter",
+            "sosial",
+            "data",
+            "testimoni",
+            "psa",
+            "internal",
+            "acara"
+          ]
+        },
+        "profil": {
+          "enum": [
+            "standar",
+            "kurangiGerak"
+          ],
+          "description": "Profil transisi.js. `lansia` dan `anak` ditolak di skema 1: keduanya menskalakan durasi transisi, sehingga durasi yang dirender tidak lagi sama dengan tumpang tindih tetap dua butir di timeline."
+        },
+        "latar": {
+          "type": "string",
+          "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+        }
+      }
+    },
+    "manifes": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Jalur relatif ke folder timeline.json; tanpa skema URL, jalur mutlak, atau `..`.",
+      "properties": {
+        "aset": {
+          "$ref": "#/$defs/jalur"
+        },
+        "sumber": {
+          "$ref": "#/$defs/jalur"
+        },
+        "konsep": {
+          "$ref": "#/$defs/jalur"
+        }
+      }
+    },
+    "audio": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fadeMs": {
+          "type": "number",
+          "minimum": 100,
+          "maximum": 300
+        },
+        "ucapanLufs": {
+          "type": "number",
+          "minimum": -40,
+          "maximum": -5
+        },
+        "ketatCampur": {
+          "type": "boolean"
+        }
+      }
+    },
+    "penanda": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "pada",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "maxLength": 64
+          },
+          "pada": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        }
+      }
+    },
+    "track": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "description": "Urutan = lapisan visual: indeks 0 paling bawah. Track audio tidak berlapis.",
+      "items": {
+        "$ref": "#/$defs/track"
+      }
+    }
+  },
+  "$defs": {
+    "jalur": {
+      "type": "string",
+      "maxLength": 200,
+      "pattern": "^(?![/.])(?!.*\\.\\.)(?![A-Za-z][A-Za-z0-9+.-]*:)[A-Za-z0-9._/-]+$"
+    },
+    "bezier": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "tata": {
+      "description": "Kotak tata letak dalam piksel komposisi (asal kiri-atas). Butir pada track video bawaannya memenuhi layar.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "lebar": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "tinggi": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "fit": {
+          "enum": [
+            "contain",
+            "cover",
+            "fill"
+          ]
+        }
+      }
+    },
+    "properti": {
+      "description": "Properti yang dapat dianimasikan (keyframe). Hanya daftar ini; properti lain ditolak.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "description": "Perpindahan horizontal (px) dari tata.",
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": -20000,
+              "maximum": 20000
+            },
+            {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pada",
+                  "nilai"
+                ],
+                "properties": {
+                  "pada": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Frame lokal butir (0 = frame pertama butir)."
+                  },
+                  "nilai": {
+                    "type": "number",
+                    "minimum": -20000,
+                    "maximum": 20000
+                  },
+                  "easing": {
+                    "description": "Kurva segmen yang dimulai di titik ini; dilarang pada keyframe terakhir. Nama dari easing runtime.js atau bezier [x1,y1,x2,y2].",
+                    "oneOf": [
+                      {
+                        "enum": [
+                          "linear",
+                          "masukQuad",
+                          "keluarQuad",
+                          "masukKeluarQuad",
+                          "masukCubic",
+                          "keluarCubic",
+                          "masukKeluarCubic",
+                          "masukBack",
+                          "keluarBack",
+                          "keluarElastis",
+                          "standar",
+                          "percepat",
+                          "perlambat",
+                          "ditekankanMasuk",
+                          "ditekankanKeluar"
+                        ]
+                      },
+                      {
+                        "$ref": "#/$defs/bezier"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "y": {
+          "description": "Perpindahan vertikal (px) dari tata.",
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": -20000,
+              "maximum": 20000
+            },
+            {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pada",
+                  "nilai"
+                ],
+                "properties": {
+                  "pada": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Frame lokal butir (0 = frame pertama butir)."
+                  },
+                  "nilai": {
+                    "type": "number",
+                    "minimum": -20000,
+                    "maximum": 20000
+                  },
+                  "easing": {
+                    "description": "Kurva segmen yang dimulai di titik ini; dilarang pada keyframe terakhir. Nama dari easing runtime.js atau bezier [x1,y1,x2,y2].",
+                    "oneOf": [
+                      {
+                        "enum": [
+                          "linear",
+                          "masukQuad",
+                          "keluarQuad",
+                          "masukKeluarQuad",
+                          "masukCubic",
+                          "keluarCubic",
+                          "masukKeluarCubic",
+                          "masukBack",
+                          "keluarBack",
+                          "keluarElastis",
+                          "standar",
+                          "percepat",
+                          "perlambat",
+                          "ditekankanMasuk",
+                          "ditekankanKeluar"
+                        ]
+                      },
+                      {
+                        "$ref": "#/$defs/bezier"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "skala": {
+          "description": "Pengali skala di sekitar pusat kotak.",
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 20
+            },
+            {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pada",
+                  "nilai"
+                ],
+                "properties": {
+                  "pada": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Frame lokal butir (0 = frame pertama butir)."
+                  },
+                  "nilai": {
+                    "type": "number",
+                    "minimum": 0.01,
+                    "maximum": 20
+                  },
+                  "easing": {
+                    "description": "Kurva segmen yang dimulai di titik ini; dilarang pada keyframe terakhir. Nama dari easing runtime.js atau bezier [x1,y1,x2,y2].",
+                    "oneOf": [
+                      {
+                        "enum": [
+                          "linear",
+                          "masukQuad",
+                          "keluarQuad",
+                          "masukKeluarQuad",
+                          "masukCubic",
+                          "keluarCubic",
+                          "masukKeluarCubic",
+                          "masukBack",
+                          "keluarBack",
+                          "keluarElastis",
+                          "standar",
+                          "percepat",
+                          "perlambat",
+                          "ditekankanMasuk",
+                          "ditekankanKeluar"
+                        ]
+                      },
+                      {
+                        "$ref": "#/$defs/bezier"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "rotasi": {
+          "description": "Derajat searah jarum jam.",
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": -3600,
+              "maximum": 3600
+            },
+            {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pada",
+                  "nilai"
+                ],
+                "properties": {
+                  "pada": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Frame lokal butir (0 = frame pertama butir)."
+                  },
+                  "nilai": {
+                    "type": "number",
+                    "minimum": -3600,
+                    "maximum": 3600
+                  },
+                  "easing": {
+                    "description": "Kurva segmen yang dimulai di titik ini; dilarang pada keyframe terakhir. Nama dari easing runtime.js atau bezier [x1,y1,x2,y2].",
+                    "oneOf": [
+                      {
+                        "enum": [
+                          "linear",
+                          "masukQuad",
+                          "keluarQuad",
+                          "masukKeluarQuad",
+                          "masukCubic",
+                          "keluarCubic",
+                          "masukKeluarCubic",
+                          "masukBack",
+                          "keluarBack",
+                          "keluarElastis",
+                          "standar",
+                          "percepat",
+                          "perlambat",
+                          "ditekankanMasuk",
+                          "ditekankanKeluar"
+                        ]
+                      },
+                      {
+                        "$ref": "#/$defs/bezier"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "opasitas": {
+          "description": "0..1.",
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pada",
+                  "nilai"
+                ],
+                "properties": {
+                  "pada": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Frame lokal butir (0 = frame pertama butir)."
+                  },
+                  "nilai": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "easing": {
+                    "description": "Kurva segmen yang dimulai di titik ini; dilarang pada keyframe terakhir. Nama dari easing runtime.js atau bezier [x1,y1,x2,y2].",
+                    "oneOf": [
+                      {
+                        "enum": [
+                          "linear",
+                          "masukQuad",
+                          "keluarQuad",
+                          "masukKeluarQuad",
+                          "masukCubic",
+                          "keluarCubic",
+                          "masukKeluarCubic",
+                          "masukBack",
+                          "keluarBack",
+                          "keluarElastis",
+                          "standar",
+                          "percepat",
+                          "perlambat",
+                          "ditekankanMasuk",
+                          "ditekankanKeluar"
+                        ]
+                      },
+                      {
+                        "$ref": "#/$defs/bezier"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "animasi": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "masuk": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "jenis"
+          ],
+          "properties": {
+            "jenis": {
+              "enum": [
+                "pudar",
+                "geser",
+                "skala",
+                "kabur",
+                "tirai",
+                "mantul",
+                "tumbuh"
+              ]
+            },
+            "durasi": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Frame. Bawaan: durasi bawaan jenis (ms) pada fps proyek."
+            },
+            "easing": {
+              "oneOf": [
+                {
+                  "enum": [
+                    "linear",
+                    "standar",
+                    "percepat",
+                    "perlambat",
+                    "ditekankan",
+                    "ditekankanKeluar",
+                    "masukKeluar",
+                    "kuat",
+                    "keluarCubic",
+                    "masukKeluarCubic",
+                    "pegas",
+                    "pegasLembut"
+                  ]
+                },
+                {
+                  "$ref": "#/$defs/bezier"
+                }
+              ]
+            },
+            "arah": {
+              "enum": [
+                "kiri",
+                "kanan",
+                "atas",
+                "bawah"
+              ]
+            },
+            "jarak": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 400
+            },
+            "intensitas": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3
+            },
+            "stagger": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30
+            },
+            "mode": {
+              "enum": [
+                "huruf",
+                "kata"
+              ],
+              "description": "Hanya untuk butir teks."
+            }
+          }
+        },
+        "keluar": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "jenis"
+          ],
+          "properties": {
+            "jenis": {
+              "enum": [
+                "pudar",
+                "geser",
+                "skala",
+                "kabur",
+                "tirai",
+                "mantul",
+                "tumbuh"
+              ]
+            },
+            "durasi": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Frame. Bawaan: durasi bawaan jenis (ms) pada fps proyek."
+            },
+            "easing": {
+              "oneOf": [
+                {
+                  "enum": [
+                    "linear",
+                    "standar",
+                    "percepat",
+                    "perlambat",
+                    "ditekankan",
+                    "ditekankanKeluar",
+                    "masukKeluar",
+                    "kuat",
+                    "keluarCubic",
+                    "masukKeluarCubic",
+                    "pegas",
+                    "pegasLembut"
+                  ]
+                },
+                {
+                  "$ref": "#/$defs/bezier"
+                }
+              ]
+            },
+            "arah": {
+              "enum": [
+                "kiri",
+                "kanan",
+                "atas",
+                "bawah"
+              ]
+            },
+            "jarak": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 400
+            },
+            "intensitas": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3
+            },
+            "stagger": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30
+            },
+            "mode": {
+              "enum": [
+                "huruf",
+                "kata"
+              ],
+              "description": "Hanya untuk butir teks."
+            }
+          }
+        },
+        "penekanan": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "jenis",
+              "mulai",
+              "durasi"
+            ],
+            "properties": {
+              "jenis": {
+                "enum": [
+                  "denyut",
+                  "getar",
+                  "kilatSorot"
+                ]
+              },
+              "mulai": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Frame lokal butir."
+              },
+              "durasi": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "intensitas": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 3
+              }
+            }
+          }
+        }
+      }
+    },
+    "kamera": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "skala": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 20
+        }
+      }
+    },
+    "transisi": {
+      "description": "Transisi MASUK pada butir ini terhadap butir sebelumnya di track yang sama. Panjang tumpang tindih kedua butir WAJIB sama dengan `durasi`. Tanpa objek ini = potong. Hanya track jenis video.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jenis",
+        "durasi"
+      ],
+      "properties": {
+        "jenis": {
+          "enum": [
+            "pudar",
+            "celup",
+            "pudarMelalui",
+            "pudarBlur",
+            "geser",
+            "dorong",
+            "tumpuk",
+            "sapu",
+            "belah",
+            "kisi",
+            "iris",
+            "bentuk",
+            "zoom",
+            "cambuk",
+            "halaman",
+            "balik",
+            "gangguan",
+            "kebocoran",
+            "kilat",
+            "tirai"
+          ]
+        },
+        "durasi": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Frame; harus sama dengan tumpang tindih."
+        },
+        "easing": {
+          "oneOf": [
+            {
+              "enum": [
+                "linear",
+                "standar",
+                "percepat",
+                "perlambat",
+                "ditekankan",
+                "ditekankanKeluar",
+                "masukKeluar",
+                "kuat",
+                "keluarCubic",
+                "masukKeluarCubic",
+                "pegas",
+                "pegasLembut"
+              ]
+            },
+            {
+              "$ref": "#/$defs/bezier"
+            }
+          ]
+        },
+        "arah": {
+          "enum": [
+            "kiri",
+            "kanan",
+            "atas",
+            "bawah"
+          ]
+        },
+        "warna": {
+          "type": "string",
+          "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+        },
+        "warna2": {
+          "type": "string",
+          "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+        },
+        "intensitas": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "lembut": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "sudut": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "jumlah": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "bentuk": {
+          "enum": [
+            "berlian",
+            "segienam",
+            "bintang",
+            "kotak"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "buka",
+            "tutup",
+            "melalui",
+            "silang"
+          ]
+        },
+        "pusat": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "paralaks": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rasioKeluar": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "butirDasar": {
+      "type": "object",
+      "required": [
+        "id",
+        "jenis",
+        "mulai",
+        "durasi"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "maxLength": 64
+        },
+        "jenis": {
+          "enum": [
+            "video",
+            "gambar",
+            "teks",
+            "warna",
+            "audio",
+            "kredit"
+          ]
+        },
+        "nama": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "mulai": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Frame awal pada timeline (inklusif)."
+        },
+        "durasi": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Jumlah frame tampil. Akhir = mulai + durasi (eksklusif)."
+        }
+      }
+    },
+    "butir": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/butirDasar"
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "jenis": {
+                "const": "video"
+              }
+            },
+            "required": [
+              "jenis"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "klip"
+            ],
+            "properties": {
+              "jenis": {
+                "const": "video"
+              },
+              "id": true,
+              "nama": true,
+              "mulai": true,
+              "durasi": true,
+              "klip": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9_-]*$",
+                "maxLength": 64,
+                "description": "id di sumber.json klip[]."
+              },
+              "dari": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Offset frame klip (pada fps proyek) tempat butir mulai membaca. Bawaan 0."
+              },
+              "waktu": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kecepatan": {
+                    "description": "Pengali kecepatan, maksimal 3 desimal (aritmetika permil). Bentuk keyframe = speed ramp (nilai per frame lokal).",
+                    "oneOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0.1,
+                        "maximum": 10
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 256,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "pada",
+                            "nilai"
+                          ],
+                          "properties": {
+                            "pada": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "description": "Frame lokal butir (0 = frame pertama butir)."
+                            },
+                            "nilai": {
+                              "type": "number",
+                              "minimum": 0.1,
+                              "maximum": 10
+                            },
+                            "easing": {
+                              "description": "Kurva segmen yang dimulai di titik ini; dilarang pada keyframe terakhir. Nama dari easing runtime.js atau bezier [x1,y1,x2,y2].",
+                              "oneOf": [
+                                {
+                                  "enum": [
+                                    "linear",
+                                    "masukQuad",
+                                    "keluarQuad",
+                                    "masukKeluarQuad",
+                                    "masukCubic",
+                                    "keluarCubic",
+                                    "masukKeluarCubic",
+                                    "masukBack",
+                                    "keluarBack",
+                                    "keluarElastis",
+                                    "standar",
+                                    "percepat",
+                                    "perlambat",
+                                    "ditekankanMasuk",
+                                    "ditekankanKeluar"
+                                  ]
+                                },
+                                {
+                                  "$ref": "#/$defs/bezier"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "balik": {
+                    "type": "boolean"
+                  },
+                  "bekukan": {
+                    "type": "boolean",
+                    "description": "Menahan frame `dari` selama seluruh durasi butir."
+                  },
+                  "habis": {
+                    "enum": [
+                      "tolak",
+                      "tahan",
+                      "ulang"
+                    ],
+                    "description": "Bila pembacaan melewati frame klip: tolak (bawaan, galat validator), tahan frame terakhir, atau ulang."
+                  }
+                }
+              },
+              "audio": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "mode": {
+                    "enum": [
+                      "bergantian",
+                      "campur",
+                      "bisu"
+                    ],
+                    "description": "Sama dengan mode klip di audio.mjs. Bawaan bisu (keputusan pemilik: audio klip bawaannya bisu); bergantian dan campur harus ditulis eksplisit."
+                  },
+                  "gainDb": {
+                    "type": "number",
+                    "minimum": -60,
+                    "maximum": 12
+                  },
+                  "turunDb": {
+                    "type": "number",
+                    "minimum": 8,
+                    "maximum": 20
+                  }
+                }
+              },
+              "kreditLayar": {
+                "type": "boolean"
+              },
+              "transisi": {
+                "$ref": "#/$defs/transisi"
+              },
+              "tata": {
+                "$ref": "#/$defs/tata"
+              },
+              "properti": {
+                "$ref": "#/$defs/properti"
+              },
+              "animasi": {
+                "$ref": "#/$defs/animasi"
+              }
+            },
+            "unevaluatedProperties": false
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "jenis": {
+                "const": "gambar"
+              }
+            },
+            "required": [
+              "jenis"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "aset"
+            ],
+            "properties": {
+              "jenis": {
+                "const": "gambar"
+              },
+              "id": true,
+              "nama": true,
+              "mulai": true,
+              "durasi": true,
+              "aset": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9_-]*$",
+                "maxLength": 64,
+                "description": "id di aset.json aset[] (jenis gambar, logo, ikon, atau svg)."
+              },
+              "kenBurns": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "dari",
+                  "ke"
+                ],
+                "properties": {
+                  "dari": {
+                    "$ref": "#/$defs/kamera"
+                  },
+                  "ke": {
+                    "$ref": "#/$defs/kamera"
+                  },
+                  "easing": {
+                    "oneOf": [
+                      {
+                        "enum": [
+                          "linear",
+                          "masukQuad",
+                          "keluarQuad",
+                          "masukKeluarQuad",
+                          "masukCubic",
+                          "keluarCubic",
+                          "masukKeluarCubic",
+                          "masukBack",
+                          "keluarBack",
+                          "keluarElastis",
+                          "standar",
+                          "percepat",
+                          "perlambat",
+                          "ditekankanMasuk",
+                          "ditekankanKeluar"
+                        ]
+                      },
+                      {
+                        "$ref": "#/$defs/bezier"
+                      }
+                    ]
+                  }
+                }
+              },
+              "kreditLayar": {
+                "type": "boolean"
+              },
+              "transisi": {
+                "$ref": "#/$defs/transisi"
+              },
+              "tata": {
+                "$ref": "#/$defs/tata"
+              },
+              "properti": {
+                "$ref": "#/$defs/properti"
+              },
+              "animasi": {
+                "$ref": "#/$defs/animasi"
+              }
+            },
+            "unevaluatedProperties": false
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "jenis": {
+                "const": "teks"
+              }
+            },
+            "required": [
+              "jenis"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "isi",
+              "peran"
+            ],
+            "properties": {
+              "jenis": {
+                "const": "teks"
+              },
+              "id": true,
+              "nama": true,
+              "mulai": true,
+              "durasi": true,
+              "isi": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Teks polos; ditulis lewat textContent, tidak pernah innerHTML."
+              },
+              "peran": {
+                "enum": [
+                  "judul",
+                  "subjudul",
+                  "isi",
+                  "caption",
+                  "keterangan",
+                  "anotasi",
+                  "kredit"
+                ]
+              },
+              "gaya": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "font": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9_-]*$",
+                    "maxLength": 64,
+                    "description": "id aset.json jenis font."
+                  },
+                  "ukuran": {
+                    "type": "number",
+                    "minimum": 8,
+                    "maximum": 400,
+                    "description": "Piksel komposisi."
+                  },
+                  "bobot": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 900
+                  },
+                  "warna": {
+                    "type": "string",
+                    "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                  },
+                  "latar": {
+                    "type": "string",
+                    "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                  },
+                  "rata": {
+                    "enum": [
+                      "kiri",
+                      "tengah",
+                      "kanan"
+                    ]
+                  },
+                  "tinggiBaris": {
+                    "type": "number",
+                    "minimum": 0.8,
+                    "maximum": 3
+                  }
+                }
+              },
+              "tata": {
+                "$ref": "#/$defs/tata"
+              },
+              "properti": {
+                "$ref": "#/$defs/properti"
+              },
+              "animasi": {
+                "$ref": "#/$defs/animasi"
+              }
+            },
+            "unevaluatedProperties": false
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "jenis": {
+                "const": "warna"
+              }
+            },
+            "required": [
+              "jenis"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "warna"
+            ],
+            "properties": {
+              "jenis": {
+                "const": "warna"
+              },
+              "id": true,
+              "nama": true,
+              "mulai": true,
+              "durasi": true,
+              "warna": {
+                "type": "string",
+                "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+              },
+              "transisi": {
+                "$ref": "#/$defs/transisi"
+              },
+              "tata": {
+                "$ref": "#/$defs/tata"
+              },
+              "properti": {
+                "$ref": "#/$defs/properti"
+              },
+              "animasi": {
+                "$ref": "#/$defs/animasi"
+              }
+            },
+            "unevaluatedProperties": false
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "jenis": {
+                "const": "kredit"
+              }
+            },
+            "required": [
+              "jenis"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [],
+            "properties": {
+              "jenis": {
+                "const": "kredit"
+              },
+              "id": true,
+              "nama": true,
+              "mulai": true,
+              "durasi": true,
+              "gaya": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "ukuran": {
+                    "type": "number",
+                    "minimum": 8,
+                    "maximum": 400
+                  },
+                  "warna": {
+                    "type": "string",
+                    "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                  }
+                }
+              },
+              "tata": {
+                "$ref": "#/$defs/tata"
+              },
+              "properti": {
+                "$ref": "#/$defs/properti"
+              },
+              "animasi": {
+                "$ref": "#/$defs/animasi"
+              }
+            },
+            "unevaluatedProperties": false
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "jenis": {
+                "const": "audio"
+              }
+            },
+            "required": [
+              "jenis"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "aset"
+            ],
+            "properties": {
+              "jenis": {
+                "const": "audio"
+              },
+              "id": true,
+              "nama": true,
+              "mulai": true,
+              "durasi": true,
+              "aset": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9_-]*$",
+                "maxLength": 64,
+                "description": "id aset.json jenis audio; peran (musik, narasi, efek) diambil dari aset."
+              },
+              "dari": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Offset frame (pada fps proyek) di berkas audio."
+              },
+              "gainDb": {
+                "type": "number",
+                "minimum": -60,
+                "maximum": 12
+              },
+              "ducking": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "levelDb": {
+                    "type": "number",
+                    "minimum": -20,
+                    "maximum": -8
+                  },
+                  "bebasDb": {
+                    "type": "number",
+                    "minimum": -20,
+                    "maximum": 0
+                  }
+                },
+                "description": "Hanya butir musik; sama dengan musik.levelDb/bebasDb di rencana audio."
+              }
+            },
+            "unevaluatedProperties": false
+          }
+        }
+      ]
+    },
+    "track": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "jenis",
+        "butir"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "maxLength": 64
+        },
+        "jenis": {
+          "enum": [
+            "video",
+            "overlay",
+            "teks",
+            "audio"
+          ]
+        },
+        "nama": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "aktif": {
+          "type": "boolean",
+          "description": "false = dilewati saat render dan rakit audio, tetap divalidasi. Bawaan true."
+        },
+        "gainDb": {
+          "type": "number",
+          "minimum": -60,
+          "maximum": 12,
+          "description": "Hanya track audio."
+        },
+        "butir": {
+          "type": "array",
+          "maxItems": 2000,
+          "items": {
+            "$ref": "#/$defs/butir"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "jenis": {
+                "const": "video"
+              }
+            },
+            "required": [
+              "jenis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "butir": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "jenis": {
+                      "enum": [
+                        "video",
+                        "gambar",
+                        "warna"
+                      ]
+                    }
+                  }
+                }
+              },
+              "gainDb": false
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "jenis": {
+                "const": "overlay"
+              }
+            },
+            "required": [
+              "jenis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "butir": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "jenis": {
+                      "enum": [
+                        "video",
+                        "gambar",
+                        "warna"
+                      ]
+                    }
+                  },
+                  "not": {
+                    "required": [
+                      "transisi"
+                    ]
+                  }
+                }
+              },
+              "gainDb": false
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "jenis": {
+                "const": "teks"
+              }
+            },
+            "required": [
+              "jenis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "butir": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "jenis": {
+                      "enum": [
+                        "teks",
+                        "kredit"
+                      ]
+                    }
+                  },
+                  "not": {
+                    "required": [
+                      "transisi"
+                    ]
+                  }
+                }
+              },
+              "gainDb": false
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "jenis": {
+                "const": "audio"
+              }
+            },
+            "required": [
+              "jenis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "butir": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "jenis": {
+                      "const": "audio"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
