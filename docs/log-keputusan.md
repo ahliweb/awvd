@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.11.0`
+- Version: `v1.12.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan KP-045 sampai KP-047 (nomor sementara): mode dan posisi caption, area aman dan kontras caption, kunci posisi di naskah.json.`
+- Changeset: `Menambahkan KP-048 sampai KP-051 (nomor sementara): adaptor TTS lokal opsional, WAV beku berhash, label suara sintetis dan konten medis, normalisasi teks Indonesia. Sebelumnya: KP-036 sampai KP-039 tentang timing narasi.`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -29,6 +29,10 @@ flowchart TD
     KPB1 --> KPB2[KP-035 rumus warna RGB]
     KPB1 --> KPB3[KP-043 chroma key PNG alfa]
     KPB1 --> KPB4[KP-044 stabilisasi vidstab]
+    KP14 -->|adaptor opsional| KPT1[KP-048 adaptor TTS sherpa-onnx]
+    KPT1 --> KPT2[KP-049 WAV beku berhash]
+    KPT1 --> KPT3[KP-050 label sintetis dan konten medis]
+    KPT1 --> KPT4[KP-051 normalisasi teks id]
     KP15[KP-015 preset bertingkat bukti] -->|konflik lint caption| KP16[KP-016 preset sosial 20 cps]
     KP16 -->|alasan dikoreksi| KP19[KP-019 cps Netflix Indonesia]
     KP15 -->|bukti per atribut| KP20[KP-020 profil audiens dan helper visual]
@@ -83,8 +87,16 @@ flowchart TD
 | KP-045 | Tampil caption di komposisi dipecah menjadi tiga fungsi murni: `rencanaCaption` (sekali, rencana JSON), `keadaanCaption(rencana, frame)`, dan `captionHtml(keadaan)` (HTML tanpa animasi CSS). Lima mode (`pop-on` bawaan, `roll-up`, `paint-on`, `sorot-kata`, `satu-kata`) dan empat posisi (`bawah` bawaan, `atas`, `auto`, `dekat-penutur`). Posisi diputuskan per cue, bukan per frame; posisi tetap yang bertabrakan dengan zona diperingatkan, bukan digeser diam-diam; `auto` hanya naik ke atas bila atas bebas. | 2026-11-07 | Berlaku | Gerak hanya dari nomor frame (KP-003); rencana yang dapat diserialisasi dapat dibandingkan dan diuji tanpa browser. Kotak yang melompat di tengah cue mengganggu pembacaan dan tidak ada sumber yang membahasnya. Bukti manfaat tiap mode lemah atau terbelah (lihat [narasi-caption.md](narasi-caption.md#mode-dan-posisi-caption)), jadi bawaannya pop-on bawah dan mode sosial serta dekat penutur opt-in. | #68 |
 | KP-046 | Caption selalu di dalam area aman: area aksi EBU R 95 untuk lanskap dan `areaAmanVertikal` (1080x1920: atas 250, bawah 480, kiri 65, kanan 120 px, diskalakan) untuk potret. Ukuran font = `min(batas lebar, max(minimum ukuranTeks "caption", 5,5% tinggi lanskap atau 3,8% potret))`, batas lebar memakai taksiran 0,6 em per karakter (`lebarKarakter` dapat diubah); kotak latar hitam alfa 0,75 dengan teks dari `pilihTeksKontras`, kontras terburuk (atas gambar hitam atau putih) dilaporkan dan diperingatkan di bawah 4,5:1. | 2026-11-07 | Berlaku | Angka zona platform vertikal berasal dari sumber sekunder yang saling berbeda dan konservatif (kotak 895x1190); 5,5% dan 3,8% adalah praktik dari riset caption, bukan standar. Taksiran lebar ditukar dengan fungsi murni tanpa pengukuran DOM; uji di Chromium memastikan kotak, baris, dan kata di dalam area untuk font templat, dan huruf yang jauh lebih lebar butuh `lebarKarakter` lebih besar. | #68 |
 | KP-047 | `naskah.json` mengenali `caption.mode`, `caption.posisi`, `adegan[].posisi`, `adegan[].zonaCaption` (area bawah atau atas, frame relatif adegan), dan `adegan[].jangkarPenutur` (titik pusat kotak caption, piksel). Nilai hanya divalidasi dan diteruskan ke `kata.json` (zona dalam frame absolut); tidak memengaruhi cue atau lint. Penentuan jangkar tetap oleh penulis; awvd tidak mendeteksi penutur atau wajah. | 2026-11-07 | Berlaku | Menjaga `bun run narasi` sebagai pembangun aset beku dan penempatan sebagai urusan komposisi (KP-037). Deteksi penutur otomatis di luar cakupan: akurasi dan lisensi model belum diputuskan, dan bukti manfaat dekat penutur kecil. | #68 |
+| KP-048 | TTS lokal hanya sebagai adaptor opsional `sherpa-onnx` di `bun run narasi` (`scripts/narasi-tts.mjs`), tidak dibundel: pengguna memasang biner dan model sendiri; Supertonic 3 untuk Indonesia (dan Inggris), Kokoro v1.0 untuk Inggris. Perintah tiap mesin adalah larik argumen berplaceholder di `suara.json` (tanpa shell), sehingga mesin lain dapat didaftarkan. Tanpa mesin dan tanpa cache, narasi gagal dengan pesan (kode 1). | 2026-11-07 | Berlaku | Satu-satunya mesin lokal berbahasa Indonesia yang ditemukan riset 2026-11-07 dengan bobot yang boleh komersial; bobotnya OpenRAIL-M (bukan permisif) sehingga tidak dibundel, dan pemilik memutuskan adaptor opsional. Kokoro berbobot Apache-2.0 untuk Inggris. Piper, MMS-TTS, F5, dan XTTS ditolak karena lisensi atau asal data. | #69 |
+| KP-049 | WAV TTS dibekukan per kalimat di cache berkunci SHA-256 (teks ternormalisasi, mesin, versi, model, speaker, kecepatan, langkah, perintah); SHA-256 WAV disahkan tiap dibaca dan ketidakcocokan menggagalkan proses; sintesis ulang hanya lewat `--sintesis-ulang`; mesin tidak diperlukan bila cache lengkap. Tiap kalimat dinormalkan ke -16 LUFS dan 48 kHz mono sebelum disambung dengan jeda senyap. | 2026-11-07 | Berlaku | Keluaran Supertonic dan Kokoro tidak identik antar-run dan CLI tidak punya seed (terukur pada riset: korelasi bentuk gelombang -0,03), jadi determinisme (KP-003, KP-037) hanya dapat dijaga dengan membekukan WAV. Selisih kenyaringan antar-suara sampai sekitar 6 LU; angka -16 LUFS mengikuti KP-004. | #69 |
+| KP-050 | Setiap video bersuara TTS wajib berlabel suara sintetis dan label tidak dapat dimatikan: `suara-kredit.json` dan `kredit-suara.txt` (kredit layar, deskripsi, metadata, lisensi). `jenisKonten: "medis"` ditolak untuk mesin dengan `larangMedis` (Supertonic); `kesehatan` dan teks yang tampak medis diperingatkan; konten medis memakai rekaman manusia atau layanan daring untuk konten publik. | 2026-11-07 | Berlaku | Keputusan pemilik 2026-11-07. OpenRAIL-M Supertonic mewajibkan pernyataan konten buatan mesin (butir e) dan melarang nasihat medis (butir l). awvd tidak dapat memaksa tayangan label; yang disediakan bahan label dan penolakan di sisi alat. Daftar kata medis hanya heuristik; edukasi kesehatan umum adalah wilayah abu-abu yang menunggu keputusan pemilik per konten. | #69 |
+| KP-051 | awvd memiliki modul normalisasi teks Indonesia sendiri (`scripts/normalisasi-id.mjs`: tanggal, jam, rupiah, persen, pasal, nomor, URL, surel, satuan, singkatan) yang mengisi `bacaan` otomatis untuk mesin TTS, dan memeriksa leksikon Kokoro: kata di luar leksikon menggagalkan sintesis (atau diperingatkan) alih-alih dilewati diam-diam. | 2026-11-07 | Berlaku | Uji putar-balik ASR riset awvd menunjukkan tanggal, pasal, URL, dan surel terbaca kacau oleh Supertonic, sedangkan angka yang dieja aman; sherpa-onnx 2.x melewati kata di luar leksikon tanpa galat (terbukti: "explains", "officers"). Cakupan normalisasi sengaja sempit dan dapat diperluas lewat `kamus`, bukan kamus lengkap. | #69 |
 
 ## Changelog
+
+### 2026-11-07 - v1.12.0
+
+- Menambahkan KP-048 sampai KP-051 (nomor sementara; adaptor TTS lokal opsional, WAV beku berhash, label sintetis dan konten medis, normalisasi teks Indonesia).
 
 ### 2026-11-07 - v1.11.0
 

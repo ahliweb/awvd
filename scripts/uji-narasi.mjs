@@ -2,12 +2,15 @@
 /**
  * uji-narasi.mjs — uji narasi.mjs (naskah.json -> cue, stempel kata, rencana audio).
  * Audio uji dibangkitkan skrip (nada sinus bergerak seperti ucapan, jeda diketahui) atau ffmpeg
- * lavfi lewat templat narasi-contoh; tanpa jaringan, tanpa TTS, tanpa aset pihak ketiga.
+ * lavfi lewat templat narasi-contoh; tanpa jaringan, tanpa aset pihak ketiga. Adaptor TTS
+ * (sherpa-onnx) diuji dengan mesin palsu (skrip bun yang menulis nada); uji integrasi dengan
+ * sherpa-onnx sungguhan hanya jalan bila AWVD_SHERPA_BIN dan AWVD_MODEL_SUPERTONIC3 diset,
+ * selain itu dilewati.
  * Exit 0 bila semua lolos, 1 bila ada yang gagal.
  *
  *   bun scripts/uji-narasi.mjs
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -15,6 +18,8 @@ import { fileURLToPath } from "node:url";
 import { bacaAudio, deteksiBicara, kataDariPenanda, selaraskanToken, sukuKata, tokenisasi } from "./narasi-selaras.mjs";
 import { keSrt, keVtt, periksaCue, susunCue } from "./narasi-cue.mjs";
 import { buatNarasi, daftarkanMesin, hapusMesin, validasiNaskah } from "./narasi.mjs";
+import { isiPlaceholder, kanonik, kunciKalimat, muatSuara, periksaOov, validasiSuara } from "./narasi-tts.mjs";
+import { normalisasiId, terbilang } from "./normalisasi-id.mjs";
 
 const akar = join(dirname(fileURLToPath(import.meta.url)), "..");
 const narasiMjs = join(akar, "scripts", "narasi.mjs");
@@ -98,6 +103,7 @@ const naskahDasar = (berkas) => ({
 
 const uji = [];
 const tes = (nama, fn) => uji.push([nama, fn]);
+class Lewati extends Error {}
 
 // ------------------------------------------------------------------ teks
 tes("sukuKata dan tokenisasi", () => {
@@ -453,8 +459,367 @@ tes("CLI: kode keluar 2 untuk argumen dan naskah tidak valid, bantuan kode 0", a
   memuat(r.err, "tidak ada ucapan terdeteksi", "pesan senyap");
 });
 
+
+// ------------------------------------------------------------------ normalisasi teks Indonesia
+tes("normalisasiId: tanggal, jam, rupiah, pasal, URL, surel, angka, singkatan; tanpa angka tersisa", () => {
+  const kasus = [
+    ["Rp1.500.000 untuk 2 hari", "satu juta lima ratus ribu rupiah untuk dua hari"],
+    ["Rp 5 juta dan Rp5.000", "lima juta rupiah dan lima ribu rupiah"],
+    ["Pada 12/03/2026 pukul 08.30 WIB.", "Pada dua belas Maret dua ribu dua puluh enam pukul delapan lewat tiga puluh menit Waktu Indonesia Barat."],
+    ["Terbit 2026-03-12.", "Terbit dua belas Maret dua ribu dua puluh enam."],
+    ["Pasal 5 ayat (2) UU No. 27 Tahun 2022", "Pasal lima ayat dua Undang-Undang Nomor dua puluh tujuh Tahun dua ribu dua puluh dua"],
+    ["Di Jl. Merdeka No. 10, dr. Ani.", "Di Jalan Merdeka Nomor sepuluh, dokter Ani."],
+    ["Naik 12,5% dan ke-3, ke-1, 5-10 orang, suhu -5.", "Naik dua belas koma lima persen dan ketiga, pertama, lima sampai sepuluh orang, suhu minus lima."],
+    ["Berat 5 kg, jarak 3,5 km, file 20 MB.", "Berat lima kilogram, jarak tiga koma lima kilometer, file dua puluh megabyte."],
+    ["Hubungi 0812-3456-7890.", "Hubungi nol delapan satu dua tiga empat lima enam tujuh delapan sembilan nol."],
+    ["Buka https://contoh.example.com/panduan/awal-1 sekarang.", "Buka contoh titik example titik com garis miring panduan garis miring awal strip satu sekarang."],
+    ["Surel info@contoh.example.com.", "Surel info at contoh titik example titik com."],
+    ["Isi SOP dan PDF; 4G dan A4.", "Isi es o pe dan pe de ef; empat G dan A empat."],
+    ["10.30 saja dan 15.000 orang, kode 007.", "sepuluh koma tiga nol saja dan lima belas ribu orang, kode nol nol tujuh."],
+    ["Pukul 9.15 dan jam 10:05.", "Pukul sembilan lewat lima belas menit dan jam sepuluh lewat lima menit."],
+  ];
+  for (const [masuk, harapan] of kasus) samaDengan(normalisasiId(masuk), harapan, `normalisasi "${masuk}"`);
+  for (const [masuk] of kasus) {
+    const k = normalisasiId(masuk);
+    tegas(!/\d/.test(k), `angka tersisa: ${k}`);
+    samaDengan(normalisasiId(k), k, `idempoten "${masuk}"`);
+  }
+  samaDengan(normalisasiId("Proyek AWX selesai", { kamus: { AWX: "a we ix" } }), "Proyek a we ix selesai", "kamus pengguna");
+});
+
+tes("terbilang: batas satuan, belasan, ribuan, juta, dan di atas 10^15 dieja per digit", () => {
+  const t = { 0: "nol", 11: "sebelas", 12: "dua belas", 100: "seratus", 111: "seratus sebelas", 1000: "seribu", 1001: "seribu satu", 2026: "dua ribu dua puluh enam", 1000000: "satu juta", 1500000: "satu juta lima ratus ribu" };
+  for (const [n, harapan] of Object.entries(t)) samaDengan(terbilang(n), harapan, `terbilang ${n}`);
+  samaDengan(terbilang("1234567890123456"), "satu dua tiga empat lima enam tujuh delapan sembilan nol satu dua tiga empat lima enam", "di atas batas dieja per digit");
+  let lempar = false;
+  try { terbilang("12a"); } catch { lempar = true; }
+  tegas(lempar, "bukan bilangan harus melempar galat");
+});
+
+// ------------------------------------------------------------------ adaptor TTS (mesin palsu)
+const bawaan = muatSuara(join(akar, "data", "suara.json"));
+tes("data/suara.json: skema sah, 9 karakter id dan 6 en, lisensi dan syarat tercatat, tanpa orang nyata", () => {
+  samaDengan(bawaan.galat, [], "galat suara.json bawaan");
+  const k = Object.values(bawaan.data.karakter);
+  samaDengan([k.filter((x) => x.bahasa === "id").length, k.filter((x) => x.bahasa === "en").length], [9, 6], "jumlah karakter id dan en");
+  tegas(k.every((x) => x.orangNyata === false), "karakter bawaan tidak boleh meniru orang nyata");
+  const st = bawaan.data.mesin.supertonic3;
+  tegas(st.larangMedis === true && /OpenRAIL-M/.test(st.lisensiBobot), "Supertonic harus bertanda larangMedis dan lisensi OpenRAIL-M");
+  tegas(st.syaratPakai.some((x) => /sintetis/.test(x)) && st.syaratPakai.some((x) => /medis/.test(x)), "syarat pakai memuat label sintetis dan larangan medis");
+  samaDengan(bawaan.data.mesin.kokoro.larangMedis, false, "Kokoro (Apache-2.0) tanpa larangan medis");
+  tegas(Object.values(bawaan.data.mesin).every((m) => m.daring === false && m.perintah[0] === "sherpa-onnx-offline-tts"), "mesin bawaan lokal");
+});
+
+tes("validasiSuara: menolak placeholder asing, perintah tanpa {teks}, karakter tak berdasar, orangNyata tanpa izin", () => {
+  const dasar = () => salin({ versi: 1, mesin: { m: { perintah: ["bin", "--o={keluaran}", "{teks}"], versi: "1", lisensiKode: "MIT", lisensiBobot: "MIT", sumber: "x", syaratPakai: [] } },
+    karakter: { a: { nama: "A", bahasa: "id", mesin: "m", speaker: 0, orangNyata: false } } });
+  samaDengan(validasiSuara(dasar()).galat, [], "dasar sah");
+  const coba = (ubah, potongan) => { const o = dasar(); ubah(o); const r = validasiSuara(o); tegas(r.data === null && r.galat.some((x) => x.includes(potongan)), `harus menolak (${potongan}): ${JSON.stringify(r.galat)}`); };
+  coba((o) => { o.mesin.m.perintah.push("{aneh}"); }, "{aneh}");
+  coba((o) => { o.mesin.m.perintah = ["bin", "--o={keluaran}"]; }, "{teks}");
+  coba((o) => { o.mesin.m.perintah = ["bin", "{teks}"]; }, "{keluaran}");
+  coba((o) => { o.karakter.a.mesin = "tidak-ada"; }, "tidak ada di mesin");
+  coba((o) => { o.karakter.a.bahasa = "ja"; o.mesin.m.bahasa = ["id"]; }, "tidak mendukung bahasa");
+  coba((o) => { delete o.karakter.a.orangNyata; }, "orangNyata wajib");
+  coba((o) => { o.karakter.a.orangNyata = true; }, "izinBerkas");
+  coba((o) => { o.karakter.a.kecepatan = 5; }, "kecepatan");
+  coba((o) => { delete o.mesin.m.lisensiBobot; }, "lisensiBobot");
+  coba((o) => { o.versi = 2; }, "versi harus 1");
+  const ok = dasar(); ok.karakter.a.orangNyata = true; ok.karakter.a.izinBerkas = "izin/a.pdf";
+  samaDengan(validasiSuara(ok).galat, [], "orangNyata dengan izinBerkas sah");
+});
+
+tes("isiPlaceholder tanpa injeksi; kunci cache stabil dan peka terhadap suara, teks, versi, model", () => {
+  const a = isiPlaceholder(["--x={model}/m", "{teks}"], { model: "/mdl", teks: "kata {model} {keluaran}" });
+  samaDengan(a, ["--x=/mdl/m", "kata {model} {keluaran}"], "nilai tidak ditafsir ulang");
+  samaDengan(kanonik({ b: 1, a: [2, { d: 1, c: 2 }] }), '{"a":[2,{"c":2,"d":1}],"b":1}', "JSON kanonik");
+  const kar = { bahasa: "id", speaker: 2, kecepatan: 1.05 };
+  const mesin = { id: "m", versi: "1", modelSha256: null, langkah: 5, perintah: ["bin", "{teks}"], deterministik: false, thread: 4 };
+  const h = (o = {}) => kunciKalimat({ teks: o.teks ?? "halo", karakter: { ...kar, ...o.kar }, mesin: { ...mesin, ...o.mesin } }).hash;
+  samaDengan(h(), h(), "hash stabil");
+  samaDengan(h({ mesin: { thread: 8 } }), h(), "thread tidak masuk kunci bila mesin tidak deterministik");
+  for (const [nama, ubah] of [["teks", { teks: "halo!" }], ["speaker", { kar: { speaker: 3 } }], ["kecepatan", { kar: { kecepatan: 1 } }], ["versi", { mesin: { versi: "2" } }], ["model", { mesin: { modelSha256: "ab" } }], ["langkah", { mesin: { langkah: 6 } }]]) {
+    tegas(h(ubah) !== h(), `kunci harus berubah bila ${nama} berubah`);
+  }
+  tegas(h({ mesin: { deterministik: true, thread: 8 } }) !== h({ mesin: { deterministik: true } }), "thread masuk kunci bila mesin deterministik");
+});
+
+// fixture: mesin palsu (skrip bun yang menulis nada; fase acak sehingga keluaran tidak identik antar-run)
+const tts = j("tts");
+const logStub = j("tts", "panggilan.log");
+function siapkanTts() {
+  mkdirSync(j("tts", "model"), { recursive: true });
+  writeFileSync(j("tts", "model", "m.onnx"), "palsu");
+  writeFileSync(j("tts", "model", "leksikon.txt"), "halo h a l o\nselamat s e l a m a t\ndatang d a t a ng\nthe d ə\nservice s ɜ v\n");
+  const stub = j("tts", "stub-tts.mjs");
+  writeFileSync(stub, `#!/usr/bin/env bun
+import { appendFileSync, writeFileSync } from "node:fs";
+const a = process.argv.slice(2);
+const n = (k) => a.find((x) => x.startsWith("--" + k + "="))?.slice(k.length + 3);
+const teks = a[a.length - 1];
+appendFileSync(process.env.STUB_LOG, teks + "\\n");
+if (teks.includes("GAGALKAN")) { console.error("stub: sengaja gagal"); process.exit(3); }
+const sr = 22050, kec = Number(n("speed") ?? n("length-scale") ?? 1), dur = Math.max(1.4, teks.length * 0.08 / kec);
+const fase = Math.random() * 6.28, m = Math.round(dur * sr), b = Buffer.alloc(44 + m * 2);
+b.write("RIFF", 0); b.writeUInt32LE(36 + m * 2, 4); b.write("WAVEfmt ", 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
+b.writeUInt32LE(sr, 24); b.writeUInt32LE(sr * 2, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write("data", 36); b.writeUInt32LE(m * 2, 40);
+for (let i = 0; i < m; i++) { const t = i / sr; b.writeInt16LE(Math.round(0.05 * (0.75 + 0.25 * Math.sin(2 * Math.PI * 4 * t)) * Math.sin(2 * Math.PI * 210 * t + fase) * 32767), 44 + i * 2); }
+writeFileSync(n("output-filename"), b);
+`);
+  chmodSync(stub, 0o755);
+  const mesin = (extra = {}) => ({
+    perintah: ["stub-tts", "--model={model}/m.onnx", "--sid={speaker}", "--speed={kecepatan}", "--output-filename={keluaran}", "{teks}"],
+    model: "model", versi: "stub 1", bahasa: ["id", "en"], lisensiKode: "CC0-1.0", lisensiBobot: "CC0-1.0", sumber: "uji", syaratPakai: ["label sintetis"],
+    kredit: "Mesin palsu uji", ...extra,
+  });
+  writeFileSync(j("tts", "suara.json"), JSON.stringify({
+    versi: 1,
+    mesin: {
+      stub: mesin(),
+      terbatas: mesin({ larangMedis: true, lisensiBobot: "OpenRAIL-M uji" }),
+      awan: mesin({ daring: true }),
+      kokoro: mesin({ perintah: ["stub-tts", "--length-scale={panjangSkala}", "--model={model}/m.onnx", "--sid={speaker}", "--output-filename={keluaran}", "{teks}"], leksikon: ["{model}/leksikon.txt"], bahasa: ["en"] }),
+      lunak: mesin({ perintah: ["stub-tts", "--length-scale={panjangSkala}", "--model={model}/m.onnx", "--sid={speaker}", "--output-filename={keluaran}", "{teks}"], leksikon: ["{model}/leksikon.txt"], oov: "peringatan", bahasa: ["en"] }),
+    },
+    karakter: {
+      ani: { nama: "Ani", bahasa: "id", mesin: "stub", speaker: 0, kecepatan: 1, orangNyata: false, jeda: { antarKalimatMs: 500 } },
+      budi: { nama: "Budi", bahasa: "id", mesin: "stub", speaker: 1, kecepatan: 1.25, orangNyata: false },
+      tegas: { nama: "Tegas", bahasa: "id", mesin: "terbatas", speaker: 0, orangNyata: false },
+      mega: { nama: "Mega", bahasa: "id", mesin: "awan", speaker: 0, orangNyata: false },
+      eva: { nama: "Eva", bahasa: "en", mesin: "kokoro", speaker: 3, orangNyata: false },
+      lena: { nama: "Lena", bahasa: "en", mesin: "lunak", speaker: 3, orangNyata: false },
+    },
+  }));
+  return stub;
+}
+const naskahTts = (kalimat, ekstra = {}, penutur) => ({
+  versi: 1, fps: 30, bahasa: "id", klasifikasi: "publik",
+  suara: { mesin: "sherpa-onnx", konfigurasi: "suara.json", cache: "cache", jedaKalimat: 0.4 },
+  penutur: penutur ?? { narator: { nama: "Narator", karakter: "ani" } },
+  adegan: [{ id: "a1", kalimat }],
+  ...ekstra,
+});
+const tulisNaskah = (nama, o) => { writeFileSync(j("tts", nama), JSON.stringify(o)); return j("tts", nama); };
+const jalankanEnv = async (cmd, env) => {
+  // lingkungan bersih dari penunjuk mesin milik pemakai agar uji tidak bergantung pada mesin ini
+  const dasar = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^AWVD_(BIN_|MODEL_|SHERPA_BIN)/.test(k)));
+  const p = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe", env: { ...dasar, ...env } });
+  const [out, err, kode] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
+  return { out, err, kode };
+};
+const hitungPanggilan = () => (existsSync(logStub) ? readFileSync(logStub, "utf8").split("\n").filter(Boolean).length : 0);
+const ukurLufs = async (berkas) => {
+  const r = await jalankan(["ffmpeg", "-hide_banner", "-nostats", "-i", berkas, "-af", "ebur128=peak=true", "-f", "null", "-"]);
+  const m = r.err.slice(r.err.lastIndexOf("Summary:")).match(/I:\s+(-?[\d.]+)\s+LUFS/);
+  tegas(m, `ebur128 tidak terbaca: ${r.err.slice(-200)}`);
+  return Number(m[1]);
+};
+const KALIMAT_TTS = [
+  "Selamat datang di layanan kami hari ini.",
+  "Pengajuan dibuka pada 12/03/2026 pukul 08.30 WIB sesuai Pasal 5 ayat (2).",
+  "Silakan siapkan berkas persyaratan sebelum datang.",
+];
+
+tes("naskah TTS: karakter wajib, jenis konten medis, daring ditolak untuk internal, angka dinormalkan menjadi bacaan", () => {
+  siapkanTts();
+  const dir = tts;
+  const cek = (o) => validasiNaskah(o, dir);
+  // karakter wajib dan harus ada
+  let r = cek(naskahTts(["Halo."], {}, { narator: { nama: "N" } }));
+  tegas(r.galat.some((x) => x.includes('penutur "narator": karakter wajib')), `karakter wajib: ${r.galat}`);
+  r = cek(naskahTts(["Halo."], {}, { narator: { nama: "N", karakter: "tidak-ada" } }));
+  tegas(r.galat.some((x) => x.includes('karakter "tidak-ada" tidak ada')), `karakter tak ada: ${r.galat}`);
+  r = cek(naskahTts(["Halo."], { jenisKonten: "olahraga" }));
+  tegas(r.galat.some((x) => x.includes("jenisKonten harus salah satu")), `jenisKonten tak sah: ${r.galat}`);
+  r = cek(naskahTts(["Halo."], {}));
+  samaDengan(r.galat, [], "naskah dasar sah");
+  samaDengan(r.naskah.suara.konfigurasi, j("tts", "suara.json"), "jalur suara.json terselesaikan");
+  samaDengan(r.naskah.penutur.narator.karakter, "ani", "karakter tersimpan");
+  // angka dan tanggal menjadi bacaan; teks (caption) tetap asli
+  r = cek(naskahTts(KALIMAT_TTS));
+  samaDengan(r.galat, [], "angka di naskah TTS diterima");
+  const k = r.naskah.adegan[0].segmen[0].kalimat[1];
+  tegas(k.teks.includes("12/03/2026"), "caption tetap memuat teks asli");
+  tegas(k.bacaan.includes("dua belas Maret dua ribu dua puluh enam") && !/\d/.test(k.bacaan), `bacaan ternormalisasi: ${k.bacaan}`);
+  samaDengan(r.naskah.adegan[0].segmen[0].kalimat[0].bacaan, null, "kalimat tanpa perubahan tidak membuat bacaan");
+  // mesin berkas-beku tetap menolak angka
+  r = cek({ ...naskahTts(KALIMAT_TTS), suara: { mesin: "berkas-beku" } });
+  tegas(r.galat.some((x) => x.includes("angka harus ditulis dengan huruf")), "berkas-beku tetap menolak angka");
+  // medis
+  r = cek(naskahTts(["Halo."], { jenisKonten: "medis" }, { narator: { nama: "N", karakter: "tegas" } }));
+  tegas(r.galat.some((x) => x.includes('jenisKonten "medis" ditolak') && x.includes("OpenRAIL-M uji")), `medis ditolak untuk bobot terlarang: ${r.galat}`);
+  r = cek(naskahTts(["Halo."], { jenisKonten: "medis" }));
+  samaDengan(r.galat, [], "medis dengan bobot tanpa larangan tidak ditolak");
+  tegas(r.peringatan.some((x) => x.includes("tidak dianjurkan untuk konten medis")), `peringatan medis: ${r.peringatan}`);
+  r = cek(naskahTts(["Halo."], { jenisKonten: "kesehatan" }, { narator: { nama: "N", karakter: "tegas" } }));
+  samaDengan(r.galat, [], "kesehatan bukan galat");
+  tegas(r.peringatan.some((x) => x.includes("wilayah abu-abu")), `peringatan kesehatan: ${r.peringatan}`);
+  r = cek(naskahTts(["Minum obat sesuai dosis dari dokter."]));
+  tegas(r.peringatan.some((x) => x.includes("tampak medis") && x.includes("obat")), `peringatan heuristik: ${r.peringatan}`);
+  r = cek(naskahTts(["Halo semua."]));
+  samaDengan(r.peringatan, [], "tanpa istilah medis tanpa peringatan");
+  // daring ditolak untuk internal
+  r = cek(naskahTts(["Halo."], { klasifikasi: "internal" }, { narator: { nama: "N", karakter: "mega" } }));
+  tegas(r.galat.some((x) => x.includes("layanan daring")), `daring internal ditolak: ${r.galat}`);
+  r = cek(naskahTts(["Halo."], { klasifikasi: "publik" }, { narator: { nama: "N", karakter: "mega" } }));
+  samaDengan(r.galat, [], "daring untuk publik tidak ditolak");
+});
+
+tes("TTS tanpa mesin terpasang: gagal dengan pesan jelas (bukan crash), baik biner maupun model", async () => {
+  siapkanTts();
+  const naskah = tulisNaskah("naskah-tanpa-mesin.json", naskahTts(KALIMAT_TTS));
+  const cache = j("tts", "cache-kosong");
+  let r = await jalankanEnv(["bun", narasiMjs, naskah, "--out", j("tts", "o-tm"), "--cache", cache], { AWVD_SHERPA_BIN: j("tts", "tidak-ada", "sherpa"), STUB_LOG: logStub });
+  samaDengan(r.kode, 1, "kode keluar tanpa biner");
+  memuat(r.err, 'mesin suara "stub" belum terpasang', "pesan utama");
+  memuat(r.err, "biner tidak ditemukan", "penyebab biner");
+  memuat(r.err, "docs/narasi-caption.md", "penunjuk panduan pasang");
+  memuat(r.err, "AWVD_SHERPA_BIN", "penunjuk variabel lingkungan");
+  tegas(!/\n\s+at .*\.mjs/.test(r.err) && !r.err.includes("Bun v"), `bukan crash dengan jejak tumpukan: ${r.err}`);
+  tegas(!existsSync(j("tts", "o-tm", "caption.vtt")), "tanpa keluaran palsu bila mesin tidak ada");
+  // tanpa variabel lingkungan: dicari di PATH
+  r = await jalankanEnv(["bun", narasiMjs, naskah, "--out", j("tts", "o-tm"), "--cache", cache], { AWVD_SHERPA_BIN: "", STUB_LOG: logStub });
+  samaDengan(r.kode, 1, "kode keluar tanpa PATH");
+  memuat(r.err, '"stub-tts" tidak ada di PATH', "biner tidak di PATH");
+  // biner ada, model tidak
+  const stub = j("tts", "stub-tts.mjs");
+  const dua = JSON.parse(readFileSync(j("tts", "suara.json"), "utf8"));
+  dua.mesin.stub.model = "model-hilang";
+  writeFileSync(j("tts", "suara-modelhilang.json"), JSON.stringify(dua));
+  const n2 = tulisNaskah("naskah-modelhilang.json", naskahTts(KALIMAT_TTS, { suara: { mesin: "sherpa-onnx", konfigurasi: "suara-modelhilang.json", cache: "cache-kosong" } }));
+  r = await jalankanEnv(["bun", narasiMjs, n2, "--out", j("tts", "o-tm")], { AWVD_SHERPA_BIN: stub, STUB_LOG: logStub });
+  samaDengan(r.kode, 1, "kode keluar tanpa model");
+  memuat(r.err, "folder model tidak ditemukan", "penyebab model");
+  // suara.json rusak: kode 2 dengan daftar galat
+  writeFileSync(j("tts", "suara-rusak.json"), JSON.stringify({ versi: 1, mesin: {}, karakter: {} }));
+  const n3 = tulisNaskah("naskah-rusak.json", naskahTts(KALIMAT_TTS, { suara: { mesin: "sherpa-onnx", konfigurasi: "suara-rusak.json" } }));
+  r = await jalankanEnv(["bun", narasiMjs, n3, "--out", j("tts", "o-tm")], { AWVD_SHERPA_BIN: stub, STUB_LOG: logStub });
+  samaDengan(r.kode, 2, "suara.json tidak sah");
+  memuat(r.err, "mesin harus objek tak kosong", "pesan suara.json");
+});
+
+tes("TTS dengan mesin palsu: sintesis, kenyaringan -16 LUFS, cache dipakai ulang, label sintetis, tanpa mesin saat cache lengkap", async () => {
+  const stub = siapkanTts();
+  rmSync(logStub, { force: true });
+  rmSync(j("tts", "cache"), { recursive: true, force: true });
+  const naskah = tulisNaskah("naskah.json", naskahTts(KALIMAT_TTS));
+  const env = { AWVD_SHERPA_BIN: stub, STUB_LOG: logStub };
+  const jalan = (out, ...lain) => jalankanEnv(["bun", narasiMjs, naskah, "--out", j("tts", out), ...lain], env);
+  let r = await jalan("o1");
+  samaDengan(r.kode, 0, `proses pertama (${r.err})`);
+  samaDengan(hitungPanggilan(), 3, "tiga kalimat disintesis");
+  memuat(r.out, "3 disintesis baru", "ringkasan cache pertama");
+  memuat(r.out, "suara sintetis", "info label di CLI");
+  const log = readFileSync(logStub, "utf8");
+  memuat(log, "dua belas Maret dua ribu dua puluh enam", "mesin menerima teks ternormalisasi");
+  memuat(log, "Pasal lima ayat dua", "pasal dan ayat dieja");
+  tegas(!log.includes("12/03/2026") && !/\d/.test(log), "mesin tidak menerima angka");
+  // WAV segmen: 48 kHz mono PCM16, kenyaringan -16 LUFS
+  const rencana = bacaJson(j("tts", "o1", "rencana-audio.json"));
+  const wav = join(j("tts", "o1"), rencana.narasi[0].berkas);
+  const info = await jalankan(["ffprobe", "-v", "error", "-show_entries", "stream=codec_name,sample_rate,channels", "-of", "csv=p=0", wav]);
+  samaDengan(info.out.trim(), "pcm_s16le,48000,1", "format WAV segmen");
+  dekat(await ukurLufs(wav), -16, 1, "kenyaringan segmen (LUFS)");
+  // jeda antar kalimat dari karakter (500 ms) terdeteksi sebagai batas kalimat
+  const lap = bacaJson(j("tts", "o1", "laporan.json"));
+  samaDengan(lap.segmen[0].jedaTerdeteksi, 2, "dua jeda antar-kalimat");
+  samaDengan(lap.suara.sintetis, true, "laporan menandai suara sintetis");
+  // label dan kredit
+  const kredit = bacaJson(j("tts", "o1", "suara-kredit.json"));
+  samaDengan(kredit.sintetis, true, "suara-kredit.sintetis");
+  memuat(kredit.label, "sintetis", "label");
+  samaDengan(kredit.kreditLayar, ["Suara: Ani (suara sintetis)"], "kredit layar");
+  samaDengan(kredit.mesin[0].lisensiBobot, "CC0-1.0", "lisensi bobot tercatat");
+  samaDengan(kredit.segmen[0].sha256, rencana.narasi[0].sha256, "hash WAV di kredit sama dengan rencana audio");
+  samaDengan(kredit.segmen[0].kalimat.length, 3, "kalimat tercatat dengan hash cache");
+  tegas(readFileSync(j("tts", "o1", "kredit-suara.txt"), "utf8").includes("Suara: Ani (suara sintetis)"), "kredit-suara.txt");
+  // proses kedua: cache dipakai ulang, tidak ada panggilan, keluaran identik byte demi byte
+  r = await jalan("o2");
+  samaDengan(r.kode, 0, `proses kedua (${r.err})`);
+  samaDengan(hitungPanggilan(), 3, "cache dipakai ulang: tidak ada panggilan baru");
+  memuat(r.out, "0 disintesis baru", "ringkasan cache kedua");
+  for (const f of readdirSync(j("tts", "o1"))) samaDengan(readFileSync(j("tts", "o2", f), "utf8"), readFileSync(j("tts", "o1", f), "utf8"), `keluaran identik: ${f}`);
+  // cache lengkap: mesin tidak diperlukan
+  r = await jalankanEnv(["bun", narasiMjs, naskah, "--out", j("tts", "o3")], { AWVD_SHERPA_BIN: j("tts", "tidak-ada", "x"), STUB_LOG: logStub });
+  samaDengan(r.kode, 0, `tanpa mesin dengan cache lengkap (${r.err})`);
+  samaDengan(readFileSync(j("tts", "o3", "rencana-audio.json"), "utf8"), readFileSync(j("tts", "o1", "rencana-audio.json"), "utf8"), "rencana identik tanpa mesin");
+  // satu kalimat berubah: hanya kalimat itu yang disintesis
+  const ubah = [...KALIMAT_TTS]; ubah[2] = "Silakan siapkan berkas persyaratan lengkap sebelum datang.";
+  const n4 = tulisNaskah("naskah-ubah.json", naskahTts(ubah));
+  r = await jalankanEnv(["bun", narasiMjs, n4, "--out", j("tts", "o4")], env);
+  samaDengan(r.kode, 0, `kalimat berubah (${r.err})`);
+  samaDengan(hitungPanggilan(), 4, "hanya satu kalimat baru yang disintesis");
+  // suara berbeda (kecepatan): kunci berbeda, sintesis ulang; durasi mengikuti kecepatan
+  const cepat = tulisNaskah("naskah-budi.json", naskahTts(KALIMAT_TTS, {}, { narator: { nama: "N", karakter: "budi" } }));
+  r = await jalankanEnv(["bun", narasiMjs, cepat, "--out", j("tts", "o5")], env);
+  samaDengan(r.kode, 0, `karakter lain (${r.err})`);
+  samaDengan(hitungPanggilan(), 7, "karakter dengan speaker dan kecepatan lain tidak memakai cache karakter pertama");
+  tegas(bacaJson(j("tts", "o5", "laporan.json")).durasiFrame < lap.durasiFrame, "kecepatan 1,25 menghasilkan narasi lebih pendek");
+  // --sintesis-ulang mengganti cache
+  r = await jalan("o6", "--sintesis-ulang");
+  samaDengan(r.kode, 0, `sintesis ulang (${r.err})`);
+  samaDengan(hitungPanggilan(), 10, "--sintesis-ulang menyintesis semua kalimat sekali");
+  memuat(r.out, "3 disintesis baru", "ringkasan sintesis ulang");
+});
+
+tes("TTS: cache rusak digagalkan, mesin yang gagal dilaporkan jelas, OOV leksikon digagalkan atau diperingatkan", async () => {
+  const stub = siapkanTts();
+  rmSync(j("tts", "cache"), { recursive: true, force: true });
+  rmSync(logStub, { force: true });
+  const env = { AWVD_SHERPA_BIN: stub, STUB_LOG: logStub };
+  const naskah = tulisNaskah("naskah-c.json", naskahTts(["Selamat datang di layanan kami hari ini."]));
+  let r = await jalankanEnv(["bun", narasiMjs, naskah, "--out", j("tts", "oc1")], env);
+  samaDengan(r.kode, 0, `dasar (${r.err})`);
+  const mentah = readdirSync(j("tts", "cache")).find((f) => /^[0-9a-f]{64}\.wav$/.test(f));
+  appendFileSync(j("tts", "cache", mentah), Buffer.from([1, 2, 3, 4]));
+  r = await jalankanEnv(["bun", narasiMjs, naskah, "--out", j("tts", "oc2")], env);
+  samaDengan(r.kode, 1, "cache rusak");
+  memuat(r.err, "cache suara rusak", "pesan cache rusak");
+  memuat(r.err, "--sintesis-ulang", "petunjuk pemulihan");
+  r = await jalankanEnv(["bun", narasiMjs, naskah, "--out", j("tts", "oc3"), "--sintesis-ulang"], env);
+  samaDengan(r.kode, 0, `pemulihan (${r.err})`);
+  // mesin gagal jalan
+  const gagal = tulisNaskah("naskah-gagal.json", naskahTts(["Kalimat ini sengaja GAGALKAN mesin palsu."]));
+  r = await jalankanEnv(["bun", narasiMjs, gagal, "--out", j("tts", "oc4")], env);
+  samaDengan(r.kode, 1, "mesin gagal");
+  memuat(r.err, 'mesin suara "stub" gagal (kode 3)', "pesan mesin gagal");
+  memuat(r.err, "stub: sengaja gagal", "stderr mesin dilaporkan");
+  // OOV: kata di luar leksikon
+  const eng = (penutur) => tulisNaskah(`naskah-${penutur}.json`, naskahTts(["The officer explains the service."], { bahasa: "en" }, { narator: { nama: "N", karakter: penutur } }));
+  r = await jalankanEnv(["bun", narasiMjs, eng("eva"), "--out", j("tts", "oc5")], env);
+  samaDengan(r.kode, 1, "OOV menggagalkan");
+  memuat(r.err, "di luar leksikon", "pesan OOV");
+  memuat(r.err, "officer, explains", "kata OOV disebut");
+  r = await jalankanEnv(["bun", narasiMjs, eng("lena"), "--out", j("tts", "oc6")], env);
+  samaDengan(r.kode, 0, `OOV peringatan (${r.err})`);
+  memuat(r.err, "peringatan: kalimat memuat kata di luar leksikon", "peringatan OOV");
+  samaDengan(periksaOov("The service, selamat!", [j("tts", "model", "leksikon.txt")]), [], "kata dalam leksikon lolos");
+  samaDengan(periksaOov("Don't officers", [j("tts", "model", "leksikon.txt")]), ["don't", "officers"], "kata luar leksikon terdaftar");
+});
+
+tes("TTS sungguhan (sherpa-onnx + Supertonic): dilewati bila AWVD_SHERPA_BIN dan AWVD_MODEL_SUPERTONIC3 tidak diset", async () => {
+  const bin = process.env.AWVD_SHERPA_BIN, model = process.env.AWVD_MODEL_SUPERTONIC3;
+  if (!bin || !model || !existsSync(bin) || !existsSync(model)) throw new Lewati("mesin sungguhan tidak terpasang di mesin ini (opsional; set AWVD_SHERPA_BIN dan AWVD_MODEL_SUPERTONIC3 untuk menjalankannya)");
+  mkdirSync(j("tts-nyata"), { recursive: true });
+  const naskah = j("tts-nyata", "naskah.json");
+  writeFileSync(naskah, JSON.stringify({ versi: 1, fps: 30, bahasa: "id", klasifikasi: "publik", suara: { mesin: "sherpa-onnx", cache: "cache" },
+    penutur: { narator: { nama: "Narator", karakter: "sekar" } },
+    adegan: [{ id: "a1", kalimat: ["Selamat datang di layanan kami.", "Pengajuan dibuka pada 12/03/2026 pukul 08.30 WIB."] }] }));
+  const r = await bun(narasiMjs, naskah, "--out", j("tts-nyata", "out"));
+  samaDengan(r.kode, 0, `sintesis sungguhan (${r.err})`);
+  const rencana = bacaJson(j("tts-nyata", "out", "rencana-audio.json"));
+  const wav = join(j("tts-nyata", "out"), rencana.narasi[0].berkas);
+  const a = await bacaAudio(wav);
+  tegas(a.durasi > 3, `durasi wajar: ${a.durasi}`);
+  dekat(await ukurLufs(wav), -16, 1, "kenyaringan -16 LUFS");
+  const r2 = await bun(narasiMjs, naskah, "--out", j("tts-nyata", "out2"));
+  samaDengan(r2.kode, 0, "proses kedua");
+  memuat(r2.out, "0 disintesis baru", "cache dipakai ulang pada mesin sungguhan");
+  samaDengan(bacaJson(j("tts-nyata", "out2", "rencana-audio.json")).narasi[0].sha256, rencana.narasi[0].sha256, "WAV beku identik");
+});
+
 // ------------------------------------------------------------------ jalankan
-let gagalCount = 0;
+let gagalCount = 0, lewatCount = 0;
 const t0 = Date.now();
 try {
   for (const [nama, fn] of uji) {
@@ -463,6 +828,7 @@ try {
       await fn();
       console.log(`ok     ${nama}  (${((Date.now() - t) / 1000).toFixed(1)} s)`);
     } catch (e) {
+      if (e instanceof Lewati) { lewatCount++; console.log(`lewati ${nama}\n       ${e.message}`); continue; }
       gagalCount++;
       console.log(`GAGAL  ${nama}\n       ${String(e.message).replace(/\n/g, "\n       ")}`);
     }
@@ -470,5 +836,5 @@ try {
 } finally {
   rmSync(tmp, { recursive: true, force: true });
 }
-console.log(`\n${uji.length - gagalCount}/${uji.length} uji narasi lolos (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
+console.log(`\n${uji.length - gagalCount - lewatCount}/${uji.length} uji narasi lolos${lewatCount ? `, ${lewatCount} dilewati` : ""} (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(gagalCount ? 1 : 0);

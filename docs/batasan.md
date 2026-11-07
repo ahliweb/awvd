@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.5.0`
+- Version: `v1.5.1`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan penunjuk batasan narasi dan caption.`
+- Changeset: `Penunjuk batasan narasi memuat TTS lokal opsional. Sebelumnya: menambahkan penunjuk batasan narasi dan caption.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -31,10 +31,14 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | SOP | [sop.md](sop.md#keputusan-desain-bukan-aturan-regulasi) |
 | Visual dan audiens (ukuran teks, palet buta warna, profil, efek) | [visual-audiens.md](visual-audiens.md#kesenjangan) |
 | Aset (gambar, logo, ikon, SVG, font, audio) | [aset.md](aset.md#batasan) |
-| Narasi dan caption sinkron (estimasi timing, mesin suara) | [narasi-caption.md](narasi-caption.md#batasan) |
+| Narasi dan caption sinkron (estimasi timing, mesin suara, TTS lokal opsional) | [narasi-caption.md](narasi-caption.md#batasan) |
 | Mempelajari gaya video dan kutipan wajar | [pelajari-reaction.md](pelajari-reaction.md#batasan) |
 
 ## Changelog
+
+### 2026-11-07 - v1.5.1
+
+- Penunjuk batasan narasi memuat TTS lokal opsional (keluaran tidak deterministik, kata di luar leksikon, label dan konten medis).
 
 ### 2026-11-07 - v1.5.0
 

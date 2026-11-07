@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.5.0`
+- Version: `v1.6.0`
 - Last updated: `2026-11-07`
-- Changeset: `Format klip menjadi png otomatis bila ada efek beralfa (kunciWarna); efek klip kini mencakup stabilisasi dan chroma key.`
+- Changeset: `Menunjuk adaptor TTS lokal opsional (sherpa-onnx) di bun run narasi pada bagian Narasi dan TTS. Sebelumnya: penunjuk bun run narasi sebagai penghasil rencana-audio.json dan caption sinkron untuk narasi beku.`
 
 Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md). Efek klip (stabilisasi, chroma key, LUT `.cube`, kecerahan, kontras, saturasi, gamma, keseimbangan warna) yang diterapkan saat ekstraksi ada di [olah-klip.md](olah-klip.md). Peredam bising dan pengubah nada/tempo suara ada di [§Olah suara per trek](#olah-suara-per-trek).
 
@@ -251,7 +251,13 @@ Lisensi `arnndn`: kode RNNoise (xiph.org) berlisensi BSD 3-Clause (terverifikasi
 
 awvd tidak membundel mesin TTS. Antarmuka narasi adalah **berkas WAV beku**: hasil rekaman atau TTS dibekukan sebagai berkas, dihash, dicatat (mesin, versi, model, lisensi) di repo proyek, dan hanya berkas itu yang dipakai saat render (TTS saraf bisa tidak deterministik antar-run). Per 2026-11-07 riset tidak menemukan model TTS bahasa Indonesia berlisensi permisif dengan asal data yang jelas: Piper MIT sudah diarsipkan dan penerusnya GPL-3.0; suara `id_ID-news_tts-medium` berlisensi MIT tetapi asal data pelatihannya tidak jelas; MMS-TTS berlisensi CC BY-NC. TTS daring hanya untuk konten publik (DL-037).
 
+Yang disediakan adalah adaptor opsional `sherpa-onnx` di `bun run narasi` ([TTS lokal](narasi-caption.md#tts-lokal-sherpa-onnx)): pengguna memasang sherpa-onnx dan model sendiri (Supertonic 3 untuk Indonesia, Kokoro untuk Inggris; bobot Supertonic berlisensi OpenRAIL-M dengan syarat label suara sintetis dan larangan nasihat medis, lihat [lisensi-kepatuhan.md](lisensi-kepatuhan.md#model-tts-dan-openrail-m)), adaptor membekukan WAV di cache berhash dan menormalkan kenyaringannya, dan `rencana-audio.json` yang dihasilkan masuk ke `bun run audio` seperti biasa.
+
 ## Changelog
+
+### 2026-11-07 - v1.6.0
+
+- §Narasi dan TTS menunjuk adaptor TTS lokal opsional (`sherpa-onnx`) di `bun run narasi`; `audio.mjs` tidak berubah.
 
 ### 2026-11-07 - v1.5.0
 

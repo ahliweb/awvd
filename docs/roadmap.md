@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.5.0`
+- Version: `v1.6.0`
 - Last updated: `2026-11-07`
-- Changeset: `Paritas: caption sinkron voice over tetap sebagian, kini dengan mode dan posisi tampil caption (F1/06B selesai); adaptor TTS (F1/06C) belum.`
+- Changeset: `Paritas: text-to-speech berstatus ada sebagai adaptor opsional yang tidak dibundel (sherpa-onnx; Supertonic untuk Indonesia, Kokoro untuk Inggris). Sebelumnya: caption sinkron voice over berstatus sebagian.`
 
 ## Visi
 
@@ -79,7 +79,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Reaction dan kutipan wajar | ada ([pelajari-reaction.md](pelajari-reaction.md)) | F1/05 (selesai) |
 | Pemeriksa visual dan profil audiens | ada ([visual-audiens.md](visual-audiens.md)) | F1/01 (selesai) |
 | Caption sinkron voice over | sebagian: naskah, estimasi timing, cue VTT/SRT, rencana audio, serta mode dan posisi tampil caption ada ([narasi-caption.md](narasi-caption.md)); adaptor TTS belum | F1/06A (selesai), F1/06B (selesai), F1/06C |
-| Text-to-speech | belum (adaptor opsional diputuskan) | F1/06C |
+| Text-to-speech | ada sebagai adaptor opsional yang tidak dibundel ([narasi-caption.md](narasi-caption.md#tts-lokal-sherpa-onnx)); layanan daring dan suara kustom belum | F1/06C (selesai) |
 | Ducking, fade, kenyaringan | ada | — |
 | QC kenyaringan, kilatan, subtitle | ada ([pemeriksaan-mutu.md](pemeriksaan-mutu.md)) | — |
 | Timeline multitrack | belum | F2 |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-07 - v1.6.0
+
+- Paritas "Text-to-speech" diubah menjadi ada (adaptor TTS lokal opsional, F1/06C).
 
 ### 2026-11-07 - v1.5.0
 
