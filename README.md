@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.4.0`
+- Version: `v1.4.1`
 - Last updated: `2026-11-07`
-- Changeset: `Menetapkan awvd sebagai upstream (bukan repo proyek video) dan mendokumentasikan pemakaiannya di repo proyek: bagian Peran repo: upstream.`
+- Changeset: `Flag --out: folder tujuan kini dibuat otomatis bila belum ada.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -163,7 +163,7 @@ bun scripts/render.mjs <komposisi.html|URL> --out hasil.mp4 [opsi]
 
 | Flag | Bawaan | Keterangan |
 | --- | --- | --- |
-| `--out F` | wajib | Berkas keluaran (`.mp4`, atau `.png` bersama `--still`). |
+| `--out F` | wajib | Berkas keluaran (`.mp4`, atau `.png` bersama `--still`). Folder tujuan dibuat otomatis bila belum ada. |
 | `--props JSON` / `--props-file F` | `{}` | Props komposisi; pakai salah satu, harus objek JSON. |
 | `--dari N` / `--sampai M` | `0` / frame terakhir | Rentang frame (inklusif). Audio dan subtitle diselaraskan ke frame awal. |
 | `--skala X` | `1` | Faktor skala keluaran (min 0,1); layout tetap, raster dibuat ulang tajam. Dimensi ganjil dipotong 1 px ke genap. |
@@ -253,6 +253,10 @@ Belum ada rilis bertag. Versi paket `0.1.0`, dan semua perubahan dicatat di [CHA
 Font, musik (`--audio`), gambar, footage, dan suara TTS wajib berlisensi jelas dan dicatat sumbernya. Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.4.1
+
+- §Flag CLI: `--out` membuat folder tujuan bila belum ada.
 
 ### 2026-11-07 - v1.4.0
 

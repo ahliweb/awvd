@@ -114,8 +114,8 @@ daftar("(f) --subtitle .vtt -> mov_text", async () => {
   tegas(s.tags?.language === "ind", `bahasa ${s.tags?.language}`);
 });
 
-daftar("(g) --skala 0.5 -> 640x360", async () => {
-  const f = join(tmp, "skala.mp4");
+daftar("(g) --skala 0.5 -> 640x360, folder keluaran dibuat otomatis", async () => {
+  const f = join(tmp, "belum", "ada", "skala.mp4");
   const r = await renderKe([contoh, "--out", f, "--skala", "0.5", "--dari", "0", "--sampai", "29"]);
   tegas(r.kode === 0, `render exit ${r.kode}: ${r.err}`);
   const v = video(await probe(f));

@@ -21,3 +21,7 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/). Ve
 - Dokumentasi tidak lagi menyebut nama, path, atau tautan repo pedoman internal AhliWeb yang privat.
 - Klasifikasi repo ditetapkan dan pengaturan GitHub (proteksi `main`, check wajib, merge commit saja) didokumentasikan.
 - awvd ditetapkan hanya sebagai upstream (renderer, runtime, template contoh generik, uji), bukan repo proyek video. Pemakaian di repo proyek (dependensi git terkunci SHA, struktur repo proyek, naik versi, lisensi) didokumentasikan di README §Peran repo: upstream, dengan aturan 11 di AGENTS.md dan checklist baru di template PR. Tidak ada perubahan kode.
+
+### Diperbaiki
+
+- Renderer: `--out` ke folder yang belum ada gagal di mode video (ffmpeg tidak membuat folder), sedangkan mode `--still` berhasil. Kini folder tujuan dibuat otomatis di kedua mode; uji (g) mencakup kasus ini. Memengaruhi repo proyek: tidak perlu lagi membuat `out/` sendiri.

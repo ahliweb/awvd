@@ -13,9 +13,9 @@
  * Tidak ada file sementara per frame. Karya asli repo ini.
  */
 import { parseArgs } from "node:util";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright-core";
 
@@ -61,6 +61,12 @@ if (o.help) {
 }
 if (positionals.length !== 1) gagal(`harus tepat satu komposisi.\n${PETUNJUK}`, 2);
 if (!o.out) gagal(`--out wajib.\n${PETUNJUK}`, 2);
+// folder keluaran dibuat bila belum ada (ffmpeg tidak membuatnya sendiri)
+try {
+  mkdirSync(dirname(resolve(o.out)), { recursive: true });
+} catch (e) {
+  gagal(`tidak bisa membuat folder keluaran untuk ${o.out}: ${e.message}`, 2);
+}
 
 function angka(nama, nilai, { min = -Infinity, bulat = false } = {}) {
   if (nilai === undefined) return undefined;
