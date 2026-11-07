@@ -63,6 +63,17 @@
  *   jalurFrameKlip(klip, frameLokal, opsi) -> URL frame, atau null bila belum mulai
  *   klipGambar(canvas|img, klip, frameLokal, opsi) -> Promise<boolean> (menunggu decode lalu menggambar)
  *   kreditKlip(klip, { ringkas = true }) -> teks atribusi TASL
+ *
+ *   Aset (dari aset-props.json, bun run aset periksa; opsi bersama { props|ctx, akar }; docs/aset.md):
+ *   asetGambar(id, { props|ctx, target, teksAlternatif }) -> Promise<{ url, lebar, tinggi, rasio,
+ *                                  fokus, alt, dekoratif, ... }>; gagal keras bila id tak ada atau
+ *                                  aset informatif tanpa teksAlternatif
+ *   pasangGambar(<img>, deskriptor) -> Promise<true>  satu-satunya jalur DOM; hanya <img>, tanpa inline
+ *   logo(id, posisi, { ukuran = 10, opacity, latar, varian }) -> { x, y, w, h, url, alt, ... } di area
+ *                                  aman grafis; menegakkan ukuranMinPx, clearSpace, tanpa rotasi/regang
+ *   ikon(id, { ukuran = 24, warna: "putih"|"hitam" }) -> { w, h, url, alt, filter, ... }
+ *   kreditAset(ids|"semua", { ringkas = true, tampil }) -> teks atribusi per aset (sesuai manifest)
+ *   pasangFont(ids|"semua", { props|ctx }) -> Promise<string[]>  FontFace + load; gagal = galat
  *   angka(n, { desimal }), persen(n, { desimal }), rupiah(n, { desimal = 0 })  (format id-ID)
  *   kenBurns(frame, { mulai, durasi, dari, ke, easing }) -> nilai CSS transform
  *
@@ -854,6 +865,373 @@
     return b.join(". ") + ".";
   }
 
+  // ------------------------------------------------------------------- aset
+  // Helper untuk aset yang sudah lolos `bun run aset periksa` (docs/aset.md). Sumbernya
+  // `props` yang memuat kunci `aset` (id -> entri): aset-props.json apa adanya, atau
+  // ctx.props bila digabung dengan `aset periksa --gabung`. Semua fungsi murni dari
+  // argumen, kecuali pasangGambar/pasangFont (menyentuh hanya elemen/DOM yang diberikan).
+  // Pelanggaran aturan = galat (melempar atau promise ditolak), bukan fallback senyap.
+  //
+  // opsi bersama: { props, ctx, akar }
+  //   ctx   = argumen kedua render(); jalan pintas: props = ctx.props, lebar = ctx.width,
+  //           tinggi = ctx.height (nilai eksplisit di opsi menang)
+  //   akar  = awalan URL untuk entri.jalur (jalur di props relatif terhadap folder manifest)
+
+  var FORMAT_FONT = { woff2: "woff2", woff: "woff", ttf: "truetype", otf: "opentype" };
+  var POSISI_LOGO = ["kiri-atas", "kanan-atas", "kiri-bawah", "kanan-bawah", "tengah"];
+  // Keputusan desain (bukan standar): ukuran logo bawaan 10% lebar frame (rentang bug logo
+  // 8-12% dari praktik penyiaran, tidak ada angka baku terverifikasi) dan kontras minimum
+  // logo terhadap latar 3:1 (WCAG 2.2 SC 1.4.11 untuk objek grafis).
+  var UKURAN_LOGO_PERSEN = 10;
+  var KONTRAS_LOGO_MIN = 3;
+
+  function gabungCtx(opsi) {
+    opsi = opsi || {};
+    var c = opsi.ctx;
+    if (!c) return opsi;
+    var o = {};
+    Object.keys(opsi).forEach(function (k) { o[k] = opsi[k]; });
+    if (o.props == null) o.props = c.props;
+    if (o.lebar == null) o.lebar = c.width;
+    if (o.tinggi == null) o.tinggi = c.height;
+    return o;
+  }
+
+  function petaAset(opsi, fn) {
+    var p = opsi && opsi.props;
+    if (!p || typeof p !== "object" || !p.aset || typeof p.aset !== "object") {
+      throw new Error(fn + ": opsi.props wajib memuat kunci 'aset' (aset-props.json, atau ctx.props " +
+        "hasil `aset periksa --gabung`); lewatkan { props } atau { ctx }");
+    }
+    return p.aset;
+  }
+
+  function entriAset(id, opsi, fn, jenisBoleh) {
+    var peta = petaAset(opsi, fn);
+    if (typeof id !== "string" || !Object.prototype.hasOwnProperty.call(peta, id)) {
+      throw new Error(fn + ': aset "' + id + '" tidak ada di aset-props (id yang ada: ' +
+        (Object.keys(peta).join(", ") || "tidak ada") + ")");
+    }
+    var e = peta[id];
+    if (!e || typeof e !== "object") throw new Error(fn + ': entri aset "' + id + '" tidak valid');
+    if (jenisBoleh && jenisBoleh.indexOf(e.jenis) < 0) {
+      throw new Error(fn + ': aset "' + id + '" berjenis ' + e.jenis + ", bukan " + jenisBoleh.join(" atau "));
+    }
+    return e;
+  }
+
+  // URL dari entri.jalur: hanya berkas lokal relatif (tanpa skema, jalur mutlak, atau "..").
+  function urlAset(e, id, akar, fn) {
+    var j = e.jalur;
+    if (typeof j !== "string" || j === "" || /^[a-z][a-z0-9+.\-]*:/i.test(j) || j.charAt(0) === "/" ||
+        j.indexOf("\\") >= 0 || j.split("/").indexOf("..") >= 0) {
+      throw new Error(fn + ': jalur aset "' + id + '" harus berkas lokal relatif (dapat ' + JSON.stringify(j) + ")");
+    }
+    return (akar ? String(akar).replace(/\/+$/, "") + "/" : "") + j;
+  }
+
+  // Teks alternatif (WCAG 1.1.1). Aset informatif wajib punya teks; aset dekoratif mendapat
+  // alt="" dan aria-hidden. Peran dari manifest tidak bisa diubah per pemakaian. Ikon tanpa
+  // peran di manifest dianggap dekoratif kecuali ada teksAlternatif (keputusan desain: ikon
+  // lazimnya mendampingi teks); gambar, logo, dan svg tanpa peran dianggap informatif.
+  function teksAlternatifAset(e, id, opsi, fn) {
+    var alt = opsi.teksAlternatif != null ? opsi.teksAlternatif : e.teksAlternatif;
+    var ada = typeof alt === "string" && alt.trim() !== "";
+    var peran = e.peran || (!ada && e.jenis === "ikon" ? "dekoratif" : "informatif");
+    if (peran === "dekoratif") return { alt: "", dekoratif: true };
+    if (!ada) {
+      throw new Error(fn + ': aset "' + id + '" informatif tetapi tanpa teksAlternatif (WCAG 1.1.1): ' +
+        'isi teksAlternatif di aset.json, atau tandai peran "dekoratif"');
+    }
+    return { alt: alt, dekoratif: false };
+  }
+
+  function rasioAset(e, id, fn) {
+    var r = typeof e.rasio === "number" && e.rasio > 0 ? e.rasio
+      : (e.lebar > 0 && e.tinggi > 0 ? e.lebar / e.tinggi : 0);
+    if (!(r > 0)) throw new Error(fn + ': aset "' + id + '" tanpa lebar/tinggi di aset-props (jalankan bun run aset periksa)');
+    return r;
+  }
+
+  function posisiFokus(f) {
+    if (!f || typeof f.x !== "number" || typeof f.y !== "number") return null;
+    return Math.round(f.x * 10000) / 100 + "% " + Math.round(f.y * 10000) / 100 + "%";
+  }
+
+  // asetGambar(id, { props|ctx, akar, teksAlternatif, target }) -> Promise
+  // Menyelesaikan { id, jenis, url, lebar, tinggi, rasio, fokus, fit, objectPosition, alt,
+  // dekoratif }. Gagal keras bila id tak ada atau aset informatif tanpa teksAlternatif.
+  // Dengan `target` (elemen <img>), gambar dipasang lewat pasangGambar dan promise
+  // menunggu decode. Aset hanya pernah dimuat lewat <img>; tidak ada jalur SVG inline.
+  function asetGambar(id, opsi) {
+    var o = gabungCtx(opsi), d;
+    try {
+      var e = entriAset(id, o, "asetGambar", ["gambar", "svg", "logo", "ikon"]);
+      var t = teksAlternatifAset(e, id, o, "asetGambar");
+      d = {
+        id: id, jenis: e.jenis, url: urlAset(e, id, o.akar, "asetGambar"),
+        lebar: e.lebar == null ? null : e.lebar, tinggi: e.tinggi == null ? null : e.tinggi,
+        rasio: e.rasio > 0 ? e.rasio : (e.lebar > 0 && e.tinggi > 0 ? e.lebar / e.tinggi : null),
+        fokus: e.fokus || null, fit: (e.tampil && e.tampil.fit) || null,
+        objectPosition: posisiFokus(e.fokus), alt: t.alt, dekoratif: t.dekoratif,
+      };
+    } catch (err) { return Promise.reject(err); }
+    if (!o.target) return Promise.resolve(d);
+    return pasangGambar(o.target, d).then(function () { return d; });
+  }
+
+  // pasangGambar(target, deskriptor) -> Promise<true>
+  // Satu-satunya jalur DOM untuk aset gambar: memasang deskriptor (dari asetGambar, logo,
+  // atau ikon) ke elemen <img> dan menunggu decode. Target selain <img> ditolak, jadi logo
+  // dan SVG tidak pernah disisipkan inline (inline menjalankan skrip dan memuat sumber luar).
+  function pasangGambar(target, d) {
+    try {
+      if (!target || String(target.tagName).toUpperCase() !== "IMG") {
+        throw new Error("pasangGambar: target harus elemen <img> (aset tidak pernah disisipkan inline)");
+      }
+      if (!d || typeof d.url !== "string" || typeof d.alt !== "string") {
+        throw new Error("pasangGambar: deskriptor tidak valid (pakai hasil asetGambar, logo, atau ikon)");
+      }
+    } catch (e) { return Promise.reject(e); }
+    var skrg = typeof target.getAttribute === "function" ? target.getAttribute("src") : target.src;
+    if (skrg !== d.url) target.src = d.url;
+    target.setAttribute("alt", d.alt);
+    if (d.dekoratif) target.setAttribute("aria-hidden", "true");
+    else if (typeof target.removeAttribute === "function") target.removeAttribute("aria-hidden");
+    var s = target.style;
+    if (typeof d.x === "number" && typeof d.y === "number") {
+      s.position = "absolute";
+      s.left = d.x + "px";
+      s.top = d.y + "px";
+    }
+    if (typeof d.w === "number" && typeof d.h === "number") {
+      s.width = d.w + "px";
+      s.height = d.h + "px";
+    }
+    if (d.fit) s.objectFit = d.fit;
+    if (d.objectPosition) s.objectPosition = d.objectPosition;
+    if (typeof d.opacity === "number") s.opacity = String(d.opacity);
+    if (d.filter) s.filter = d.filter;
+    var galat = function () { throw new Error("pasangGambar: gambar gagal dimuat: " + d.url); };
+    return Promise.resolve(typeof target.decode === "function" ? target.decode() : null)
+      .then(function () { return true; }, galat);
+  }
+
+  // logo(id, posisi, { props|ctx, lebar, tinggi, ukuran = 10, opacity = 1, latar, varian, akar })
+  //   -> { id, jenis, url, x, y, w, h, opacity, alt, dekoratif, rasio, posisi, clearSpace,
+  //        fit: "contain", ukuranMinPx }  (px komposisi; pasang lewat pasangGambar)
+  // posisi: kiri-atas | kanan-atas | kiri-bawah | kanan-bawah | tengah, di dalam area grafis
+  // aman (areaAman, EBU R 95). `ukuran` = persen lebar frame. Rasio dikunci dari aset-props:
+  // tidak ada parameter rotasi atau regang. Aturan merek (merek.aturan) dipaksakan sebagai galat:
+  // lebar < ukuranMinPx; clearSpace ditambahkan sebagai margin dari tepi area aman; logo + clearSpace
+  // harus muat di area aman; "transparansi" di larangan menolak opacity < 1. `latar` (warna
+  // latar) memeriksa kontras >= 3 terhadap setidaknya satu warna di warnaDiizinkan dan memilih
+  // varian: varian = { diLatarTerang: id, diLatarGelap: id } (latar terang bila kontras dengan
+  // hitam >= dengan putih); tanpa kunci yang cocok dipakai `id`.
+  function logo(id, posisi, opsi) {
+    var o = gabungCtx(opsi);
+    if (POSISI_LOGO.indexOf(posisi) < 0) {
+      throw new Error("logo: posisi harus salah satu dari " + POSISI_LOGO.join(", ") + " (dapat " + posisi + ")");
+    }
+    ["rotasi", "regang", "miring"].forEach(function (k) {
+      if (o[k] != null) throw new Error("logo: opsi '" + k + "' tidak ada; logo tidak boleh diputar, diregangkan, atau dimiringkan");
+    });
+    var lebar = o.lebar, tinggi = o.tinggi;
+    if (typeof lebar !== "number" || !(lebar > 0) || typeof tinggi !== "number" || !(tinggi > 0)) {
+      throw new Error("logo: ukuran frame wajib (opsi.lebar dan opsi.tinggi, atau opsi.ctx)");
+    }
+    var pilih = id;
+    if (o.latar != null && o.varian) {
+      var terang = kontras(o.latar, "#000000") >= kontras(o.latar, "#ffffff");
+      var v = terang ? o.varian.diLatarTerang : o.varian.diLatarGelap;
+      if (typeof v === "string") pilih = v;
+    }
+    var e = entriAset(pilih, o, "logo", ["logo"]);
+    var t = teksAlternatifAset(e, pilih, o, "logo");
+    var rasio = rasioAset(e, pilih, "logo");
+    var aturan = (e.merek && e.merek.aturan) || {};
+    var ukuran = o.ukuran == null ? UKURAN_LOGO_PERSEN : o.ukuran;
+    if (typeof ukuran !== "number" || !(ukuran > 0 && ukuran <= 100)) throw new Error("logo: ukuran harus persen lebar frame (0..100]");
+    var w = Math.round(lebar * ukuran / 100);
+    var h = Math.max(1, Math.round(w / rasio));
+    if (aturan.ukuranMinPx > 0 && w < aturan.ukuranMinPx) {
+      throw new Error('logo: "' + pilih + '" selebar ' + w + " px, di bawah ukuran minimum pedoman merek (" +
+        aturan.ukuranMinPx + " px); naikkan opsi.ukuran");
+    }
+    var opacity = o.opacity == null ? 1 : o.opacity;
+    if (typeof opacity !== "number" || !(opacity > 0 && opacity <= 1)) throw new Error("logo: opacity harus di (0, 1]");
+    if (opacity < 1 && aturan.larangan && aturan.larangan.indexOf("transparansi") >= 0) {
+      throw new Error('logo: pedoman merek "' + pilih + '" melarang transparansi (merek.aturan.larangan)');
+    }
+    if (o.latar != null && aturan.warnaDiizinkan && aturan.warnaDiizinkan.length) {
+      var terbaik = 0;
+      aturan.warnaDiizinkan.forEach(function (c) { terbaik = Math.max(terbaik, kontras(c, o.latar)); });
+      if (terbaik < KONTRAS_LOGO_MIN) {
+        throw new Error('logo: "' + pilih + '" berkontras ' + terbaik.toFixed(2) + ":1 terhadap latar, di bawah " +
+          KONTRAS_LOGO_MIN + ":1 (WCAG 2.2 SC 1.4.11); pakai varian lain (opsi.varian)");
+      }
+    }
+    var cs = 0;
+    if (aturan.clearSpace && aturan.clearSpace.nilai > 0) {
+      cs = Math.ceil(aturan.clearSpace.nilai * (aturan.clearSpace.satuan === "lebar" ? w : h));
+    }
+    var A = areaAman(lebar, tinggi).grafis;
+    if (w + 2 * cs > A.w || h + 2 * cs > A.h) {
+      throw new Error('logo: "' + pilih + '" ' + w + "x" + h + " px dengan clear space " + cs + " px tidak muat di area aman grafis " +
+        A.w + "x" + A.h + " px; kecilkan opsi.ukuran");
+    }
+    var x, y;
+    if (posisi === "tengah") {
+      x = A.x + Math.round((A.w - w) / 2);
+      y = A.y + Math.round((A.h - h) / 2);
+    } else {
+      x = posisi.indexOf("kiri") === 0 ? A.x + cs : A.x + A.w - cs - w;
+      y = posisi.slice(-4) === "atas" ? A.y + cs : A.y + A.h - cs - h;
+    }
+    return {
+      id: pilih, jenis: "logo", url: urlAset(e, pilih, o.akar, "logo"), x: x, y: y, w: w, h: h,
+      opacity: opacity, alt: t.alt, dekoratif: t.dekoratif, rasio: rasio, posisi: posisi,
+      clearSpace: cs, fit: "contain", ukuranMinPx: aturan.ukuranMinPx > 0 ? aturan.ukuranMinPx : null,
+    };
+  }
+
+  // ikon(id, { props|ctx, ukuran = 24, warna, akar, teksAlternatif })
+  //   -> { id, jenis, url, w, h, alt, dekoratif, rasio, filter, fit: "contain" }
+  // `ukuran` = sisi terpanjang (px); sisi lain mengikuti rasio. Dimuat lewat <img>
+  // (pasangGambar), tanpa SVG inline. `warna` hanya "putih" atau "hitam" (filter CSS
+  // brightness/invert pada <img>); warna lain tidak disediakan karena butuh SVG inline atau
+  // CSS mask: pakai berkas ikon yang sudah berwarna itu (keputusan desain).
+  function ikon(id, opsi) {
+    var o = gabungCtx(opsi);
+    var e = entriAset(id, o, "ikon", ["ikon"]);
+    var t = teksAlternatifAset(e, id, o, "ikon");
+    var rasio = rasioAset(e, id, "ikon");
+    var ukuran = o.ukuran == null ? 24 : o.ukuran;
+    if (typeof ukuran !== "number" || !(ukuran > 0)) throw new Error("ikon: ukuran harus angka positif (px)");
+    var w = rasio >= 1 ? ukuran : Math.max(1, Math.round(ukuran * rasio));
+    var h = rasio >= 1 ? Math.max(1, Math.round(ukuran / rasio)) : ukuran;
+    var filter = null;
+    if (o.warna != null) {
+      if (o.warna === "putih") filter = "brightness(0) invert(1)";
+      else if (o.warna === "hitam") filter = "brightness(0)";
+      else throw new Error('ikon: warna harus "putih" atau "hitam" (dapat ' + JSON.stringify(o.warna) + ")");
+    }
+    return {
+      id: id, jenis: "ikon", url: urlAset(e, id, o.akar, "ikon"), w: w, h: h, alt: t.alt,
+      dekoratif: t.dekoratif, rasio: rasio, filter: filter, fit: "contain",
+    };
+  }
+
+  // Nama lisensi untuk kredit aset: sama dengan aset-lib (namaLisensi + milik sendiri/izin tertulis).
+  function namaLisensiAsetRt(kode) {
+    kode = String(kode == null ? "" : kode);
+    if (kode === "MILIK-SENDIRI") return "Milik sendiri";
+    if (kode.indexOf("IZIN-TERTULIS:") === 0) return "Izin tertulis " + kode.slice(14);
+    return namaLisensi(kode);
+  }
+
+  function kreditAsetRingkas(a) {
+    var t = "";
+    if (!a.tanpaJudul && a.judul) t = '"' + a.judul + '"';
+    if (!a.penciptaAnonim && a.pencipta) t += (t ? " oleh " : "") + a.pencipta;
+    var perubahan = String(a.perubahan == null ? "" : a.perubahan).replace(/[.\s]+$/, "");
+    var p = [];
+    if (t) p.push(t);
+    p.push(namaLisensiAsetRt(a.lisensi));
+    if (perubahan && !/^tidak ada/i.test(perubahan)) p.push("diubah");
+    return p.join(" · ");
+  }
+
+  // Cadangan bila entri tidak membawa atribusi.kredit; format sama dengan aset-lib (uji menjaganya).
+  function kreditAsetLengkap(a) {
+    var t = "";
+    if (!a.tanpaJudul && a.judul) t = '"' + a.judul + '"';
+    if (!a.penciptaAnonim && a.pencipta) t += (t ? " oleh " : "") + a.pencipta;
+    var perubahan = String(a.perubahan == null ? "" : a.perubahan).replace(/[.\s]+$/, "");
+    var b = [];
+    if (t) b.push(t);
+    if (a.sumberUrl) b.push("Sumber: " + a.sumberUrl);
+    b.push("Lisensi: " + namaLisensiAsetRt(a.lisensi) + (a.urlLisensi ? " (" + a.urlLisensi + ")" : ""));
+    if (perubahan && !/^tidak ada$/i.test(perubahan)) b.push("Diubah: " + perubahan);
+    return b.join(". ") + ".";
+  }
+
+  // kreditAset(ids, { props|ctx, ringkas = true, tampil }) -> teks, satu baris per aset ("\n")
+  // ids: "semua" (aset yang atribusi.tampil-nya "layar" atau "akhir", urutan manifest; `tampil`
+  // menyaring salah satunya), satu id, atau array id (urutan array = urutan baris, id ganda
+  // dibuang; untuk kredit akhir urut kemunculan, beri array berurut). Id tak ada = galat.
+  // ringkas:true (layar): "Judul" oleh Pencipta · CC BY 4.0 · diubah.
+  // ringkas:false (kredit akhir): atribusi.kredit dari manifest apa adanya, sama dengan baris
+  // di atribusi.txt. Hasil kosong ("") bila tidak ada aset yang perlu dikreditkan.
+  function kreditAset(ids, opsi) {
+    var o = gabungCtx(opsi);
+    var peta = petaAset(o, "kreditAset");
+    var ringkas = !o || o.ringkas !== false;
+    var daftar;
+    if (ids === "semua") {
+      daftar = Object.keys(peta).filter(function (k) {
+        var tp = peta[k] && peta[k].atribusi && peta[k].atribusi.tampil;
+        return o.tampil ? tp === o.tampil : (tp === "layar" || tp === "akhir");
+      });
+    } else if (typeof ids === "string") daftar = [ids];
+    else if (Array.isArray(ids)) daftar = ids;
+    else throw new Error('kreditAset: ids harus "semua", satu id, atau array id');
+    var terlihat = {}, baris = [];
+    daftar.forEach(function (id) {
+      if (terlihat[id]) return;
+      terlihat[id] = true;
+      var e = entriAset(id, o, "kreditAset");
+      var a = e.atribusi;
+      if (!a || typeof a !== "object") throw new Error('kreditAset: aset "' + id + '" tanpa atribusi di aset-props');
+      baris.push(ringkas ? kreditAsetRingkas(a)
+        : (typeof a.kredit === "string" && a.kredit !== "" ? a.kredit : kreditAsetLengkap(a)));
+    });
+    return baris.join("\n");
+  }
+
+  // pasangFont(ids, { props|ctx, akar }) -> Promise<string[]> (famili yang termuat)
+  // Mendaftarkan font aset (jenis font) lewat FontFace + document.fonts dan menunggu face.load();
+  // melempar bila font gagal dimuat (bukan font cadangan diam-diam). Aman dipanggil di tiap
+  // render (idempoten per famili/bobot/gaya/url). ids: "semua", satu id, atau array id. Alternatif
+  // statis: muat font-face.css dari `aset periksa` lewat <link rel="stylesheet">.
+  var fontTerpasang = {};
+  function pasangFont(ids, opsi) {
+    var o = gabungCtx(opsi), daftar, tugas = [];
+    try {
+      var peta = petaAset(o, "pasangFont");
+      if (ids === "semua") {
+        daftar = Object.keys(peta).filter(function (k) { return peta[k] && peta[k].jenis === "font"; });
+      } else if (typeof ids === "string") daftar = [ids];
+      else if (Array.isArray(ids)) daftar = ids;
+      else throw new Error('pasangFont: ids harus "semua", satu id, atau array id');
+      if (!g.FontFace || typeof document === "undefined" || !document.fonts) {
+        throw new Error("pasangFont: FontFace/document.fonts tidak tersedia (dijalankan di luar browser)");
+      }
+      daftar.forEach(function (id) {
+        var e = entriAset(id, o, "pasangFont", ["font"]);
+        var f = e.font;
+        if (!f || typeof f.famili !== "string" || f.famili === "" || !FORMAT_FONT[f.format]) {
+          throw new Error('pasangFont: aset "' + id + '" tanpa font.famili dan font.format (woff2, woff, ttf, otf) di aset-props');
+        }
+        var url = urlAset(e, id, o.akar, "pasangFont");
+        var bobot = f.bobot == null ? 400 : f.bobot, gaya = f.gaya || "normal";
+        var kunci = [f.famili, bobot, gaya, url].join("|");
+        if (!fontTerpasang[kunci]) {
+          var muka = new g.FontFace(f.famili, 'url("' + url + '") format("' + FORMAT_FONT[f.format] + '")',
+            { weight: String(bobot), style: gaya, display: "block" });
+          document.fonts.add(muka);
+          fontTerpasang[kunci] = Promise.resolve(muka.load()).then(function () { return f.famili; }, function () {
+            delete fontTerpasang[kunci];
+            if (typeof document.fonts.delete === "function") document.fonts.delete(muka);
+            throw new Error('pasangFont: font gagal dimuat: "' + f.famili + '" (' + url + ")");
+          });
+        }
+        tugas.push(fontTerpasang[kunci]);
+      });
+    } catch (err) { return Promise.reject(err); }
+    return Promise.all(tugas);
+  }
+
   // ------------------------------------------------------------ format id-ID
   // Format angka Indonesia ditulis manual (bukan Intl) agar hasil sama di semua mesin
   // dan versi mesin JS: pemisah ribuan titik, desimal koma. Pembulatan setengah naik
@@ -1125,6 +1503,12 @@
     jalurFrameKlip: jalurFrameKlip,
     klipGambar: klipGambar,
     kreditKlip: kreditKlip,
+    asetGambar: asetGambar,
+    pasangGambar: pasangGambar,
+    logo: logo,
+    ikon: ikon,
+    kreditAset: kreditAset,
+    pasangFont: pasangFont,
     angka: angka,
     persen: persen,
     rupiah: rupiah,

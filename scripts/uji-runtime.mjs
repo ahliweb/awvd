@@ -6,11 +6,14 @@
  *
  *   bun scripts/uji-runtime.mjs
  */
+import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { kreditAset as kreditAsetLib } from "./aset-lib.js";
 
 // ---- tiruan minimal: cukup agar runtime.js tereksekusi dan defineVideo berjalan.
 const elemenTiruan = () => ({ setAttribute() {}, appendChild() {}, style: {} });
+const dirSkrip = dirname(fileURLToPath(import.meta.url));
 globalThis.window = { location: { search: "" } };
 globalThis.document = {
   readyState: "complete",
@@ -18,7 +21,7 @@ globalThis.document = {
   head: elemenTiruan(),
   documentElement: elemenTiruan(),
 };
-await import(join(dirname(fileURLToPath(import.meta.url)), "runtime.js"));
+await import(join(dirSkrip, "runtime.js"));
 const api = globalThis.window.VideoTerprogram;
 
 const { easing, durasi, ms, berjenjang, areaAman, luminansRelatif, kontras, pilihTeksKontras,
@@ -282,6 +285,301 @@ daftar("berjenjang: frame lokal elemen ke-indeks", () => {
   tegas(berjenjang(30, 2, { mulai: 10, jeda: 4 }) === 12, "30 - 10 - 2*4");
   tegas(berjenjang(5, 1) === -1, "belum mulai -> negatif");
   tegas(berjenjang(7, 1, { jeda: 0 }) === 7, "jeda 0");
+});
+
+
+// ============================================================ helper aset
+// Props asli dari templat aset-contoh (salinan keluaran `bun run aset periksa`) dan turunannya.
+const propsContoh = JSON.parse(/window\.asetPropsBawaan = (\{.*\});/s.exec(
+  readFileSync(join(dirSkrip, "..", "templates", "aset-contoh", "aset-props.js"), "utf8"))[1]);
+const salin = (o) => JSON.parse(JSON.stringify(o));
+function propsUji(ubah) {
+  const p = salin(propsContoh);
+  const logoDasar = p.aset["logo-contoh"];
+  // logo putih (varian untuk latar gelap) dan logo kecil/transparansi dilarang
+  p.aset["logo-putih"] = { ...salin(logoDasar), jalur: "aset/logo-putih.svg", teksAlternatif: "Logo Contoh Karya (putih)",
+    merek: { ...logoDasar.merek, aturan: { ...logoDasar.merek.aturan, warnaDiizinkan: ["#ffffff"] } } };
+  p.aset["logo-tanpa-alt"] = { ...salin(logoDasar), teksAlternatif: undefined };
+  delete p.aset["logo-tanpa-alt"].teksAlternatif;
+  p.aset["logo-dekoratif"] = { ...salin(p.aset["logo-tanpa-alt"]), peran: "dekoratif" };
+  p.aset["logo-tanpa-transparansi"] = { ...salin(logoDasar), merek: { ...logoDasar.merek, aturan: { ...logoDasar.merek.aturan, larangan: ["transparansi"] } } };
+  p.aset["logo-lebar"] = { ...salin(logoDasar), merek: { ...logoDasar.merek, aturan: { clearSpace: { nilai: 0.5, satuan: "lebar" } } } };
+  p.aset["foto-uji"] = { jenis: "gambar", jalur: "aset/foto.webp", sha256: "0".repeat(64), bytes: 1, format: "webp", lebar: 1200, tinggi: 800, rasio: 1.5,
+    teksAlternatif: "Latar biru polos", peran: "informatif", fokus: { x: 0.5, y: 0.4 }, tampil: { lebar: 640, tinggi: 360, fit: "cover" },
+    atribusi: { judul: "Foto uji", pencipta: "Penulis Uji", sumberUrl: "https://example.org/uji", lisensi: "STOK:pexels", urlLisensi: null,
+      perubahan: "dipotong 16:9", tanggalAkses: "2026-11-07", tanpaJudul: false, penciptaAnonim: false, tampil: "akhir" }, ai: { status: "tidak" } };
+  p.aset["foto-tanpa-alt"] = { ...salin(p.aset["foto-uji"]) };
+  delete p.aset["foto-tanpa-alt"].teksAlternatif;
+  p.aset["ikon-informatif"] = { ...salin(p.aset["ikon-centang"]), teksAlternatif: "Centang" };
+  p.aset["font-uji"] = { jenis: "font", jalur: "aset/judul.ttf", sha256: "0".repeat(64), bytes: 1, format: "ttf",
+    font: { famili: "Uji Awvd", bobot: 700, gaya: "normal", format: "ttf" },
+    atribusi: { judul: "Font uji", pencipta: "Penulis Uji", sumberUrl: "https://example.org/f", lisensi: "OFL-1.1", urlLisensi: null, perubahan: "tidak ada", tanggalAkses: "2026-11-07", tanpaJudul: false, penciptaAnonim: false, tampil: "tidak" }, ai: { status: "tidak" } };
+  if (ubah) ubah(p);
+  return p;
+}
+async function menolak(fn, pola, nama) {
+  let pesan = null;
+  try { await fn(); } catch (e) { pesan = String(e.message); }
+  tegas(pesan !== null, `${nama}: seharusnya galat`);
+  tegas(pola.test(pesan), `${nama}: pesan galat tidak sesuai: ${pesan}`);
+}
+// elemen <img> tiruan yang mencatat pemasangan
+function imgTiruan({ gagal = false } = {}) {
+  const attr = {};
+  return {
+    tagName: "IMG", style: {}, attr,
+    getAttribute: (k) => (k === "src" ? attr.src ?? null : attr[k] ?? null),
+    setAttribute(k, v) { attr[k] = String(v); },
+    removeAttribute(k) { delete attr[k]; },
+    set src(v) { attr.src = v; }, get src() { return attr.src; },
+    decode: () => (gagal ? Promise.reject(new Error("decode")) : Promise.resolve()),
+  };
+}
+
+daftar("ekspor aset: asetGambar, pasangGambar, logo, ikon, kreditAset, pasangFont ada sebagai API dan global; runtime tanpa jalur SVG inline", () => {
+  for (const k of ["asetGambar", "pasangGambar", "logo", "ikon", "kreditAset", "pasangFont"]) {
+    tegas(typeof api[k] === "function" && globalThis.window[k] === api[k], `${k} tidak diekspor`);
+  }
+  // logo dan SVG hanya lewat <img>: runtime tidak punya cara menyisipkan markup
+  const sumber = readFileSync(join(dirSkrip, "runtime.js"), "utf8");
+  tegas(!/innerHTML|insertAdjacentHTML|outerHTML|DOMParser|createElementNS|createContextualFragment/.test(sumber), "runtime.js tidak boleh menyisipkan markup/SVG inline");
+});
+
+daftar("asetGambar: info dari aset-props (url, ukuran, rasio, fokus, alt); id tak ada, jenis salah, jalur berbahaya, props hilang = galat", async () => {
+  const p = propsUji();
+  const d = await api.asetGambar("logo-contoh", { props: p });
+  samaDengan({ url: d.url, lebar: d.lebar, tinggi: d.tinggi, rasio: d.rasio, alt: d.alt, dekoratif: d.dekoratif, fit: d.fit },
+    { url: "aset/logo-contoh.svg", lebar: 240, tinggi: 80, rasio: 3, alt: "Logo Contoh Karya (fiktif)", dekoratif: false, fit: "contain" }, "logo-contoh");
+  const f = await api.asetGambar("foto-uji", { props: p, akar: "../proyek/" });
+  samaDengan({ url: f.url, fokus: f.fokus, op: f.objectPosition, fit: f.fit }, { url: "../proyek/aset/foto.webp", fokus: { x: 0.5, y: 0.4 }, op: "50% 40%", fit: "cover" }, "foto-uji");
+  // ctx = jalan pintas props
+  tegas((await api.asetGambar("foto-uji", { ctx: { props: p } })).url === "aset/foto.webp", "ctx.props");
+  await menolak(() => api.asetGambar("tidak-ada", { props: p }), /"tidak-ada" tidak ada di aset-props.*logo-contoh/, "id tak ada");
+  await menolak(() => api.asetGambar("constructor", { props: p }), /tidak ada di aset-props/, "id prototipe");
+  await menolak(() => api.asetGambar("font-uji", { props: p }), /berjenis font/, "jenis font");
+  await menolak(() => api.asetGambar("logo-contoh", {}), /opsi\.props wajib/, "tanpa props");
+  await menolak(() => api.asetGambar("logo-contoh", { props: { aset: [] } }), /tidak ada di aset-props/, "aset array");
+  for (const jahat of ["http://x.example/a.png", "//x.example/a.png", "/etc/passwd", "../luar.png", "aset/../../luar.png", "file:///etc/passwd", "data:image/png;base64,AA", "aset\\x.png", ""]) {
+    const q = propsUji((pp) => { pp.aset["foto-uji"].jalur = jahat; });
+    await menolak(() => api.asetGambar("foto-uji", { props: q }), /berkas lokal relatif/, `jalur ${jahat}`);
+  }
+});
+
+daftar("AC teksAlternatif: aset non-dekoratif tanpa teksAlternatif memicu galat (asetGambar, logo, ikon); dekoratif lolos dengan alt kosong", async () => {
+  const p = propsUji();
+  await menolak(() => api.asetGambar("foto-tanpa-alt", { props: p }), /informatif tetapi tanpa teksAlternatif/, "foto tanpa alt");
+  await menolak(() => api.asetGambar("logo-tanpa-alt", { props: p }), /informatif tetapi tanpa teksAlternatif/, "logo tanpa alt (asetGambar)");
+  await menolak(async () => api.logo("logo-tanpa-alt", "kiri-atas", { props: p, lebar: 1280, tinggi: 720 }), /informatif tetapi tanpa teksAlternatif/, "logo tanpa alt (logo)");
+  // teks kosong atau spasi tidak dihitung; opsi tidak dapat mengosongkan teks manifest
+  await menolak(() => api.asetGambar("foto-uji", { props: p, teksAlternatif: "  " }), /tanpa teksAlternatif/, "alt spasi");
+  tegas((await api.asetGambar("foto-tanpa-alt", { props: p, teksAlternatif: "Latar biru" })).alt === "Latar biru", "alt dari opsi memenuhi syarat");
+  // dekoratif eksplisit di manifest: alt kosong; peran tidak bisa diubah per pemakaian
+  const dek = await api.asetGambar("logo-dekoratif", { props: p });
+  tegas(dek.dekoratif === true && dek.alt === "", "dekoratif harus alt kosong");
+  await menolak(() => api.asetGambar("foto-uji", { props: propsUji((pp) => { delete pp.aset["foto-uji"].teksAlternatif; pp.aset["foto-uji"].peran = "informatif"; }), peran: "dekoratif" }), /tanpa teksAlternatif/, "peran opsi tidak menimpa manifest");
+  // ikon tanpa peran = dekoratif (kecuali ada teksAlternatif)
+  const ik = api.ikon("ikon-centang", { props: p });
+  tegas(ik.dekoratif === true && ik.alt === "", "ikon tanpa peran dekoratif");
+  const ik2 = api.ikon("ikon-informatif", { props: p });
+  tegas(ik2.dekoratif === false && ik2.alt === "Centang", "ikon dengan teksAlternatif informatif");
+  const ik3 = propsUji((pp) => { pp.aset["ikon-centang"].peran = "informatif"; });
+  await menolak(async () => api.ikon("ikon-centang", { props: ik3 }), /informatif tetapi tanpa teksAlternatif/, "ikon informatif tanpa alt");
+});
+
+daftar("pasangGambar: hanya <img> (AC logo selalu <img>, bukan inline); mengisi src, alt, aria-hidden, geometri, fokus, filter; tunggu decode; gagal = galat", async () => {
+  const p = propsUji();
+  for (const salah of [{ tagName: "svg", style: {}, setAttribute() {} }, { tagName: "DIV", style: {}, setAttribute() {} }, { tagName: "CANVAS" }, null, undefined]) {
+    await menolak(() => api.pasangGambar(salah, api.logo("logo-contoh", "kiri-atas", { props: p, lebar: 1280, tinggi: 720, ukuran: 28 })), /harus elemen <img>/, `target ${salah && salah.tagName}`);
+  }
+  const k = api.logo("logo-contoh", "kiri-atas", { props: p, lebar: 1280, tinggi: 720, ukuran: 28 });
+  const im = imgTiruan();
+  tegas((await api.pasangGambar(im, k)) === true, "pasangGambar mengembalikan true");
+  samaDengan([im.attr.src, im.attr.alt, im.attr["aria-hidden"] ?? null, im.style.position, im.style.left, im.style.top, im.style.width, im.style.height, im.style.objectFit],
+    ["aset/logo-contoh.svg", "Logo Contoh Karya (fiktif)", null, "absolute", `${k.x}px`, `${k.y}px`, `${k.w}px`, `${k.h}px`, "contain"], "atribut logo");
+  // ikon dekoratif: alt kosong + aria-hidden, filter, tanpa posisi absolut
+  const ii = imgTiruan();
+  await api.pasangGambar(ii, api.ikon("ikon-centang", { props: p, ukuran: 48, warna: "putih" }));
+  samaDengan([ii.attr.alt, ii.attr["aria-hidden"], ii.style.filter, ii.style.width, ii.style.height, ii.style.position ?? null],
+    ["", "true", "brightness(0) invert(1)", "48px", "48px", null], "atribut ikon");
+  // foto: fokus -> object-position lewat asetGambar({ target })
+  const ft = imgTiruan();
+  const d = await api.asetGambar("foto-uji", { props: p, target: ft });
+  samaDengan([ft.attr.src, ft.style.objectPosition, ft.style.objectFit, ft.attr.alt, d.id], ["aset/foto.webp", "50% 40%", "cover", "Latar biru polos", "foto-uji"], "asetGambar target");
+  // src yang sama tidak ditulis ulang (tidak memicu muat ulang per frame)
+  let tulis = 0;
+  const diam = imgTiruan(); diam.attr.src = k.url;
+  Object.defineProperty(diam, "src", { set() { tulis++; }, get() { return k.url; } });
+  await api.pasangGambar(diam, k);
+  tegas(tulis === 0, "src sama tidak boleh ditulis ulang");
+  // decode gagal -> galat berisi URL
+  await menolak(() => api.pasangGambar(imgTiruan({ gagal: true }), k), /gambar gagal dimuat: aset\/logo-contoh\.svg/, "decode gagal");
+  await menolak(() => api.pasangGambar(imgTiruan(), { url: "x" }), /deskriptor tidak valid/, "deskriptor tanpa alt");
+});
+
+daftar("logo: area aman grafis, ukuran, clear space, posisi; rasio terkunci; ukuran minimum, tidak muat, transparansi, rotasi = galat", () => {
+  const p = propsUji();
+  const o = { props: p, lebar: 1920, tinggi: 1080, ukuran: 10 };
+  const A = areaAman(1920, 1080).grafis; // 96,54,1728,972
+  // logo-contoh: rasio 3, ukuranMinPx 96, clearSpace 0,25 tinggi. 10% x 1920 = 192; h = 64; cs = ceil(0,25 x 64) = 16
+  const k = api.logo("logo-contoh", "kiri-atas", o);
+  samaDengan({ w: k.w, h: k.h, cs: k.clearSpace, x: k.x, y: k.y }, { w: 192, h: 64, cs: 16, x: A.x + 16, y: A.y + 16 }, "kiri-atas");
+  samaDengan([k.url, k.alt, k.fit, k.opacity, k.posisi, k.ukuranMinPx], ["aset/logo-contoh.svg", "Logo Contoh Karya (fiktif)", "contain", 1, "kiri-atas", 96], "bidang lain");
+  const ka = api.logo("logo-contoh", "kanan-atas", o), kb = api.logo("logo-contoh", "kiri-bawah", o), kk = api.logo("logo-contoh", "kanan-bawah", o), kt = api.logo("logo-contoh", "tengah", o);
+  samaDengan([ka.x, ka.y], [A.x + A.w - 16 - 192, A.y + 16], "kanan-atas");
+  samaDengan([kb.x, kb.y], [A.x + 16, A.y + A.h - 16 - 64], "kiri-bawah");
+  samaDengan([kk.x, kk.y], [A.x + A.w - 16 - 192, A.y + A.h - 16 - 64], "kanan-bawah");
+  samaDengan([kt.x, kt.y], [A.x + Math.round((A.w - 192) / 2), A.y + Math.round((A.h - 64) / 2)], "tengah");
+  // semua posisi (termasuk clear space) berada di dalam area aman grafis
+  for (const pos of ["kiri-atas", "kanan-atas", "kiri-bawah", "kanan-bawah", "tengah"]) {
+    const q = api.logo("logo-contoh", pos, o);
+    tegas(q.x - q.clearSpace >= A.x && q.y - q.clearSpace >= A.y && q.x + q.w + q.clearSpace <= A.x + A.w && q.y + q.h + q.clearSpace <= A.y + A.h, `${pos} keluar area aman`);
+  }
+  // rasio terkunci: kotak mengikuti rasio aset-props pada ukuran apa pun (selisih pembulatan <= 1 px)
+  for (const u of [8, 12, 20, 33]) { const q = api.logo("logo-contoh", "tengah", { ...o, ukuran: u }); tegas(Math.abs(q.w / q.rasio - q.h) <= 0.5 + 1e-9, `rasio ${u}%`); }
+  // ctx menggantikan props, lebar, tinggi; nilai eksplisit menang
+  samaDengan(api.logo("logo-contoh", "kiri-atas", { ctx: { props: p, width: 1920, height: 1080 }, ukuran: 10 }), k, "ctx");
+  // clearSpace satuan lebar
+  const kl = api.logo("logo-lebar", "kiri-atas", { ...o, ukuran: 10 });
+  tegas(kl.clearSpace === 96 && kl.x === A.x + 96, `clearSpace satuan lebar: ${kl.clearSpace}`);
+  // opacity (bug logo semi-transparan) lolos bila tidak dilarang
+  tegas(api.logo("logo-contoh", "kiri-atas", { ...o, opacity: 0.8 }).opacity === 0.8, "opacity 0,8");
+  // pelanggaran = galat
+  const lempar = (fn, pola, nama) => { let m = null; try { fn(); } catch (e) { m = String(e.message); } tegas(m !== null && pola.test(m), `${nama}: ${m}`); };
+  lempar(() => api.logo("logo-contoh", "kiri-atas", { ...o, ukuran: 4 }), /77 px, di bawah ukuran minimum pedoman merek \(96 px\)/, "di bawah ukuranMinPx");
+  lempar(() => api.logo("logo-contoh", "kiri-atas", { ...o, ukuran: 95 }), /tidak muat di area aman grafis 1728x972/, "tidak muat");
+  lempar(() => api.logo("logo-tanpa-transparansi", "kiri-atas", { ...o, opacity: 0.5 }), /melarang transparansi/, "transparansi dilarang");
+  tegas(api.logo("logo-tanpa-transparansi", "kiri-atas", o).opacity === 1, "opacity 1 lolos walau transparansi dilarang");
+  lempar(() => api.logo("logo-contoh", "kiri-atas", { ...o, rotasi: 10 }), /tidak boleh diputar, diregangkan/, "rotasi");
+  lempar(() => api.logo("logo-contoh", "kiri-atas", { ...o, regang: 1.2 }), /tidak boleh diputar, diregangkan/, "regang");
+  lempar(() => api.logo("logo-contoh", "tengah-atas", o), /posisi harus salah satu/, "posisi salah");
+  lempar(() => api.logo("logo-contoh", "tengah", { props: p }), /ukuran frame wajib/, "tanpa ukuran frame");
+  lempar(() => api.logo("logo-contoh", "tengah", { ...o, ukuran: 0 }), /persen lebar frame/, "ukuran 0");
+  lempar(() => api.logo("logo-contoh", "tengah", { ...o, opacity: 0 }), /opacity/, "opacity 0");
+  lempar(() => api.logo("ikon-centang", "tengah", o), /berjenis ikon, bukan logo/, "bukan logo");
+  lempar(() => api.logo("tidak-ada", "tengah", o), /tidak ada di aset-props/, "id tak ada");
+  // bawaan ukuran = 10% lebar frame
+  tegas(api.logo("logo-contoh", "tengah", { props: p, lebar: 1920, tinggi: 1080 }).w === 192, "ukuran bawaan 10%");
+  // rasio tak diketahui = galat
+  lempar(() => api.logo("logo-contoh", "tengah", { ...o, props: propsUji((pp) => { delete pp.aset["logo-contoh"].rasio; delete pp.aset["logo-contoh"].lebar; }) }), /tanpa lebar\/tinggi/, "tanpa rasio");
+  // deterministik: dua panggilan identik
+  samaDengan(api.logo("logo-contoh", "kanan-bawah", o), kk, "deterministik");
+});
+
+daftar("logo: latar memeriksa kontras >= 3:1 terhadap warna yang diizinkan dan memilih varian terang/gelap", () => {
+  const p = propsUji();
+  const o = { props: p, lebar: 1920, tinggi: 1080, ukuran: 10 };
+  const varian = { diLatarTerang: "logo-contoh", diLatarGelap: "logo-putih" };
+  tegas(api.logo("logo-contoh", "kiri-atas", { ...o, latar: "#ffffff", varian }).id === "logo-contoh", "latar putih -> varian untuk latar terang");
+  tegas(api.logo("logo-contoh", "kiri-atas", { ...o, latar: "#0f172a", varian }).id === "logo-putih", "latar gelap -> varian putih");
+  tegas(api.logo("logo-contoh", "kiri-atas", { ...o, latar: [15, 23, 42], varian }).id === "logo-putih", "latar [r,g,b]");
+  tegas(api.logo("logo-contoh", "kiri-atas", { ...o, latar: "#0f172a", varian: { diLatarTerang: "logo-contoh" } }).id === "logo-contoh", "tanpa varian untuk latar itu -> id awal");
+  // tanpa varian: latar hanya memeriksa kontras
+  tegas(api.logo("logo-contoh", "kiri-atas", { ...o, latar: "#ffffff" }).id === "logo-contoh", "latar putih, warna biru berkontras");
+  let pesan = null;
+  try { api.logo("logo-putih", "kiri-atas", { ...o, latar: "#ffffff" }); } catch (e) { pesan = e.message; }
+  tegas(pesan && /berkontras 1\.00:1 terhadap latar, di bawah 3:1/.test(pesan), `logo putih di latar putih: ${pesan}`);
+  pesan = null;
+  try { api.logo("logo-contoh", "kiri-atas", { ...o, latar: "bukan-warna" }); } catch (e) { pesan = e.message; }
+  tegas(pesan !== null, "latar tak sah melempar");
+  // tanpa warnaDiizinkan di manifest: tidak ada pemeriksaan kontras
+  const q = propsUji((pp) => { delete pp.aset["logo-contoh"].merek.aturan.warnaDiizinkan; });
+  tegas(api.logo("logo-contoh", "kiri-atas", { ...o, props: q, latar: "#0b5fa5" }).id === "logo-contoh", "tanpa warnaDiizinkan");
+});
+
+daftar("ikon: ukuran sisi terpanjang mengikuti rasio, warna putih/hitam via filter, warna lain ditolak, hanya jenis ikon", () => {
+  const p = propsUji();
+  const i = api.ikon("ikon-centang", { props: p, ukuran: 48 });
+  samaDengan([i.w, i.h, i.url, i.filter, i.fit, i.jenis], [48, 48, "aset/ikon-centang.svg", null, "contain", "ikon"], "ikon dasar");
+  tegas(api.ikon("ikon-centang", { props: p }).w === 24, "ukuran bawaan 24");
+  const lebar = propsUji((pp) => { Object.assign(pp.aset["ikon-centang"], { lebar: 40, tinggi: 20, rasio: 2 }); });
+  samaDengan([api.ikon("ikon-centang", { props: lebar, ukuran: 48 }).w, api.ikon("ikon-centang", { props: lebar, ukuran: 48 }).h], [48, 24], "rasio 2");
+  const tinggi = propsUji((pp) => { Object.assign(pp.aset["ikon-centang"], { lebar: 20, tinggi: 40, rasio: 0.5 }); });
+  samaDengan([api.ikon("ikon-centang", { props: tinggi, ukuran: 48 }).w, api.ikon("ikon-centang", { props: tinggi, ukuran: 48 }).h], [24, 48], "rasio 0,5");
+  tegas(api.ikon("ikon-centang", { props: p, warna: "hitam" }).filter === "brightness(0)", "hitam");
+  for (const [fn, pola] of [
+    [() => api.ikon("ikon-centang", { props: p, warna: "#ff0000" }), /warna harus "putih" atau "hitam"/],
+    [() => api.ikon("ikon-centang", { props: p, ukuran: 0 }), /ukuran harus angka positif/],
+    [() => api.ikon("logo-contoh", { props: p }), /berjenis logo, bukan ikon/],
+  ]) { let m = null; try { fn(); } catch (e) { m = e.message; } tegas(m && pola.test(m), `ikon: ${m}`); }
+});
+
+daftar("AC kreditAset: ringkas:false = atribusi.kredit manifest apa adanya; cadangan identik dengan aset-lib; ringkas untuk layar; semua/urutan/id ganda/id tak ada", () => {
+  const p = propsUji();
+  // sesuai manifest: persis atribusi.kredit dari aset-props.json
+  tegas(api.kreditAset("logo-contoh", { props: p, ringkas: false }) === propsContoh.aset["logo-contoh"].atribusi.kredit, "kredit logo = manifest");
+  tegas(api.kreditAset("ikon-centang", { props: p, ringkas: false }) === propsContoh.aset["ikon-centang"].atribusi.kredit, "kredit ikon = manifest");
+  // cadangan (tanpa atribusi.kredit) identik dengan pembangun aset-lib untuk beberapa lisensi
+  const kasus = [
+    { judul: "Foto A", pencipta: "Dewi", sumberUrl: "https://example.org/a", lisensi: "CC-BY-4.0", urlLisensi: "https://creativecommons.org/licenses/by/4.0/", perubahan: "dipotong 16:9. " },
+    { judul: "Foto B", pencipta: "Budi", sumberUrl: "https://example.org/b", lisensi: "CC-BY-SA-3.0", urlLisensi: "https://creativecommons.org/licenses/by-sa/3.0/", perubahan: "tidak ada" },
+    { judul: "Gambar C", pencipta: "Cici", sumberUrl: "https://example.org/c", lisensi: "STOK:pexels", urlLisensi: null, perubahan: "Tidak ada" },
+    { judul: "Logo D", pencipta: "Proyek", sumberUrl: null, lisensi: "MILIK-SENDIRI", urlLisensi: null, perubahan: "" },
+    { judul: "Gambar E", pencipta: "Eko", sumberUrl: "https://example.org/e", lisensi: "IZIN-TERTULIS:Pemda X", urlLisensi: null, perubahan: "diwarnai ulang" },
+    { judul: "Ikon F", pencipta: "Fani", sumberUrl: "https://example.org/f", lisensi: "MIT", urlLisensi: null, perubahan: "tidak ada" },
+    { judul: "Peta G", pencipta: "Gita", sumberUrl: "https://example.org/g", lisensi: "CC0-1.0", urlLisensi: "https://creativecommons.org/publicdomain/zero/1.0/", perubahan: "tidak ada" },
+    { judul: "Tanpa judul", tanpaJudul: true, pencipta: "Hadi", sumberUrl: "https://example.org/h", lisensi: "CC-BY-4.0", urlLisensi: "https://creativecommons.org/licenses/by/4.0/", perubahan: "tidak ada" },
+    { judul: "Anonim", pencipta: "Siapa", penciptaAnonim: true, sumberUrl: "https://example.org/i", lisensi: "PDM-1.0", urlLisensi: "https://creativecommons.org/publicdomain/mark/1.0/", perubahan: "tidak ada" },
+  ];
+  const q = propsUji((pp) => { kasus.forEach((a, n) => { pp.aset[`k${n}`] = { jenis: "gambar", jalur: "aset/x.png", teksAlternatif: "x", atribusi: { ...a, tampil: "akhir" } }; }); });
+  kasus.forEach((a, n) => samaDengan(api.kreditAset(`k${n}`, { props: q, ringkas: false }), kreditAsetLib({ ...a }), `cadangan kasus ${n}`));
+  // ringkas (layar): "Judul" oleh Pencipta · lisensi · diubah
+  samaDengan(api.kreditAset(["k0", "k1", "k2", "k3", "k4", "k5", "k7", "k8"], { props: q }).split("\n"), [
+    '"Foto A" oleh Dewi · CC BY 4.0 · diubah',
+    '"Foto B" oleh Budi · CC BY-SA 3.0',
+    '"Gambar C" oleh Cici · Lisensi stok pexels',
+    '"Logo D" oleh Proyek · Milik sendiri',
+    '"Gambar E" oleh Eko · Izin tertulis Pemda X · diubah',
+    '"Ikon F" oleh Fani · MIT',
+    "Hadi · CC BY 4.0",
+    '"Anonim" · Public Domain Mark 1.0',
+  ], "ringkas");
+  tegas(api.kreditAset("logo-contoh", { props: p }) === '"Logo Contoh Karya" oleh Proyek awvd · Milik sendiri', "ringkas bawaan = true");
+  // "semua": hanya aset yang atribusi.tampil layar/akhir, urutan manifest; tampil menyaring
+  samaDengan(api.kreditAset("semua", { props: { aset: propsContoh.aset } }), "", "semua tanpa aset berkredit");
+  const r = propsUji((pp) => { delete pp.aset["foto-tanpa-alt"]; pp.aset["ikon-centang"].atribusi.tampil = "layar"; pp.aset["foto-uji"].atribusi.kredit = "KREDIT FOTO."; });
+  samaDengan(api.kreditAset("semua", { props: r, ringkas: false }).split("\n"), [propsContoh.aset["ikon-centang"].atribusi.kredit, "KREDIT FOTO."], "semua urutan manifest");
+  samaDengan(api.kreditAset("semua", { props: r, tampil: "akhir", ringkas: false }), "KREDIT FOTO.", "saring akhir");
+  // array: urutan dipertahankan (urut kemunculan), id ganda dibuang, id tak ada = galat, kosong = ""
+  samaDengan(api.kreditAset(["foto-uji", "logo-contoh", "foto-uji"], { props: r, ringkas: false }).split("\n"), ["KREDIT FOTO.", propsContoh.aset["logo-contoh"].atribusi.kredit], "urutan array");
+  samaDengan(api.kreditAset([], { props: p }), "", "array kosong");
+  tegas(api.kreditAset("foto-uji", { ctx: { props: r }, ringkas: false }) === "KREDIT FOTO.", "ctx");
+  for (const [fn, pola] of [
+    [() => api.kreditAset(["tidak-ada"], { props: p }), /"tidak-ada" tidak ada di aset-props/],
+    [() => api.kreditAset(7, { props: p }), /ids harus "semua"/],
+    [() => api.kreditAset("logo-contoh", {}), /opsi\.props wajib/],
+    [() => api.kreditAset("x", { props: propsUji((pp) => { pp.aset.x = { jenis: "gambar", jalur: "a.png" }; }) }), /tanpa atribusi/],
+  ]) { let m = null; try { fn(); } catch (e) { m = e.message; } tegas(m && pola.test(m), `kreditAset: ${m}`); }
+});
+
+daftar("pasangFont: FontFace dari entri font, idempoten, galat bila gagal atau bukan font; tanpa browser = galat jelas", async () => {
+  const p = propsUji();
+  await menolak(() => api.pasangFont("font-uji", { props: p }), /FontFace\/document\.fonts tidak tersedia/, "tanpa browser");
+  const dibuat = [], ditambah = [], dihapus = [];
+  const asliFontFace = globalThis.window.FontFace, asliFonts = globalThis.document.fonts;
+  globalThis.window.FontFace = class { constructor(famili, sumber, desk) { this.famili = famili; this.sumber = sumber; this.desk = desk; dibuat.push(this); } load() { return this.famili === "Gagal" ? Promise.reject(new Error("x")) : Promise.resolve(this); } };
+  globalThis.document.fonts = { add: (f) => ditambah.push(f), delete: (f) => dihapus.push(f) };
+  try {
+    samaDengan(await api.pasangFont("font-uji", { props: p, akar: "proyek" }), ["Uji Awvd"], "hasil");
+    samaDengan([dibuat[0].famili, dibuat[0].sumber, dibuat[0].desk], ["Uji Awvd", 'url("proyek/aset/judul.ttf") format("truetype")', { weight: "700", style: "normal", display: "block" }], "FontFace");
+    tegas(ditambah.length === 1 && ditambah[0] === dibuat[0], "document.fonts.add");
+    // idempoten: panggilan kedua (mis. tiap render) tidak membuat FontFace baru
+    await api.pasangFont(["font-uji", "font-uji"], { props: p, akar: "proyek" });
+    await api.pasangFont("semua", { props: p, akar: "proyek" });
+    tegas(dibuat.length === 1, `FontFace dibuat ulang: ${dibuat.length}`);
+    // gagal dimuat: galat jelas, face dibuang, dapat dicoba lagi
+    const gagal = propsUji((pp) => { pp.aset["font-uji"].font.famili = "Gagal"; });
+    await menolak(() => api.pasangFont("font-uji", { props: gagal }), /font gagal dimuat: "Gagal" \(aset\/judul\.ttf\)/, "font gagal");
+    tegas(dihapus.length === 1 && dihapus[0].famili === "Gagal", "face gagal dibuang");
+    await menolak(() => api.pasangFont("font-uji", { props: gagal }), /font gagal dimuat/, "coba lagi");
+    tegas(dibuat.length === 3, "percobaan ulang membuat FontFace baru");
+    await menolak(() => api.pasangFont("logo-contoh", { props: p }), /berjenis logo, bukan font/, "bukan font");
+    await menolak(() => api.pasangFont("tidak-ada", { props: p }), /tidak ada di aset-props/, "id tak ada");
+    await menolak(() => api.pasangFont(7, { props: p }), /ids harus/, "ids salah");
+    await menolak(() => api.pasangFont("font-uji", { props: propsUji((pp) => { pp.aset["font-uji"].font.format = "eot"; }) }), /font\.famili dan font\.format/, "format salah");
+    await menolak(() => api.pasangFont("font-uji", { props: propsUji((pp) => { pp.aset["font-uji"].jalur = "http://x.example/f.ttf"; }) }), /berkas lokal relatif/, "jalur jaringan");
+  } finally {
+    globalThis.window.FontFace = asliFontFace; globalThis.document.fonts = asliFonts;
+  }
 });
 
 const t0 = Date.now();
