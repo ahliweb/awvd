@@ -29,6 +29,7 @@ import { audiensEfektif, muatData } from "./konsep.mjs";
 import { bacaAudio, kataDariPenanda, keFrame, selaraskanToken, sebarkanTampil, tokenisasi } from "./narasi-selaras.mjs";
 import { keSrt, keVtt, periksaCue, susunCue } from "./narasi-cue.mjs";
 import { JENIS_KONTEN, mesinSherpa } from "./narasi-tts.mjs";
+import { bacaTampilAdegan, bacaTampilNaskah, tampilKeKata } from "./narasi-caption.mjs";
 
 // ------------------------------------------------------------------ mesin suara
 /**
@@ -62,10 +63,10 @@ daftarkanMesin("sherpa-onnx", mesinSherpa);
 // ------------------------------------------------------------------ skema naskah
 const KUNCI = {
   naskah: ["versi", "catatan", "fps", "bahasa", "klasifikasi", "jenisKonten", "ukuran", "audiens", "caption", "suara", "penutur", "adegan"],
-  caption: ["maksKarakter", "maksBaris", "cps", "tahanMaks"],
+  caption: ["maksKarakter", "maksBaris", "cps", "tahanMaks", "mode", "posisi"],
   suara: ["mesin", "konfigurasi", "cache", "kalibrasi", "jedaAwal", "jedaKalimat", "jedaAdegan"],
   penutur: ["nama", "italik", "label", "karakter"],
-  adegan: ["id", "kalimat", "berkas", "durasiMin", "penutur"],
+  adegan: ["id", "kalimat", "berkas", "durasiMin", "penutur", "posisi", "zonaCaption", "jangkarPenutur"],
   kalimat: ["teks", "bacaan", "penutur", "berkas"],
 };
 const KALIBRASI_BAWAAN = { awal: 0.1, akhir: 0.04 };
@@ -129,6 +130,7 @@ export function validasiNaskah(n, dir, { data = muatData() } = {}) {
   }
   const tahanMaks = cap.tahanMaks ?? 0.5;
   if (!angka(tahanMaks) || tahanMaks < 0 || tahanMaks > 1.5) g("caption.tahanMaks harus angka 0..1,5 detik");
+  const tampilNaskah = adalahObjek(cap) ? bacaTampilNaskah(cap, g) : {}; // mode dan posisi tampil (narasi-caption.mjs)
 
   // suara
   const suara = n.suara ?? {};
@@ -242,7 +244,7 @@ export function validasiNaskah(n, dir, { data = muatData() } = {}) {
         if (idSegmen.has(s.id)) g(`${nama}: id segmen "${s.id}" bentrok dengan adegan lain`);
         idSegmen.add(s.id);
       }
-      adegan.push({ id: a.id, durasiMin: a.durasiMin ?? 0, segmen });
+      adegan.push({ id: a.id, durasiMin: a.durasiMin ?? 0, segmen, tampil: bacaTampilAdegan(a, nama, { ukuran, posisiNaskah: tampilNaskah.posisi }, g, w) });
     }
   }
   if (galat.length) return { galat, peringatan, naskah: null };
@@ -250,7 +252,7 @@ export function validasiNaskah(n, dir, { data = muatData() } = {}) {
     galat, peringatan,
     naskah: {
       fps, bahasa, klasifikasi: n.klasifikasi, jenisKonten, audiens: [...profil], ukuran,
-      batas: { cps, maksKarakter, maksBaris, tahanMaks },
+      batas: { cps, maksKarakter, maksBaris, tahanMaks }, tampil: tampilNaskah,
       suara: { mesin: namaMesin, kalibrasi, ...jeda, konfigurasi: adaptor?.konfigurasi ?? null, cache: suara.cache ? resolve(dir, suara.cache) : null },
       penutur, adegan,
     },
@@ -324,7 +326,7 @@ export async function buatNarasi(naskah, { dirKeluaran, sha256Naskah = null, ops
       t += s.durasiFrame;
     });
     const durasiA = Math.max(Math.ceil(a.durasiMin * fps - 1e-6), t + jedaF(suara.jedaAdegan) - mulaiA);
-    adeganWaktu.push({ id: a.id, mulaiFrame: mulaiA, durasiFrame: durasiA, akhirNarasiFrame: t });
+    adeganWaktu.push({ id: a.id, mulaiFrame: mulaiA, durasiFrame: durasiA, akhirNarasiFrame: t, tampil: a.tampil });
     kursor += durasiA;
   }
   const totalFrame = kursor;
@@ -395,7 +397,8 @@ export async function buatNarasi(naskah, { dirKeluaran, sha256Naskah = null, ops
   const sumber = [...new Set(sumberSegmen.map((x) => x.sumber))];
   const fileKata = {
     versi: 1, fps, sumber: sumber.length === 1 ? sumber[0] : "campuran", durasiFrame: totalFrame,
-    adegan: adeganWaktu.map((a) => ({ id: a.id, mulaiFrame: a.mulaiFrame, durasiFrame: a.durasiFrame })),
+    ...(Object.keys(naskah.tampil ?? {}).length ? { caption: naskah.tampil } : {}),
+    adegan: adeganWaktu.map((a) => ({ id: a.id, mulaiFrame: a.mulaiFrame, durasiFrame: a.durasiFrame, ...tampilKeKata(a.tampil, a.mulaiFrame, a.durasiFrame) })),
     kata: kataBingkai.map((k, i) => ({ teks: k.teks, tampil: k.tampil, mulai: r3(k.mulai), akhir: r3(k.akhir), mulaiFrame: k.mulaiFrame, akhirFrame: k.akhirFrame,
       adegan: k.adegan, kalimat: k.kalimat, penutur: k.penutur, cue: cueDariKata[i] })),
   };

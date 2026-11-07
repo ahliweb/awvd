@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Version: `v1.5.0`
+- Version: `v1.6.0`
 - Last updated: `2026-11-07`
 - Changeset: `Menambahkan label suara sintetis untuk video bersuara TTS (kredit dan metadata) ke tabel fitur.`
 
@@ -21,6 +21,7 @@ Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 | --- | --- | --- |
 | Caption ucapan di dalam frame | `captionAktif`, `pecahBaris`, `durasiBaca`, `parseVtt`/`parseSrt` | [api-runtime.md](api-runtime.md) |
 | Caption sinkron dengan voice over (cue VTT/SRT dari naskah dan WAV narasi, lint cps profil audiens) | `bun run narasi` | [narasi-caption.md](narasi-caption.md) |
+| Caption burn-in yang tidak menutupi isi penting dan terbaca (lima mode, posisi bawah/atas/auto/dekat penutur, area aman 16:9 dan 9:16, kontras >= 4,5:1 terhadap latar terburuk) | `rencanaCaption`, `keadaanCaption`, `captionHtml`, `areaAmanVertikal`; sorot kata hanya isyarat tambahan (kalimat penuh tetap tampil); caption burn-in tidak dapat disetel pemirsa, jadi sediakan trek lunak | [narasi-caption.md](narasi-caption.md#mode-dan-posisi-caption), [api-runtime.md](api-runtime.md) |
 | Pengungkapan suara sintetis (video bersuara TTS wajib berlabel: kredit layar, deskripsi, metadata) | `suara-kredit.json` dan `kredit-suara.txt` dari `bun run narasi` dengan mesin TTS | [narasi-caption.md](narasi-caption.md#label-suara-sintetis) |
 | Caption sebagai trek lunak | `--subtitle`, `--bahasa` | [cli.md](cli.md) |
 | Kontras teks | `luminansRelatif`, `kontras`, `pilihTeksKontras` (WCAG 2.2 SC 1.4.3); preset jenis tidak boleh menurunkan kontras di bawah 4,5:1 | [api-runtime.md](api-runtime.md), [konsep-jenis-alur.md](konsep-jenis-alur.md) |
@@ -30,7 +31,7 @@ Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 | Lansia, low vision, dan anak | Profil di `data/audiens.json` (ukuran teks, kontras 7:1, cps 13, tempo, elemen per adegan); `bun run konsep -- baru --audiens` | [visual-audiens.md](visual-audiens.md#profil-audiens) |
 | Kilatan fotosensitif | Pemeriksa kilatan di `bun run periksa` (penyaringan konservatif, bukan sertifikasi) | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) |
 | Batas subtitle (baris, cps, durasi cue) | Lint subtitle di `bun run periksa --subtitle` | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) |
-| Gerak dan kilatan pada transisi dan animasi | `kurangiGerak` (mengganti jenis gerak besar dan berkilat dengan `pudar`; kamera, paralaks, getar mati), profil `lansia`/`anak`, durasi minimum jenis berkilat, `periksaKilatan` tingkat rencana. `kurangiGerak` adalah praktik terbaik, bukan klaim kepatuhan WCAG 2.3.3 | [transisi-animasi.md](transisi-animasi.md#aksesibilitas) |
+| Gerak dan kilatan pada transisi dan animasi | `kurangiGerak` (mengganti jenis gerak besar dan berkilat dengan `pudar`; kamera, paralaks, getar mati), profil `lansia`/`anak`, durasi minimum jenis berkilat, `periksaKilatan` tingkat rencana. `kurangiGerak` adalah praktik terbaik, bukan klaim kepatuhan WCAG 2.3.3. Dipilih lewat props, termasuk dari `konsep.json` (`kurangiGerak: true` atau `audiens.profil`) | [transisi-animasi.md](transisi-animasi.md#aksesibilitas) |
 | Teks alternatif gambar, logo, dan SVG | Bidang `teksAlternatif` wajib di `aset.json` kecuali `peran: "dekoratif"` (WCAG 1.1.1); teks di dalam gambar hanya untuk logotype (WCAG 1.4.5); `aset-props.json` meneruskannya ke komposisi; helper runtime `asetGambar`, `logo`, dan `ikon` melempar galat untuk aset informatif tanpa teks dan memasang `alt=""` plus `aria-hidden` pada aset dekoratif | [aset.md](aset.md) |
 | Ketajaman aset | Pemeriksa resolusi menolak aset yang akan di-upscale (buram) pada skala render yang dipakai | [aset.md](aset.md) |
 | Penonton tanpa suara | Field `audiens.tanpaSuara` dan `caption.burnIn` di `konsep.json` | [konsep-jenis-alur.md](konsep-jenis-alur.md) |
@@ -39,9 +40,17 @@ PDF SOP bertag (outline, bahasa `id`, tabel `th scope`) tetapi **tidak** mengkla
 
 ## Changelog
 
-### 2026-11-07 - v1.5.0
+### 2026-11-07 - v1.6.0
 
 - Menambahkan label suara sintetis (kredit layar, deskripsi, metadata) untuk video bersuara TTS ke tabel fitur.
+
+### 2026-11-07 - v1.5.0
+
+- Menambahkan mode dan posisi caption burn-in ke tabel fitur.
+
+### 2026-11-07 - v1.4.1
+
+- Baris gerak dan kilatan: profil gerak dapat diturunkan dari `konsep.json` dan dipilih lewat props (isu #28).
 
 ### 2026-11-07 - v1.4.0
 

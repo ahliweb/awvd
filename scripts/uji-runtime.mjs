@@ -48,7 +48,8 @@ function daftar(nama, fn) { uji.push([nama, fn]); }
 
 daftar("ekspor: semua helper ada di window.VideoTerprogram dan sebagai global", () => {
   for (const k of ["ms", "durasi", "berjenjang", "areaAman", "luminansRelatif", "kontras",
-    "pilihTeksKontras", "durasiBaca", "pecahBaris", "captionAktif", "parseVtt", "parseSrt"]) {
+    "pilihTeksKontras", "durasiBaca", "pecahBaris", "captionAktif", "parseVtt", "parseSrt",
+    "areaAmanVertikal", "areaCaption", "rencanaCaption", "keadaanCaption", "captionHtml"]) {
     tegas(api[k] != null, `${k} tidak diekspor`);
     tegas(globalThis.window[k] === api[k], `${k} bukan global`);
   }

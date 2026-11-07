@@ -1,10 +1,8 @@
 /**
- * awvd / browser.js — mencari Chromium untuk skrip pendukung (aset.mjs).
+ * awvd / browser.js — mencari Chromium untuk render.mjs, sop.mjs, dan aset.mjs.
  *
- * Urutan sama dengan render.mjs: --browser, lalu PLAYWRIGHT_BROWSERS_PATH atau
- * ~/.cache/ms-playwright (headless shell, lalu chromium penuh), lalu browser sistem.
- * Utang teknis: render.mjs dan sop.mjs masih memiliki salinan sendiri; ganti dengan modul
- * ini bila PR tersendiri mengubah render.mjs.
+ * Urutan: --browser, lalu PLAYWRIGHT_BROWSERS_PATH atau ~/.cache/ms-playwright
+ * (headless shell, lalu chromium penuh), lalu browser sistem.
  */
 import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";

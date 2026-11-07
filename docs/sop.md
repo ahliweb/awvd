@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.0.1`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: scripts/sop.mjs, skema sop.json, validasi, dokumen cetak PermenPAN-RB 35/2012, video dan caption, serta keputusan desain.`
+- Changeset: `Koreksi: pencarian Chromium untuk --pdf kini memakai scripts/browser.js bersama render.mjs (tidak lagi salinan di sop.mjs).`
 
 `scripts/sop.mjs` mengubah satu berkas data `sop.json` menjadi dokumen SOP cetak (HTML dan PDF) **dan** bahan video (props, jadwal, caption) dari sumber yang sama, sehingga dokumen dan video tidak bisa saling menyimpang. Format dokumen mengikuti Lampiran Peraturan Menteri PAN-RB Nomor 35 Tahun 2012 tentang Pedoman Penyusunan Standar Operasional Prosedur Administrasi Pemerintahan (SOP AP): identitas, matriks diagram alir bercabang dengan kolom pelaksana, mutu baku, dan lembar pengesahan.
 
@@ -41,7 +41,7 @@ bun scripts/sop.mjs <sop.json> --out DIR [--pdf] [--fps 30] [--cps 17] [--wpm 14
 | Flag | Bawaan | Keterangan |
 | --- | --- | --- |
 | `--out DIR` | wajib | Folder keluaran (dibuat otomatis): `sop.html`, `video-props.json`, `caption.vtt`, dan `sop.pdf` bila `--pdf`. |
-| `--pdf` | mati | Cetak `sop.pdf` (A4 landscape, `printBackground`, bertag) lewat Chromium yang sama dengan `render.mjs` (aturan pencarian browser sama; fungsinya diduplikasi di `sop.mjs`, utang teknis agar perilaku `render.mjs` tidak berubah). |
+| `--pdf` | mati | Cetak `sop.pdf` (A4 landscape, `printBackground`, bertag) lewat Chromium yang sama dengan `render.mjs` (pencarian browser dari `scripts/browser.js`, dipakai bersama). |
 | `--fps N` | `30` | Frame per detik jadwal video dan caption (bilangan bulat 1..120). Template dirancang untuk 30. |
 | `--cps N` | `17` | Batas karakter per detik caption (5..40). Caption tidak pernah melampauinya. |
 | `--wpm N` | `140` | Laju narasi (kata per menit, 60..300) untuk memperkirakan durasi narasi bila belum ada audio. Bawaan 140 ada di rentang 130-150 yang dianjurkan riset prosedural, tetapi itu titik awal yang dapat dikonfigurasi, bukan temuan tervalidasi untuk bahasa Indonesia; uji dengan penutur asli. |
@@ -107,6 +107,10 @@ Lampiran 35/2012 tidak mengatur: batas langkah per halaman (`--langkah-per-halam
 Uji: `bun run uji:sop` (validasi, dokumen, props, caption, PDF, perutean, render still template). Dasar format: PermenPAN-RB 35/2012 (masih berlaku; Lampiran II.B dan II.C).
 
 ## Changelog
+
+### 2026-11-07 - v1.0.1
+
+- Koreksi: `--pdf` memakai `cariBrowser()` dari `scripts/browser.js` (refaktor #27, tanpa perubahan perilaku); catatan utang teknis dihapus.
 
 ### 2026-11-07 - v1.0.0
 

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Demo mode dan posisi caption awvd</title>
+<meta name="viewport" content="width=device-width">
+<style>
+  html, body { margin: 0; background: #111; }
+  #layar { position: relative; overflow: hidden; background: #1e293b; color: #fff;
+    font-family: system-ui, "Segoe UI", Roboto, "DejaVu Sans", sans-serif; }
+  #adegan, #cap { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+  #adegan > * { position: absolute; }
+  .judul { font-weight: 800; letter-spacing: -1px; white-space: pre; text-shadow: 0 3px 18px rgba(0,0,0,.35); }
+  .pita { background: #f1f5f9; color: #0f172a; font-weight: 700; box-sizing: border-box; display: flex;
+    align-items: center; border-left-style: solid; }
+  #label { position: absolute; left: 12px; top: 4px; opacity: .85; font-weight: 600; white-space: pre; }
+</style>
+</head>
+<body>
+<div id="layar"><div id="adegan"></div><div id="cap"></div><div id="label"></div></div>
+<script src="../../scripts/runtime.js"></script>
+<script>
+// Demo mode dan posisi caption (konten fiktif). Props dibuat `bun templates/narasi-contoh/buat-props.mjs`:
+//   { lebar, tinggi, vtt, kata }  (vtt = caption.vtt, kata = kata.json dari bun run narasi)
+// Opsional: mode, posisi (menimpa naskah), label (false menyembunyikan label), tampilArea (true
+// menggambar garis area aman caption). Seluruh gerak dari nomor frame.
+(function () {
+  function bacaProps() {
+    if (window.videoProps) return window.videoProps;
+    try { var q = new URLSearchParams(window.location.search); if (q.has("props")) return JSON.parse(q.get("props")); } catch (e) {}
+    return {};
+  }
+  var P = bacaProps();
+  if (!P.kata || !P.vtt) {
+    throw new Error("props kosong: jalankan 'bun templates/narasi-contoh/buat-props.mjs' lalu render dengan --props-file out/narasi-contoh/props.json");
+  }
+  var W = P.lebar || 1280, H = P.tinggi || 720;
+  var K = P.kata, FPS = K.fps;
+  var mode = P.mode || (K.caption || {}).mode || "pop-on";
+  var posisi = P.posisi || (K.caption || {}).posisi || "bawah";
+  var zona = [], jangkar = [];
+  K.adegan.forEach(function (a) {
+    (a.zonaCaption || []).forEach(function (z) { zona.push({ area: z.area, dari: z.dari, sampai: z.sampai }); });
+    if (a.jangkarPenutur) jangkar.push({ x: a.jangkarPenutur.x, y: a.jangkarPenutur.y, dari: a.mulaiFrame, sampai: a.mulaiFrame + a.durasiFrame });
+  });
+  var rencana = rencanaCaption({ cues: parseVtt(P.vtt), kata: K, lebar: W, tinggi: H, fps: FPS, mode: mode, posisi: posisi, zona: zona, jangkar: jangkar });
+  window.rencanaDemo = rencana; // untuk uji dan pemeriksaan manual
+
+  var layar = document.getElementById("layar"), elAdegan = document.getElementById("adegan"), elCap = document.getElementById("cap"), elLabel = document.getElementById("label");
+  layar.style.width = W + "px"; layar.style.height = H + "px";
+  elLabel.style.fontSize = Math.round(H * 0.018) + "px";
+  if (P.label === false) elLabel.style.display = "none";
+
+  var PALET = [["#1e3a8a", "#6d28d9"], ["#0f766e", "#14b8a6"]];
+  var JUDUL = ["Merapikan meja kerja", "Tata kabel di belakang meja"];
+  var area = rencana.area;
+
+  function adeganDi(frame) {
+    for (var i = K.adegan.length - 1; i >= 0; i--) if (frame >= K.adegan[i].mulaiFrame) return i;
+    return 0;
+  }
+  function zonaAktif(frame, nama) {
+    return zona.some(function (z) { return z.area === nama && z.dari <= frame && frame < z.sampai; });
+  }
+  function px(n) { return Math.round(n) + "px"; }
+
+  defineVideo({
+    width: W, height: H, fps: FPS, durationInFrames: K.durasiFrame,
+    render: function (frame) {
+      var ia = adeganDi(frame), a = K.adegan[ia], lokal = frame - a.mulaiFrame;
+      var c = PALET[ia % PALET.length], h = "";
+      elAdegan.style.background = "linear-gradient(135deg," + c[0] + "," + c[1] + ")";
+      // bentuk dekoratif bergerak pelan (fungsi murni dari frame)
+      h += '<div style="left:' + px(W * 0.62 + Math.sin(frame / 40) * W * 0.03) + ";top:" + px(H * 0.12 + Math.cos(frame / 55) * H * 0.02) + ";width:" + px(H * 0.30) + ";height:" + px(H * 0.30) + ';border-radius:50%;background:rgba(255,255,255,.14)"></div>';
+      h += '<div style="left:' + px(W * 0.05 - Math.sin(frame / 50) * W * 0.02) + ";top:" + px(H * 0.62) + ";width:" + px(W * 0.18) + ";height:" + px(H * 0.12) + ';border-radius:' + px(H * 0.03) + ';background:rgba(255,255,255,.10)"></div>';
+      if (a.jangkarPenutur) {
+        // penutur (siluet fiktif): di samping caption pada lanskap, di atasnya pada potret
+        var tp = H > W ? { cx: W * 0.5, top: H * 0.22, tinggi: H * 0.28 } : { cx: W * 0.2, top: H * 0.24, tinggi: H * 0.5 };
+        var lb = tp.tinggi * 0.5;
+        h += '<svg style="left:' + px(tp.cx - lb / 2) + ";top:" + px(tp.top) + ";width:" + px(lb) + ";height:" + px(tp.tinggi) + '" viewBox="0 0 100 200" aria-hidden="true">' +
+          '<circle cx="50" cy="32" r="26" fill="#f1f5f9"/><rect x="8" y="66" width="84" height="134" rx="30" fill="#f1f5f9"/></svg>';
+      } else {
+        var judul = JUDUL[ia % JUDUL.length];
+        h += '<div class="judul" style="left:' + px(W * 0.08) + ";top:" + px(H * (H > W ? 0.4 : 0.36)) + ";font-size:" + px(Math.min(W * 0.075, H * 0.1)) + '">' + judul + "</div>";
+      }
+      if (zonaAktif(frame, "bawah")) {
+        // grafis penting di area bawah (pita nama); caption otomatis naik ke atas selama zona aktif
+        var tb = Math.round(Math.min(H * 0.125, W * 0.09));
+        h += '<div class="pita" style="left:' + px(area.x) + ";top:" + px(area.y + area.h - tb) + ";width:" + px(area.w) + ";height:" + px(tb) + ";font-size:" + px(tb * 0.38) + ";padding-left:" + px(tb * 0.3) + ";border-left-width:" + px(tb * 0.1) + ';border-left-color:#f97316">Pak Budi · Penata ruang kerja</div>';
+      }
+      if (P.tampilArea) {
+        h += '<div style="left:' + px(area.x) + ";top:" + px(area.y) + ";width:" + px(area.w) + ";height:" + px(area.h) + ';box-sizing:border-box;border:2px dashed rgba(255,255,255,.6)"></div>';
+      }
+      elAdegan.innerHTML = h;
+      elCap.innerHTML = captionHtml(keadaanCaption(rencana, frame));
+      elLabel.textContent = "mode " + mode + " · posisi " + posisi + " · frame " + frame;
+    },
+  });
+})();
+</script>
+</body>
+</html>

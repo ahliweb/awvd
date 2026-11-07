@@ -46,6 +46,7 @@
     "mode": "pop-on",
     "bahasa": "ind"
   },
+  "kurangiGerak": false,
   "kepatuhan": {
     "dasarHukum": [],
     "izinPotret": "tidak-ada-potret",

@@ -25,6 +25,7 @@
  *   kamera(frame, {dari, ke, ...}) / paralaks(frame, {...})  (risiko vestibular, ada peringatan)
  *   bersama(frame, {dari, ke, ...})   transformasi kontainer / elemen bersama ("magic move")
  *   susunAdegan(daftarAdegan, {fps}) -> {total, peta, pada(frame)}   penyusun adegan + transisi
+ *       (durasi transisi di pada() = peta[i].overlap; pengali profil diterapkan sekali)
  *   terapkan(hasil, {keluar, masuk, wadah, overlay})            tempel ke DOM
  *   grain(kanvas, frame, {seed, hidup, tahan, kekuatan, jenisVideo})   butiran film (kanvas)
  *   periksaKilatan(daftarTransisi, fps) -> {ok, galat[], peringatan[], kilatan}
@@ -577,6 +578,9 @@
     var d = Array.isArray(nama) ? T[nama[0]] : T[nama];
     if (!d) galat("jenis transisi tidak dikenal: " + nama);
     var n;
+    // durasiAkhir: durasi sudah final (sudah diskalakan profil dan dijepit oleh susunAdegan);
+    // dipakai internal agar pengali profil tidak diterapkan dua kali (isu #63).
+    if (o.durasiAkhir && o.durasi != null) return Math.max(0, Math.round(o.durasi));
     if (o.durasi != null) n = o.durasi;
     else if (o.durasiMs != null) n = msKeFrame(o.durasiMs, fps);
     else n = msKeFrame(d.durMs, fps);
@@ -988,7 +992,7 @@
           if (!tr || b.overlap <= 0) continue; // potong: visibilitas sudah dari rentang adegan
           if (!(frame >= b.mulai && frame < b.mulai + b.overlap)) continue;
           var oo = {}; for (var k in tr) oo[k] = tr[k];
-          oo.mulai = b.mulai; oo.durasi = b.overlap; oo.fps = fps; oo.lebar = lebar; oo.tinggi = tinggi;
+          oo.mulai = b.mulai; oo.durasi = b.overlap; oo.durasiAkhir = true; oo.fps = fps; oo.lebar = lebar; oo.tinggi = tinggi;
           if (oo.profil == null) oo.profil = prof;
           if (oo.jenisVideo == null) oo.jenisVideo = jv;
           var h = transisi(frame, oo);

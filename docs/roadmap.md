@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Version: `v1.3.0`
+- Version: `v1.6.0`
 - Last updated: `2026-11-07`
 - Changeset: `Paritas: text-to-speech berstatus ada sebagai adaptor opsional yang tidak dibundel (sherpa-onnx; Supertonic untuk Indonesia, Kokoro untuk Inggris). Sebelumnya: caption sinkron voice over berstatus sebagian.`
 
@@ -68,7 +68,7 @@ F3 boleh dimulai untuk butir yang tidak bergantung pada timeline (LUT, chroma ke
 Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status mengikuti kondisi `main`.
 
 | Kelompok fitur | Status di `main` | Fase atau issue |
-| --- | --- | --- |
+| --- | --- | --- | --- | --- | --- |
 | Teks, judul, animasi teks | ada | — |
 | Transisi dan animasi elemen | ada ([transisi-animasi.md](transisi-animasi.md)) | F1/02 (selesai) |
 | Grafik data, tabel, angka, rupiah | ada ([api-runtime.md](api-runtime.md)) | — |
@@ -78,7 +78,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Video di dalam video | ada ([video-tertanam-audio.md](video-tertanam-audio.md)) | — |
 | Reaction dan kutipan wajar | ada ([pelajari-reaction.md](pelajari-reaction.md)) | F1/05 (selesai) |
 | Pemeriksa visual dan profil audiens | ada ([visual-audiens.md](visual-audiens.md)) | F1/01 (selesai) |
-| Caption sinkron voice over | sebagian: naskah, estimasi timing, cue VTT/SRT dan rencana audio ada ([narasi-caption.md](narasi-caption.md)), mode tampil caption belum | F1/06A (selesai), F1/06B |
+| Caption sinkron voice over | sebagian: naskah, estimasi timing, cue VTT/SRT, rencana audio, serta mode dan posisi tampil caption ada ([narasi-caption.md](narasi-caption.md)); adaptor TTS belum | F1/06A (selesai), F1/06B (selesai), F1/06C |
 | Text-to-speech | ada sebagai adaptor opsional yang tidak dibundel ([narasi-caption.md](narasi-caption.md#tts-lokal-sherpa-onnx)); layanan daring dan suara kustom belum | F1/06C (selesai) |
 | Ducking, fade, kenyaringan | ada | — |
 | QC kenyaringan, kilatan, subtitle | ada ([pemeriksaan-mutu.md](pemeriksaan-mutu.md)) | — |
@@ -86,9 +86,9 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Trim, speed, reverse, freeze | sebagian (pemetaan frame manual) | F2/04 |
 | Keyframe generik | sebagian (`interpolasi`, `urutan`) | F2/06 |
 | Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
-| Chroma key | belum | F3/02 |
-| Stabilisasi | belum | F3/03 |
-| Peredam bising, pengubah suara | belum | F3/04 |
+| Chroma key | ada ([olah-klip.md](olah-klip.md); `kunciWarna`, keluaran PNG beralfa) | F3/02 (selesai) |
+| Stabilisasi | ada ([olah-klip.md](olah-klip.md); `stabil`: vidstab, cadangan deshake) | F3/03 (selesai) |
+| Peredam bising, pengubah suara | ada ([video-tertanam-audio.md](video-tertanam-audio.md#olah-suara-per-trek)); `arnndn` butuh model milik pengguna | F3/04 (selesai) |
 | Render cepat untuk footage panjang | belum (serial) | F4 |
 | Caption otomatis dari audio (ASR) | belum | F5/01 |
 | Sinkron ketukan musik | belum | F5/02 |
@@ -113,9 +113,21 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 
 ## Changelog
 
-### 2026-11-07 - v1.3.0
+### 2026-11-07 - v1.6.0
 
 - Paritas "Text-to-speech" diubah menjadi ada (adaptor TTS lokal opsional, F1/06C).
+
+### 2026-11-07 - v1.5.0
+
+- Tabel paritas: caption sinkron voice over memuat mode dan posisi tampil caption (F1/06B selesai).
+
+### 2026-11-07 - v1.4.0
+
+- Tabel paritas: chroma key (F3/02) dan stabilisasi (F3/03) menjadi ada.
+
+### 2026-11-07 - v1.3.0
+
+- Tabel paritas: peredam bising dan pengubah suara menjadi ada (F3/04: `bersih` dan `suara` di rencana audio).
 
 ### 2026-11-07 - v1.2.0
 
