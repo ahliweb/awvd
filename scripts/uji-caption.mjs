@@ -467,11 +467,13 @@ tes("(k) captionHtml: escape, tanpa animasi/transisi CSS, null untuk tanpa cue, 
 
 // ================================================================ (l) skema naskah
 tes("(l) naskah.json mengenali caption.mode/posisi, zonaCaption, jangkarPenutur; menolak nilai salah; meneruskan ke kata.json", async () => {
+  // WAV contoh tidak ikut git; buat dulu ke .cache seperti dirujuk naskah (idempoten)
+  const ba = await jalankan(["bun", join(templat, "buat-audio.mjs"), join(akar, ".cache", "awvd", "narasi-contoh")]);
+  tegas(ba.kode === 0, `buat-audio: ${ba.err}`);
   const dasar = JSON.parse(await Bun.file(join(templat, "naskah.json")).text());
   const cek = (ubah) => { const n = JSON.parse(JSON.stringify(dasar)); ubah(n); return validasiNaskah(n, templat); };
   const ok = cek(() => {});
-  // WAV contoh dibuat oleh buat-audio.mjs ke .cache (tidak ikut git); uji ini hanya memeriksa kunci caption
-  samaDengan(ok.galat.filter((g) => !/berkas tidak ditemukan/.test(g)), [], "naskah contoh sah");
+  samaDengan(ok.galat, [], "naskah contoh sah");
   samaDengan(ok.peringatan, [], "naskah contoh tanpa peringatan (kunci dikenal)");
   samaDengan(ok.naskah.tampil, { mode: "pop-on", posisi: "auto" }, "tampil naskah");
   samaDengan(ok.naskah.adegan[1].tampil, { zonaCaption: [{ area: "bawah", dari: 0, sampai: null }], jangkarPenutur: { x: 794, y: 331 } }, "tampil adegan a2");
