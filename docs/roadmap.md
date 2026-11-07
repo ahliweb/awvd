@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.7.0`
+- Version: `v1.8.0`
 - Last updated: `2026-11-07`
-- Changeset: `Paritas: trim, speed (termasuk ramp), reverse, dan freeze berstatus ada lewat helper pemetaan frame di runtime (F2/04). Sebelumnya: text-to-speech berstatus ada sebagai adaptor opsional.`
+- Changeset: `Paritas: sinkron ketukan musik berstatus sebagian (bun run ketukan; diuji pada sinyal sintetis, musik nyata dan tempo berubah belum diuji). Sebelumnya: text-to-speech berstatus ada sebagai adaptor opsional.`
 
 ## Visi
 
@@ -91,7 +91,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Peredam bising, pengubah suara | ada ([video-tertanam-audio.md](video-tertanam-audio.md#olah-suara-per-trek)); `arnndn` butuh model milik pengguna | F3/04 (selesai) |
 | Render cepat untuk footage panjang | belum (serial) | F4 |
 | Caption otomatis dari audio (ASR) | belum | F5/01 |
-| Sinkron ketukan musik | belum | F5/02 |
+| Sinkron ketukan musik | sebagian: deteksi ketukan dan tempo tetap dari audio lokal ke `ketukan.json` dengan helper komposisi ada ([ketukan.md](ketukan.md)); diuji pada sinyal sintetis, musik nyata dan tempo berubah belum diuji | F5/02 (selesai) |
 | Reframe 16:9 ke 9:16 | belum | F5/03 |
 | Hapus latar tanpa layar hijau | belum | F5/04 |
 | Penyunting visual | belum (ada mode `?preview`) | F6 |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-07 - v1.8.0
+
+- Paritas "Sinkron ketukan musik" diubah menjadi sebagian (deteksi ketukan F5/02; tempo tetap, bukti hanya sinyal sintetis).
 
 ### 2026-11-07 - v1.7.0
 

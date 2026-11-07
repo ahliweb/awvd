@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.13.0`
+- Version: `v1.14.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan KP-052 (nomor sementara): pemetaan waktu klip dengan aritmetika bilangan bulat dan permil. Sebelumnya: KP-048 sampai KP-051 tentang adaptor TTS lokal.`
+- Changeset: `Menambahkan KP-053 sampai KP-055 (nomor sementara): deteksi ketukan di Bun murni, tempo tetap dengan grid berselaras onset dan keyakinan heuristik, helper ketukan di modul terpisah. Sebelumnya: KP-048 sampai KP-051 tentang adaptor TTS lokal opsional.`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -33,6 +33,9 @@ flowchart TD
     KPT1 --> KPT2[KP-049 WAV beku berhash]
     KPT1 --> KPT3[KP-050 label sintetis dan konten medis]
     KPT1 --> KPT4[KP-051 normalisasi teks id]
+    KP3 -->|tanpa jam atau acak| KPK1[KP-053 deteksi ketukan Bun murni]
+    KPK1 --> KPK2[KP-054 tempo tetap + keyakinan]
+    KPK1 --> KPK3[KP-055 helper terpisah]
     KP15[KP-015 preset bertingkat bukti] -->|konflik lint caption| KP16[KP-016 preset sosial 20 cps]
     KP16 -->|alasan dikoreksi| KP19[KP-019 cps Netflix Indonesia]
     KP15 -->|bukti per atribut| KP20[KP-020 profil audiens dan helper visual]
@@ -92,8 +95,15 @@ flowchart TD
 | KP-050 | Setiap video bersuara TTS wajib berlabel suara sintetis dan label tidak dapat dimatikan: `suara-kredit.json` dan `kredit-suara.txt` (kredit layar, deskripsi, metadata, lisensi). `jenisKonten: "medis"` ditolak untuk mesin dengan `larangMedis` (Supertonic); `kesehatan` dan teks yang tampak medis diperingatkan; konten medis memakai rekaman manusia atau layanan daring untuk konten publik. | 2026-11-07 | Berlaku | Keputusan pemilik 2026-11-07. OpenRAIL-M Supertonic mewajibkan pernyataan konten buatan mesin (butir e) dan melarang nasihat medis (butir l). awvd tidak dapat memaksa tayangan label; yang disediakan bahan label dan penolakan di sisi alat. Daftar kata medis hanya heuristik; edukasi kesehatan umum adalah wilayah abu-abu yang menunggu keputusan pemilik per konten. | #69 |
 | KP-051 | awvd memiliki modul normalisasi teks Indonesia sendiri (`scripts/normalisasi-id.mjs`: tanggal, jam, rupiah, persen, pasal, nomor, URL, surel, satuan, singkatan) yang mengisi `bacaan` otomatis untuk mesin TTS, dan memeriksa leksikon Kokoro: kata di luar leksikon menggagalkan sintesis (atau diperingatkan) alih-alih dilewati diam-diam. | 2026-11-07 | Berlaku | Uji putar-balik ASR riset awvd menunjukkan tanggal, pasal, URL, dan surel terbaca kacau oleh Supertonic, sedangkan angka yang dieja aman; sherpa-onnx 2.x melewati kata di luar leksikon tanpa galat (terbukti: "explains", "officers"). Cakupan normalisasi sengaja sempit dan dapat diperluas lewat `kamus`, bukan kamus lengkap. | #69 |
 | KP-052 | Pemetaan waktu klip (trim, speed konstan dan ramp, reverse, freeze) adalah fungsi murni di `runtime.js` (`petaWaktuKlip`, `frameSumber`, `kecepatanPermil`, opsi `waktu` pada `indeksFrameKlip`) dengan aritmetika bilangan bulat dan permil: `offset(f) = floor(posisi(f) / 1000)`, `posisi(f+1) = posisi(f) + v(f)`, reverse = deret maju dibalik, freeze = frame `dari`, kecepatan maksimal 3 desimal, frame lokal bilangan bulat, dan `habis` bawaan `tolak` (galat). Perilaku `indeksFrameKlip` tanpa `waktu` tidak diubah. Klip dengan waktu bukan identitas harus bisu karena `audio.mjs` tidak meregangkan waktu. | 2026-11-07 | Berlaku | Float menyimpang di batas lantai (`Math.floor(100 * 0.29)` bernilai 28, benar 29) dan indeks frame harus identik di render penuh, rentang, dan paralel (KP-003). Tabel ramp dihitung dari frame 0 tanpa keadaan antar-frame. Interpolasi gerak (optical flow) di luar scope. Rumus sama dengan riset timeline agar validator dan templat memakai satu implementasi. | #70 |
+| KP-053 | Deteksi ketukan ditulis sendiri di Bun (`scripts/ketukan.mjs`): FFT radix-2, fluks spektral berpita log, ambang adaptif, autokorelasi tempo; `ffmpeg` hanya untuk dekode. Tanpa dependensi dan tanpa model. | 2026-11-07 | Berlaku | Aturan "tanpa dependensi baru" dan "model pihak ketiga opsional dan tidak dibundel" membuat algoritma klasik (Bello dkk. 2005; Ellis 2007) pilihan paling murah: deterministik, dapat diuji dengan sinyal sintetis, dan tanpa urusan lisensi. Pustaka deteksi ketukan yang dikenal berlisensi copyleft (aubio: GPL, Essentia: AGPL) atau berada di luar ekosistem Bun. Konsekuensi: kualitas pada musik nyata belum terbukti; batas bukti ditulis di `docs/ketukan.md#batasan`. | menyusul |
+| KP-054 | Satu tempo tetap per berkas: periode dan fase dari autokorelasi (prior 120 BPM) lalu pemusatan fase onset; ketukan = grid yang disnap ke onset terdekat (`dariOnset` menandai); `keyakinan` adalah heuristik (rata-rata puncak autokorelasi dan cakupan onset), bukan probabilitas. Pelacakan ketukan dinamis ditunda. | 2026-11-07 | Berlaku | Uji metronom memberi galat waktu di bawah 1 ms dengan pendekatan ini dan dapat dibuktikan secara otomatis; pelacakan dinamis tanpa data musik nyata akan menjadi tebakan yang tak dapat diuji. Hasil yang meleset terlihat dari `keyakinan` rendah dan `peringatan`, bukan disembunyikan. Waktu onset dipertajam di bentuk gelombang karena fluks berjendela panjang menyala lebih awal secara tergantung kekerasan. | menyusul |
+| KP-055 | Helper komposisi untuk `ketukan.json` (`ketukanTerdekat`, `rapatkan`, `fasaKetukan`, `denyut`, `ketukanDalam`) berada di modul terpisah `scripts/ketukan.js` (`window.Ketukan`), bukan di `runtime.js`. | 2026-11-07 | Berlaku | Sama dengan KP modul transisi: runtime tetap kecil dan komposisi memuat helper hanya bila perlu; menghindari konflik dengan perubahan lain di `runtime.js`. Semua fungsi murni dari nomor frame dan data. | menyusul |
 
 ## Changelog
+
+### 2026-11-07 - v1.14.0
+
+- Menambahkan KP-053 sampai KP-055 (nomor sementara; deteksi ketukan di Bun murni, tempo tetap dengan grid berselaras onset, helper di modul terpisah; rujukan PR menyusul).
 
 ### 2026-11-07 - v1.13.0
 
