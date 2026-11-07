@@ -1,0 +1,12 @@
+{
+  "durasiFrame": 480,
+  "narasi": [
+    { "id": "n1", "berkas": "../../.cache/awvd/contoh/narasi-1.wav", "mulai": 0 },
+    { "id": "n2", "berkas": "../../.cache/awvd/contoh/narasi-2.wav", "mulai": 210 }
+  ],
+  "musik": { "berkas": "../../.cache/awvd/contoh/musik.wav", "levelDb": -12, "bebasDb": -6 },
+  "klip": [
+    { "id": "k1", "mulai": 105, "akhir": 195, "mode": "bergantian" },
+    { "id": "k2", "mulai": 270, "akhir": 390, "mode": "campur", "turunDb": 12 }
+  ]
+}

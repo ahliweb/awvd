@@ -11,9 +11,12 @@
     "render": "bun scripts/render.mjs",
     "periksa": "bun scripts/periksa.mjs",
     "sop": "bun scripts/sop.mjs",
-    "uji": "bun scripts/uji-runtime.mjs && bun scripts/uji-periksa.mjs && bun scripts/uji-sop.mjs && bun scripts/uji.mjs",
+    "klip": "bun scripts/klip.mjs",
+    "audio": "bun scripts/audio.mjs",
+    "uji": "bun scripts/uji-runtime.mjs && bun scripts/uji-periksa.mjs && bun scripts/uji-sop.mjs && bun scripts/uji-klip.mjs && bun scripts/uji.mjs",
     "uji:runtime": "bun scripts/uji-runtime.mjs",
     "uji:periksa": "bun scripts/uji-periksa.mjs",
-    "uji:sop": "bun scripts/uji-sop.mjs"
+    "uji:sop": "bun scripts/uji-sop.mjs",
+    "uji:klip": "bun scripts/uji-klip.mjs"
   }
 }

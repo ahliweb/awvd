@@ -1,0 +1,23 @@
+{
+  "judul": "Video di dalam video",
+  "subjudul": "Klip digambar ulang per nomor frame, tanpa elemen video",
+  "warnaAksen": "#f59f00",
+  "poin": [
+    "ffmpeg mengekstrak frame klip ke cache",
+    "Komposisi menggambar frame ke-n klip",
+    "Audio klip bergantian atau campur dengan narasi"
+  ],
+  "jadwal": {
+    "klip": [
+      { "id": "k1", "mulai": 105, "akhir": 195, "mode": "bergantian" },
+      { "id": "k2", "mulai": 270, "akhir": 390, "mode": "campur" }
+    ],
+    "kredit": { "mulai": 390 }
+  },
+  "caption": [
+    { "mulai": 0.2, "akhir": 2.9, "teks": "Frame klip dibuat ulang dari cache, satu gambar per nomor frame." },
+    { "mulai": 3.6, "akhir": 6.4, "teks": "[suara klip: narasi diam]" },
+    { "mulai": 7.1, "akhir": 9.9, "teks": "Narasi dan klip bergantian agar suara tidak bertabrakan." },
+    { "mulai": 10.1, "akhir": 12.9, "teks": "[suara klip dicampur, diturunkan 12 dB]" }
+  ]
+}

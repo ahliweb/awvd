@@ -46,6 +46,16 @@
  *   captionAktif(cues, frame, fps) -> cue aktif atau null
  *   parseVtt(teks), parseSrt(teks) -> [{ mulai, akhir, teks }] (detik)
  *
+ *   Video di dalam video (frame klip diekstrak ffmpeg oleh scripts/klip.mjs, lalu
+ *   digambar per nomor frame; elemen <video> tidak dipakai):
+ *   gambarKosong                   data: URI GIF 1x1 transparan (src awal <img>)
+ *   indeksFrameKlip(klip, frameLokal, { ulang = false, kecepatan = 1 }) -> indeks | -1
+ *   jalurFrameKlip(klip, frameLokal, opsi) -> URL frame, atau null bila belum mulai
+ *   klipGambar(canvas|img, klip, frameLokal, opsi) -> Promise<boolean> (menunggu decode lalu menggambar)
+ *   kreditKlip(klip, { ringkas = true }) -> teks atribusi TASL
+ *   angka(n, { desimal }), persen(n, { desimal }), rupiah(n, { desimal = 0 })  (format id-ID)
+ *   kenBurns(frame, { mulai, durasi, dari, ke, easing }) -> nilai CSS transform
+ *
  * MODE
  *   Tanpa query  : diam menunggu renderer (dipakai render.mjs).
  *   ?preview     : putar real-time (rAF, fps komposisi) + slider + play/pause.
@@ -506,6 +516,205 @@
   function parseVtt(teks) { return uraiCue(teks, true); }
   function parseSrt(teks) { return uraiCue(teks, false); }
 
+  // ---------------------------------------------------- video di dalam video
+  // Klip tertanam: scripts/klip.mjs mengekstrak frame klip (ffmpeg, pada fps komposisi)
+  // ke cache dan menulis klip-props.json. Komposisi menggambar frame ke-n klip sebagai
+  // fungsi murni dari nomor frame: tidak ada <video>, tidak ada seek saat render.
+  // Bentuk objek `klip` (dari klip-props.json): { id, akar, folder, ekstensi, digit,
+  // jumlah, atribusi: { judul, pencipta, sumberUrl, lisensi, urlLisensi, perubahan,
+  // tanpaJudul, penciptaAnonim } }.
+
+  // GIF 1x1 transparan. Renderer menolak <img> tanpa gambar termuat saat halaman dibuka,
+  // jadi bila memakai target <img>, beri src awal ini lalu biarkan klipGambar menggantinya.
+  // (Target <canvas> tidak membutuhkannya.)
+  var gambarKosong = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+  // Indeks frame sumber untuk frame lokal klip (0 = frame pertama klip). Negatif -> -1
+  // (belum mulai). Lewat akhir: ditahan di frame terakhir, atau diulang bila ulang:true.
+  // kecepatan memetakan frame lokal ke frame sumber (frame diekstrak pada fps komposisi,
+  // jadi kecepatan <> 1 menduplikasi atau melewati frame, tanpa interpolasi).
+  function indeksFrameKlip(klip, frameLokal, opsi) {
+    opsi = opsi || {};
+    var jumlah = klip && klip.jumlah;
+    if (typeof jumlah !== "number" || !(jumlah >= 1) || jumlah % 1 !== 0) {
+      throw new Error("indeksFrameKlip: klip.jumlah harus bilangan bulat >= 1");
+    }
+    var kecepatan = opsi.kecepatan == null ? 1 : opsi.kecepatan;
+    if (typeof kecepatan !== "number" || !(kecepatan > 0) || !isFinite(kecepatan)) {
+      throw new Error("indeksFrameKlip: kecepatan harus angka positif");
+    }
+    if (typeof frameLokal !== "number" || !isFinite(frameLokal)) {
+      throw new Error("indeksFrameKlip: frameLokal harus angka");
+    }
+    if (frameLokal < 0) return -1;
+    var i = Math.floor(frameLokal * kecepatan);
+    return opsi.ulang ? i % jumlah : Math.min(i, jumlah - 1);
+  }
+
+  // URL gambar frame untuk frame lokal klip; null bila klip belum mulai.
+  function jalurFrameKlip(klip, frameLokal, opsi) {
+    var i = indeksFrameKlip(klip, frameLokal, opsi);
+    if (i < 0) return null;
+    if (!klip.folder || !klip.ekstensi) throw new Error("jalurFrameKlip: klip.folder dan klip.ekstensi wajib ada");
+    var digit = klip.digit == null ? 6 : klip.digit;
+    var nomor = String(i);
+    while (nomor.length < digit) nomor = "0" + nomor;
+    var akar = klip.akar ? String(klip.akar).replace(/\/+$/, "") + "/" : "";
+    return akar + klip.folder + "/" + nomor + "." + klip.ekstensi;
+  }
+
+  // Menggambar frame klip ke `target` lalu menunggu sampai siap, sehingga
+  // `await klipGambar(...)` di dalam render menjamin frame klip sudah tergambar sebelum
+  // screenshot. Mengembalikan false (tanpa menyentuh target) bila klip belum mulai;
+  // melempar galat bila berkas frame tidak termuat.
+  //   - target <canvas> (DIANJURKAN): frame didekode lewat Image lepas (img.decode()) lalu
+  //     digambar sinkron dengan drawImage pada ukuran aslinya. Hasilnya deterministik.
+  //   - target <img>: src diganti lalu img.decode() ditunggu. Chromium dapat mengecat
+  //     gambar yang baru didekode secara asinkron, sehingga screenshot kadang masih
+  //     memuat frame sebelumnya (tidak deterministik); pakai <canvas> untuk render.
+  var gambarLepas = typeof WeakMap === "function" ? new WeakMap() : null;
+  function klipGambar(target, klip, frameLokal, opsi) {
+    var url;
+    try { url = jalurFrameKlip(klip, frameLokal, opsi); } catch (e) { return Promise.reject(e); }
+    if (url == null) return Promise.resolve(false);
+    var galat = function () { throw new Error("klipGambar: frame klip gagal dimuat: " + url); };
+    if (typeof target.getContext !== "function") {
+      var sekarang = typeof target.getAttribute === "function" ? target.getAttribute("src") : target.src;
+      if (sekarang !== url) target.src = url;
+      return Promise.resolve(target.decode()).then(function () { return true; }, galat);
+    }
+    var im = gambarLepas && gambarLepas.get(target);
+    if (!im) {
+      im = new g.Image();
+      if (gambarLepas) gambarLepas.set(target, im);
+    }
+    if (im.getAttribute ? im.getAttribute("src") !== url : im.src !== url) im.src = url;
+    return Promise.resolve(im.decode()).then(function () {
+      var w = im.naturalWidth, h = im.naturalHeight;
+      if (target.width !== w) target.width = w;
+      if (target.height !== h) target.height = h;
+      var c = target.getContext("2d");
+      c.imageSmoothingEnabled = false;
+      c.clearRect(0, 0, w, h);
+      c.drawImage(im, 0, 0);
+      return true;
+    }, galat);
+  }
+
+  // Nama tampil lisensi dari kode: "CC-BY-4.0" -> "CC BY 4.0", "CC0-1.0" -> "CC0 1.0".
+  function namaLisensi(kode) {
+    kode = String(kode == null ? "" : kode);
+    var m = /^CC-BY((?:-NC)?(?:-SA)?(?:-ND)?)-(\d\.\d)$/.exec(kode);
+    if (m) return "CC BY" + m[1] + " " + m[2];
+    m = /^(CC0|PDM)-(\d\.\d)$/.exec(kode);
+    if (m) return (m[1] === "CC0" ? "CC0 " : "Public Domain Mark ") + m[2];
+    if (kode.indexOf("STOK:") === 0) return "Lisensi stok " + kode.slice(5);
+    return kode;
+  }
+
+  // Atribusi TASL (Title, Author, Source, License; Creative Commons, praktik terbaik
+  // atribusi). ringkas (bawaan) untuk ditampilkan di layar:
+  //   "Judul" oleh Pencipta · CC BY 4.0 · diubah
+  // ringkas:false = baris lengkap (sumber, tautan lisensi, perubahan) untuk kredit akhir:
+  //   "Judul" oleh Pencipta. Sumber: URL. Lisensi: CC BY 4.0 (URL). Diubah: ....
+  function kreditKlip(klip, opsi) {
+    var a = klip && klip.atribusi;
+    if (!a) throw new Error("kreditKlip: klip.atribusi wajib ada");
+    var ringkas = !opsi || opsi.ringkas !== false;
+    var nama = namaLisensi(a.lisensi);
+    var t = "";
+    if (!a.tanpaJudul && a.judul) t = '"' + a.judul + '"';
+    if (!a.penciptaAnonim && a.pencipta) t += (t ? " oleh " : "") + a.pencipta;
+    var perubahan = String(a.perubahan == null ? "" : a.perubahan).replace(/[.\s]+$/, "");
+    if (ringkas) {
+      var p = [];
+      if (t) p.push(t);
+      p.push(nama);
+      if (perubahan) p.push("diubah");
+      return p.join(" · ");
+    }
+    var b = [];
+    if (t) b.push(t);
+    b.push("Sumber: " + a.sumberUrl);
+    b.push("Lisensi: " + nama + (a.urlLisensi ? " (" + a.urlLisensi + ")" : ""));
+    if (perubahan) b.push("Diubah: " + perubahan);
+    return b.join(". ") + ".";
+  }
+
+  // ------------------------------------------------------------ format id-ID
+  // Format angka Indonesia ditulis manual (bukan Intl) agar hasil sama di semua mesin
+  // dan versi mesin JS: pemisah ribuan titik, desimal koma. Pembulatan setengah naik
+  // (menjauhi nol) pada representasi desimal terpendek angka, jadi 1.005 -> "1,01".
+  function bulatDesimal(abs, d) {
+    if (abs >= 1e21) throw new Error("angka: nilai terlalu besar");
+    var s = String(abs), r;
+    if (/e/i.test(s)) return abs.toFixed(d);
+    r = Math.round(Number(s + "e" + d));
+    if (!(r <= 9007199254740991)) return abs.toFixed(d);
+    var rs = String(r);
+    while (rs.length < d + 1) rs = "0" + rs;
+    return d > 0 ? rs.slice(0, rs.length - d) + "." + rs.slice(rs.length - d) : rs;
+  }
+  function formatId(n, desimal, maks, nama) {
+    if (typeof n !== "number" || !isFinite(n)) throw new Error(nama + ": n harus bilangan hingga");
+    var tetap = desimal != null;
+    var d = tetap ? desimal : maks;
+    if (typeof d !== "number" || d % 1 !== 0 || d < 0 || d > 20) {
+      throw new Error(nama + ": desimal harus bilangan bulat 0..20");
+    }
+    var s = bulatDesimal(Math.abs(n), d).split(".");
+    var bulat = s[0], pecah = s[1] || "";
+    if (!tetap) pecah = pecah.replace(/0+$/, "");
+    var neg = n < 0 && /[1-9]/.test(bulat + pecah);
+    bulat = bulat.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return (neg ? "-" : "") + bulat + (pecah ? "," + pecah : "");
+  }
+  // angka(1234567.891) = "1.234.567,891"; tanpa desimal: sampai 3 desimal tanpa nol berekor.
+  // desimal:2 -> tepat 2 desimal ("1.234,50").
+  function angka(n, opsi) {
+    return formatId(n, opsi && opsi.desimal, 3, "angka");
+  }
+  // n pecahan: persen(0.256) = "25,6%" (tanpa spasi). Aturan desimal seperti angka.
+  function persen(n, opsi) {
+    if (typeof n !== "number" || !isFinite(n)) throw new Error("persen: n harus bilangan hingga");
+    return formatId(Number((n * 100).toPrecision(15)), opsi && opsi.desimal, 3, "persen") + "%";
+  }
+  // rupiah(1500000) = "Rp1.500.000" (tanpa spasi setelah Rp, sesuai EYD; sumber sekunder,
+  // dokumen EYD Edisi V belum dibaca langsung). Negatif: "-Rp1.000". desimal bawaan 0.
+  function rupiah(n, opsi) {
+    var s = formatId(n, opsi && opsi.desimal != null ? opsi.desimal : 0, 0, "rupiah");
+    return s.charAt(0) === "-" ? "-Rp" + s.slice(1) : "Rp" + s;
+  }
+
+  // ---------------------------------------------------------------- kenBurns
+  // Pan dan zoom foto diam sebagai nilai CSS transform. x,y = titik pusat tampilan
+  // (0..1 dari lebar/tinggi gambar; 0.5 = tengah); skala >= 1. Kedua ujung diinterpolasi
+  // sepanjang [mulai, mulai + durasi] dengan easing (bawaan linear); sebelum mulai =
+  // `dari`, sesudah selesai = `ke`. Pusat dijepit agar tepi gambar tidak terbuka.
+  // Pakai pada elemen di dalam wadah overflow:hidden, transform-origin bawaan (tengah).
+  // Murni dari frame. Gaya estetika: tidak ditemukan bukti eksperimen bahwa efek ini
+  // memengaruhi pemahaman atau atensi; parameter (zoom 1,0 -> 1,1..1,3) adalah praktik.
+  function kenBurns(frame, opsi) {
+    opsi = opsi || {};
+    var mulai = opsi.mulai == null ? 0 : opsi.mulai;
+    var dari = opsi.dari || {}, ke = opsi.ke || {};
+    var d0 = { x: dari.x == null ? 0.5 : dari.x, y: dari.y == null ? 0.5 : dari.y, skala: dari.skala == null ? 1 : dari.skala };
+    var d1 = { x: ke.x == null ? 0.5 : ke.x, y: ke.y == null ? 0.5 : ke.y, skala: ke.skala == null ? 1.2 : ke.skala };
+    cekPositif("kenBurns", "durasi", opsi.durasi);
+    [d0, d1].forEach(function (p) {
+      if (!isFinite(p.x) || !isFinite(p.y) || !isFinite(p.skala) || p.skala < 1) {
+        throw new Error("kenBurns: x, y harus angka dan skala >= 1");
+      }
+    });
+    var p = interpolasi(frame, [mulai, mulai + opsi.durasi], [0, 1], { easing: opsi.easing });
+    var s = d0.skala + (d1.skala - d0.skala) * p;
+    var jepit = function (c) { return clampNum(c, 0.5 / s, 1 - 0.5 / s); };
+    var x = jepit(d0.x + (d1.x - d0.x) * p);
+    var y = jepit(d0.y + (d1.y - d0.y) * p);
+    var f = function (v, n) { return v.toFixed(n).replace(/^-(0\.0+)$/, "$1"); };
+    return "translate(" + f((0.5 - x) * s * 100, 4) + "%, " + f((0.5 - y) * s * 100, 4) + "%) scale(" + f(s, 6) + ")";
+  }
+
   // ------------------------------------------------------------ defineVideo
   function injectBaseStyle() {
     if (typeof document === "undefined") return;
@@ -672,6 +881,15 @@
     captionAktif: captionAktif,
     parseVtt: parseVtt,
     parseSrt: parseSrt,
+    gambarKosong: gambarKosong,
+    indeksFrameKlip: indeksFrameKlip,
+    jalurFrameKlip: jalurFrameKlip,
+    klipGambar: klipGambar,
+    kreditKlip: kreditKlip,
+    angka: angka,
+    persen: persen,
+    rupiah: rupiah,
+    kenBurns: kenBurns,
   };
   g.VideoTerprogram = api;
   Object.keys(api).forEach(function (k) { g[k] = api[k]; });

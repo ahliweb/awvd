@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.8.0`
+- Version: `v1.9.0`
 - Last updated: `2026-11-07`
-- Changeset: `Bagian baru SOP sebagai bahan video: skema sop.json, generator scripts/sop.mjs (sop.html, sop.pdf, video-props.json, caption.vtt), template templates/sop, uji scripts/uji-sop.mjs, dan struktur repo.`
+- Changeset: `Video di dalam video (scripts/klip.mjs: manifest sumber berlisensi, ekstraksi frame ke cache, atribusi TASL) dan Timeline audio (scripts/audio.mjs: pemegang suara bergantian/campur/bisu, ducking musik, fade); helper runtime klipGambar/jalurFrameKlip/kreditKlip, angka/persen/rupiah id-ID, kenBurns; templat klip-tertanam; uji scripts/uji-klip.mjs; butir batasan <video> diganti.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -163,6 +163,13 @@ Semua fungsi tersedia sebagai global dan di `window.VideoTerprogram`.
 | `pecahBaris(teks, { maks = 42, baris = 2 })` | Mengembalikan **array** baris, dengan properti `melebihi` (boolean) pada array itu. Muat satu baris: satu elemen. Selain itu dipakai jumlah baris minimum dan potongan di spasi dengan prioritas: semua baris <= `maks`; baris atas bukan 1-2 kata; potongan setelah tanda baca (`, . ; : ? !`) atau sebelum kata sambung umum (dan, atau, tetapi, yang, untuk, dengan, di, ke, dari, karena, agar, sehingga); bentuk piramida terbalik (bawah >= atas); baris seimbang. Tidak muat dalam `baris` baris: `melebihi = true` dan array berisi seluruh teks dibungkus greedy (jumlah elemen bisa > `baris`; tidak ada teks hilang). Teks kosong menghasilkan `[]`. Pedoman: Netflix Timed Text Style Guide (maksimal 42 karakter per baris, dua baris). Properti `melebihi` hilang bila array diserialisasi JSON. |
 | `captionAktif(cues, frame, fps)` | Cue aktif atau `null`. `cues` = array `{ mulai, akhir, teks }` dalam detik; aktif bila `mulai <= frame/fps < akhir`. Cue tumpang tindih: yang pertama dalam array. Untuk burn-in caption di DOM. |
 | `parseVtt(teks)`, `parseSrt(teks)` | Teks berkas ke array cues. Timestamp `hh:mm:ss.mmm` atau `mm:ss.mmm` (koma juga diterima). Header, `NOTE`, `STYLE`, nomor/id cue, dan pengaturan cue diabaikan; tag seperti `<i>` dan `<v Nama>` dibuang; `parseVtt` juga mengurai `&amp; &lt; &gt; &nbsp;`. Cue kosong atau berakhir sebelum mulai dibuang. |
+| `gambarKosong` | String `data:` URI GIF 1x1 transparan, `src` awal untuk target `<img>` (renderer menolak `<img>` tanpa gambar termuat saat halaman dibuka). Target `<canvas>` tidak membutuhkannya. |
+| `indeksFrameKlip(klip, frameLokal, { ulang = false, kecepatan = 1 })` | Indeks frame sumber (0 = frame pertama klip) untuk frame lokal klip: `floor(frameLokal * kecepatan)`. Negatif menghasilkan `-1` (belum mulai); melewati akhir ditahan di frame terakhir, atau diulang bila `ulang: true`. Frame diekstrak pada fps komposisi, jadi `kecepatan` <> 1 menduplikasi atau melewati frame tanpa interpolasi. |
+| `jalurFrameKlip(klip, frameLokal, opsi)` | URL gambar frame (`akar/folder/000123.jpg`) atau `null` bila belum mulai. `klip` datang dari `klip-props.json` (props `klip[]`). |
+| `klipGambar(target, klip, frameLokal, opsi)` | `async`; menggambar frame klip ke `target` lalu menunggu siap, jadi `await klipGambar(...)` di dalam `render` menjamin frame tergambar sebelum screenshot. Mengembalikan `false` (target tidak disentuh) bila belum mulai; melempar galat bila berkas frame tidak termuat. Target `<canvas>` (**dianjurkan**): `Image` lepas didekode (`decode()`) lalu digambar sinkron dengan `drawImage` pada ukuran aslinya. Target `<img>`: `src` diganti lalu `decode()` ditunggu; pada uji, screenshot kadang masih memuat frame sebelumnya (pengecatan gambar baru asinkron), jadi tidak deterministik. |
+| `kreditKlip(klip, { ringkas = true })` | Atribusi TASL dari `klip.atribusi`. Ringkas (untuk layar): `"Judul" oleh Pencipta · CC BY 4.0 · diubah`. `ringkas: false` (kredit akhir): `"Judul" oleh Pencipta. Sumber: URL. Lisensi: CC BY 4.0 (URL lisensi). Diubah: ....` Sama persis dengan baris di `atribusi.txt`. |
+| `angka(n, { desimal })`, `persen(n, { desimal })`, `rupiah(n, { desimal = 0 })` | Format Indonesia, ditulis manual (bukan `Intl`) agar hasil sama di semua mesin: titik ribuan, koma desimal. `angka(1234567.891)` = `1.234.567,891`; tanpa `desimal` sampai 3 desimal tanpa nol berekor, dengan `desimal` tepat sekian digit. `persen(0.256)` = `25,6%` (n pecahan, tanpa spasi). `rupiah(1500000)` = `Rp1.500.000` (tanpa spasi setelah Rp, negatif `-Rp1.500`). Pembulatan setengah menjauhi nol pada representasi desimal terpendek: `angka(1.005, { desimal: 2 })` = `1,01`. `NaN`, tak hingga, dan nilai >= 1e21 melempar galat. Sumber aturan Rp tanpa spasi: EYD Edisi V (Badan Bahasa, 2022), hanya sumber sekunder; dokumen resmi belum dibaca. |
+| `kenBurns(frame, { mulai = 0, durasi, dari: {x,y,skala}, ke: {x,y,skala}, easing })` | Nilai CSS `transform` (`translate(..%, ..%) scale(..)`) untuk pan dan zoom foto diam di dalam wadah `overflow:hidden`. `x`,`y` = titik pusat tampilan (0..1, bawaan 0,5), `skala >= 1` (bawaan 1 lalu 1,2); pusat dijepit agar tepi gambar tidak terbuka. Sebelum `mulai` = `dari`, sesudah `mulai + durasi` = `ke`; easing bawaan linear. Murni dari frame. Hanya gaya estetika: tidak ditemukan bukti eksperimen bahwa efek ini memengaruhi pemahaman atau atensi; parameter (zoom 1,0 ke 1,1-1,3, gerak lambat) adalah praktik. |
 
 Semua helper di atas murni (tanpa `Date`, `Math.random`, atau timer), jadi aman dipakai di `render`.
 
@@ -195,6 +202,203 @@ Setelah encode berhasil dan ada audio, renderer mengukur hasil akhir dan menceta
 
 Kode keluar `0` bila berhasil, `2` untuk argumen tidak valid, `1` untuk galat saat render (termasuk halaman tanpa `window.video` setelah 15 detik).
 
+## Video di dalam video
+
+Klip (video lain) dapat tampil di dalam komposisi sebagai PiP atau split-screen **tanpa elemen `<video>`**. Setiap frame klip dibuat ulang sesuai metode awvd: `scripts/klip.mjs` meminta ffmpeg mengekstrak frame pada fps komposisi (satu gambar per nomor frame) ke cache, lalu komposisi menggambar frame ke-n klip sebagai fungsi murni dari nomor frame (`klipGambar`). Tidak ada seek saat render.
+
+```mermaid
+flowchart LR
+    M[sumber.json<br/>manifest lisensi + klip] --> K[klip.mjs<br/>validasi lalu ekstraksi ffmpeg]
+    K -->|pelanggaran: exit 2,<br/>sebelum Chromium| X[berhenti]
+    K --> C[.cache/awvd/klip<br/>frame JPEG + audio.wav]
+    K --> P[klip-props.json<br/>atribusi.txt]
+    C --> R[render.mjs<br/>klipGambar per frame]
+    P --> R
+    C -->|audio.wav| A[audio.mjs<br/>timeline audio]
+    A -->|campuran.wav| R
+```
+
+### Aturan sumber
+
+Hanya sumber yang lisensinya mengizinkan penggunaan dengan menyebut sumber. Validasi berjalan di `klip.mjs` sebelum ekstraksi dan sebelum Chromium diluncurkan; semua pelanggaran dilaporkan sekaligus dengan kode keluar `2`.
+
+| Lisensi (kode di manifest) | Status |
+| --- | --- |
+| `CC-BY-x.y` | Diizinkan dengan atribusi. |
+| `CC-BY-SA-x.y` | Diizinkan bila `proyek.lisensiKeluaran` adalah `CC-BY-SA-x.y` dengan versi sama atau lebih baru daripada sumber; kalau tidak, ditolak. |
+| `CC-BY-NC-x.y`, `CC-BY-NC-SA-x.y` | Hanya bila `proyek.tujuan` adalah `nonkomersial` (NC-SA juga butuh `lisensiKeluaran` `CC-BY-NC-SA-x.y`). Campuran BY-SA dan BY-NC-SA ditolak (tak ada satu lisensi keluaran yang memenuhi keduanya). |
+| `CC0-1.0`, `PDM-1.0` | Diizinkan; atribusi tetap dicatat. |
+| `STOK:<penyedia>` | Diizinkan bila `bukti` (berkas atau URL lisensi tertulis dari penyedia) diisi. |
+| `...-ND-...` | Selalu ditolak: ND tidak mengizinkan adaptasi, dan frame klip dibuat ulang (di-resample, dipotong, ditimpa elemen komposisi). |
+| kosong atau tak dikenal | Ditolak. |
+
+Pemeriksaan lain: `judul`, `pencipta`, `sumberUrl`, dan `perubahan` wajib terisi (judul dan pencipta boleh dikosongkan hanya dengan `tanpaJudul: true` atau `penciptaAnonim: true`); `sha256` wajib cocok dengan isi berkas; `proyek.tujuan` wajib `komersial` atau `nonkomersial`; klip wajib merujuk sumber yang ada.
+
+Catatan hukum, bukan nasihat hukum: tafsir ShareAlike untuk video gabungan (adaptasi atau kumpulan) belum terverifikasi dari sumber primer, sehingga awvd bersikap konservatif: klip BY-SA diperlakukan sebagai Adapted Material dan seluruh keluaran harus dilisensikan BY-SA (atau kompatibel). "Komersial" tidak didefinisikan oleh CC; kasus batas diserahkan ke pemilik proyek. Lisensi CC tidak mencakup hak pihak ketiga yang melekat pada isi klip (wajah orang, merek, musik di dalam klip).
+
+### Manifest `sumber.json`
+
+Jalur `berkas` dan `bukti` relatif terhadap folder manifest. Contoh lengkap: [`templates/klip-tertanam/sumber.json`](templates/klip-tertanam/sumber.json).
+
+```json
+{
+  "proyek": { "tujuan": "nonkomersial", "lisensiKeluaran": "CC-BY-SA-4.0" },
+  "sumber": [{
+    "id": "wawancara-1",
+    "berkas": "aset/wawancara-1.mp4",
+    "sha256": "<64 digit heksadesimal>",
+    "judul": "Wawancara 1",
+    "pencipta": "Nama Pencipta",
+    "sumberUrl": "https://contoh.example/wawancara-1",
+    "lisensi": "CC-BY-SA-4.0",
+    "perubahan": "dipotong 00:12-00:20; diperkecil; dibuat ulang per frame"
+  }],
+  "klip": [{ "id": "k1", "sumber": "wawancara-1", "lebar": 480, "tinggi": 270, "dari": 12, "panjang": 8 }]
+}
+```
+
+| Bagian | Kunci |
+| --- | --- |
+| `proyek` | `tujuan` (wajib), `lisensiKeluaran` (wajib bila ada sumber ShareAlike). |
+| `sumber[]` | `id`, `berkas`, `sha256`, `judul` (atau `tanpaJudul`), `pencipta` (atau `penciptaAnonim`), `sumberUrl` (URL asli, jangan dipendekkan), `lisensi` (kode beserta versi), `perubahan`, opsional `urlLisensi` (bawaan dari kode lisensi) dan `bukti` (wajib untuk `STOK:`). |
+| `klip[]` | `id`, `sumber`, `lebar` dan `tinggi` (piksel, ukuran tampil dikali skala render; rasio berbeda dari sumber memberi peringatan), `dari` dan `panjang` (detik; bawaan 0 dan sampai akhir), `format` (`jpg` bawaan, atau `png` lossless untuk tangkapan layar dan grafik), `kualitas` (JPEG `q:v` 1..31, bawaan 2). Satu sumber boleh dipakai beberapa klip. |
+
+### `scripts/klip.mjs`
+
+```text
+bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung props.json] [--paksa]
+```
+
+| Flag | Keterangan |
+| --- | --- |
+| `--fps N` | Wajib; fps komposisi. Frame diambil dengan filter `fps` (sumber VFR atau fps lain dinormalisasi). |
+| `--out DIR` | Folder cache dan keluaran (bawaan `.cache/awvd/klip`, diabaikan git). |
+| `--gabung F` | Berkas props dasar (objek JSON tanpa kunci `klip`); hasil digabung dengan daftar klip ke `props-gabungan.json` untuk `--props-file`. |
+| `--paksa` | Ekstrak ulang walau cache ada. |
+
+Keluaran di `--out`: `<kunci>/` (frame `000000.jpg`..., `audio.wav` bila sumber beraudio, `meta.json` berisi hash seluruh frame), `klip-props.json` (daftar `klip[]`: `id`, `akar` URL `file://` folder cache, `folder`, `ekstensi`, `digit`, `jumlah`, `fps`, `lebar`, `tinggi`, `audio`, `atribusi`), `atribusi.txt` (format TASL siap tempel di deskripsi), dan `props-gabungan.json` bila `--gabung`. Kode keluar: `0` berhasil, `2` manifest atau argumen tidak valid (tidak ada ekstraksi), `1` galat ffmpeg.
+
+**Cache.** Kunci = sha256 dari {hash berkas sumber, fps, lebar, tinggi, dari, panjang, matriks warna, rentang, format, kualitas, versi ffmpeg}. Cache hit tidak menjalankan ffmpeg. Ekstraksi dua kali menghasilkan frame identik byte demi byte (diuji lewat `framesSha256`). Cache tidak dibersihkan otomatis; hapus `.cache/awvd/klip` bila perlu. Ekstraksi memakai `-flags +bitexact` agar JPEG tidak memuat tag versi ffmpeg.
+
+**Warna.** Chromium mendekode video tak bertag dengan matriks BT.709 sedangkan ffmpeg bawaannya BT.601; pada uji riset PSNR frame yang sama 25,6 dB (bawaan) berbanding 46,1 dB (matriks eksplisit). Karena itu `klip.mjs` memberi matriks dan rentang eksplisit dari tag `ffprobe` (`color_space`, `color_range`); sumber tak bertag dianggap `bt709` (juga untuk resolusi SD; konvensi SD = BT.601 belum diverifikasi), rentang tak bertag dianggap `tv` (`pc` untuk `yuvj*`). Sumber HDR (`smpte2084`, `arib-std-b67`) ditolak. SAR non-persegi dikoreksi, rotasi mengikuti autorotate ffmpeg. Frame JPEG disimpan `yuvj444p`; frame PNG `rgb24`.
+
+### Memakai klip di komposisi
+
+Gambar frame ke `<canvas>` (bukan `<img>`, lihat `klipGambar` di §Referensi API runtime) dan tampilkan kredit saat klip tampil. Jadwal (kapan klip tampil) adalah milik komposisi; `klip.mjs` hanya menyediakan frame.
+
+```html
+<canvas id="pip"></canvas>
+<script>
+  const klip = (ctx) => ctx.props.klip.find((k) => k.id === "k1");
+  defineVideo({
+    width: 1280, height: 720, fps: 30, durationInFrames: 480,
+    async render(frame, ctx) {
+      const lokal = frame - 105;                       // klip tampil mulai frame 105
+      const tampil = await klipGambar(document.getElementById("pip"), klip(ctx), lokal);
+      document.getElementById("pip").style.display = tampil && lokal < 90 ? "block" : "none";
+      document.getElementById("kredit").textContent = kreditKlip(klip(ctx));
+    },
+  });
+</script>
+```
+
+Kredit TASL tampil di layar saat klip tampil (`kreditKlip`, ringkas) dan di kredit akhir (`kreditKlip(k, { ringkas: false })`, lengkap dengan sumber, tautan lisensi, dan pernyataan perubahan); `atribusi.txt` untuk deskripsi video. Praktik CC: kredit boleh di dalam rekaman dan di deskripsi; halaman CC tidak menetapkan lama tayang. PiP sebaiknya sementara, kecil, dekat konten yang dirujuk narasi, dan tidak menutup informasi penting (split attention); posisikan di dalam `areaAman`.
+
+### Templat `klip-tertanam`
+
+[`templates/klip-tertanam/`](templates/klip-tertanam/): komposisi 1280x720, 30 fps, 16 detik: judul, panel PiP berisi dua klip buatan proyek (ffmpeg lavfi: `pola-uji` CC0, `pola-warna` CC BY), kredit TASL di layar dan kredit akhir, caption, serta rencana audio dengan narasi nada sinus (bukan suara orang) yang bergantian (klip `k1`) dan campur (klip `k2`) dengan audio klip. Jalankan dari akar repo:
+
+```bash
+bun templates/klip-tertanam/buat-audio.mjs                # narasi dan musik nada ke .cache/awvd/contoh
+bun scripts/klip.mjs templates/klip-tertanam/sumber.json --fps 30 \
+  --out .cache/awvd/klip --gabung templates/klip-tertanam/props.json
+bun scripts/audio.mjs templates/klip-tertanam/rencana-audio.json --fps 30 \
+  --klip-props .cache/awvd/klip/klip-props.json --out .cache/awvd/campuran.wav
+bun scripts/render.mjs templates/klip-tertanam/index.html \
+  --props-file .cache/awvd/klip/props-gabungan.json \
+  --audio .cache/awvd/campuran.wav --out out/klip-tertanam.mp4
+# opsional: pemeriksaan mutu hasil dengan scripts/periksa.mjs, bila tersedia
+```
+
+Jadwal klip ada di dua tempat (`props.json` untuk komposisi dan `rencana-audio.json` untuk audio); `scripts/uji-klip.mjs` memastikan keduanya sama.
+
+### Batasan
+
+- Disk proporsional dengan durasi klip x fps x ukuran frame; JPEG menambah satu generasi kompresi (pakai `format: "png"` bila kualitas kritis).
+- Tidak ada interpolasi frame: sumber dengan fps lain diduplikasi atau dilewati ke fps komposisi. `kecepatan` di `indeksFrameKlip` juga tanpa interpolasi.
+- `akar` di `klip-props.json` adalah URL `file://` absolut; pratinjau lewat server HTTP tidak bisa memuatnya (buka komposisi lewat `file://`).
+- Hanya SDR; hasil ekstraksi diuji determinismenya pada satu mesin dan satu versi Chromium/ffmpeg, belum lintas mesin.
+
+## Timeline audio
+
+`scripts/audio.mjs` merakit satu WAV dari narasi induk, musik induk, dan audio klip tertanam, dengan aturan **pemegang suara eksklusif** supaya audio klip tidak bertabrakan dengan audio induk. WAV itu diberikan ke `render.mjs --audio`, yang menormalisasi kenyaringan campuran (`--kenyaringan`).
+
+```text
+bun scripts/audio.mjs <rencana-audio.json> --fps N --out campuran.wav
+     [--klip-props klip-props.json] [--ketat-campur]
+```
+
+```mermaid
+flowchart LR
+    N[Narasi induk<br/>WAV beku + frame mulai] --> V{Validasi<br/>pemegang suara}
+    K[Audio klip<br/>mode per klip] --> V
+    M[Musik induk] --> V
+    V -->|tumpang tindih terlarang:<br/>exit 2 + rentang frame| X[berhenti]
+    V --> E[Ukur dan samakan level<br/>ebur128] --> F[ffmpeg: volume eval=frame,<br/>adelay, amix normalize=0]
+    F --> W[campuran.wav<br/>48 kHz stereo float32]
+    W --> R[render.mjs --audio<br/>loudnorm dua-pass]
+```
+
+### Rencana audio
+
+Jalur berkas relatif terhadap folder rencana. Rentang frame setengah terbuka: `akhir` eksklusif. Contoh: [`templates/klip-tertanam/rencana-audio.json`](templates/klip-tertanam/rencana-audio.json).
+
+```json
+{
+  "durasiFrame": 480,
+  "narasi": [{ "id": "n1", "berkas": "narasi-1.wav", "mulai": 0 }],
+  "musik": { "berkas": "musik.wav", "levelDb": -12, "bebasDb": -6 },
+  "klip": [
+    { "id": "k1", "mulai": 105, "akhir": 195, "mode": "bergantian" },
+    { "id": "k2", "mulai": 270, "akhir": 390, "mode": "campur", "turunDb": 12 }
+  ]
+}
+```
+
+| Kunci | Keterangan |
+| --- | --- |
+| `durasiFrame` | Wajib; jumlah frame komposisi. WAV hasil tepat sepanjang `durasiFrame / fps`. |
+| `narasi[]` | `berkas` (WAV atau MP3 beku), `mulai` (frame), `id` opsional. Akhir segmen = `mulai + ceil(durasi x fps)` dari `ffprobe`. |
+| `musik` | Opsional. `levelDb` (bawaan -12, rentang -20..-8): level musik di bawah ucapan saat ada suara. `bebasDb` (bawaan -6, antara `levelDb` dan 0): level saat tak ada suara. |
+| `klip[]` | `id`, `mulai`, `akhir`, `mode` (`bergantian` bawaan, `campur`, `bisu`), `berkas` audio (bisa dihilangkan bila ada `--klip-props`, diambil dari `audio.wav` hasil `klip.mjs`), `gainDb`, `turunDb` (hanya `campur`, bawaan 12, rentang 8..20), `dariDetik` (offset di berkas audio). |
+| `fadeMs` | Bawaan 200, rentang 100..300. |
+| `ucapanLufs` | Level ucapan acuan, bawaan -16 LUFS. |
+
+### Mode klip dan validasi
+
+| Mode | Perilaku |
+| --- | --- |
+| `bergantian` | Klip memegang suara eksklusif pada rentangnya. **Gagal** (exit 2, dengan rentang frame) bila narasi induk tumpang tindih; musik induk dibisukan. |
+| `campur` | Semua terdengar. Audio induk (narasi dan musik) tetap dominan pada level normal; audio klip diturunkan `turunDb` selama narasi aktif. Narasi yang tumpang tindih memberi peringatan (dua aliran ucapan); `--ketat-campur` menjadikannya gagal. |
+| `bisu` | Audio klip tidak dimasukkan; boleh tumpang tindih dengan apa pun. |
+
+Gagal juga bila: dua klip bersuara (bergantian atau campur) tumpang tindih; dua narasi tumpang tindih; `turunDb` di luar 8..20 atau `fadeMs` di luar 100..300; klip bermode bersuara tanpa berkas audio (gunakan `bisu`); berkas tidak ditemukan; rentang tidak valid. Contoh pesan: `narasi "n1" (frame 0..179) tumpang tindih audio klip "k" mode bergantian (frame 150..239) pada frame 150..179`. Setelah validasi, `audio.mjs` mencetak tabel pemegang suara per rentang frame (narasi, klip, campur, musik bebas, senyap).
+
+### Gain dan perakitan
+
+- **Penyamaan level.** Tiap sumber diukur (`ebur128`) dan diberi gain ke `ucapanLufs`; musik ke `ucapanLufs + bebasDb`. Tanpa ini pergantian narasi-klip terdengar sebagai lonjakan. Sumber senyap tidak diubah (diberi peringatan).
+- **Narasi** 0 dB (level normal, dominan) pada semua mode. **Klip bergantian** 0 dB dengan fade-in dan fade-out `fadeMs` di batasnya sendiri. **Klip campur** 0 dB, turun `turunDb` selama narasi aktif.
+- **Musik**: `bebasDb` saat tak ada suara, `levelDb` saat ada narasi atau klip campur, bisu saat klip bergantian.
+- **Transisi**: gain yang turun selesai tepat di batas pergantian pemegang, gain yang naik mulai di batas (tak ada tumpang tindih saat pemegang berganti). Rampa linear amplitudo dengan kemiringan puncak/fade per frame, jadi transisi parsial (mis. 12 dB) lebih singkat daripada `fadeMs`.
+- **Deterministik.** Envelope dihitung dari timeline lalu dijadikan ekspresi `volume=...:eval=frame` pada blok 10 ms, `adelay` dalam sampel, `amix normalize=0`, `-filter_complex_threads 1`, tanpa metadata versi. Dua run menghasilkan WAV identik byte demi byte (diuji).
+- **Keluaran**: WAV 48 kHz stereo float32 (perantara; float menghindari clipping sebelum `loudnorm` di `render.mjs`). Mono diduplikasi ke dua kanal tanpa potongan -3 dB.
+
+Dasar dan batas bukti. Ucapan simultan saling mengganggu (Salamé & Baddeley 1982; Brungart 2001; riset itu hanya terverifikasi sampai metadata), tetapi tingkat bukti untuk aturan ini tidak langsung dan tidak ada standar siaran terverifikasi yang melarang audio tumpang tindih. Selisih 12 dB (rentang 8..20), fade 200 ms, dan musik 12 dB di bawah ucapan adalah usulan rekayasa dari riset rasio dialog-latar (Sugimoto 2026; Ricketts dkk. 2026), bukan standar; riset itu memakai latar non-ucapan, padahal latar klip sering berupa ucapan, sehingga pilih nilai atas rentang bila ragu.
+
+### Narasi dan TTS
+
+awvd tidak membundel mesin TTS. Antarmuka narasi adalah **berkas WAV beku**: hasil rekaman atau TTS dibekukan sebagai berkas, dihash, dicatat (mesin, versi, model, lisensi) di repo proyek, dan hanya berkas itu yang dipakai saat render (TTS saraf bisa tidak deterministik antar-run). Per 2026-11-07 riset tidak menemukan model TTS bahasa Indonesia berlisensi permisif dengan asal data yang jelas: Piper MIT sudah diarsipkan dan penerusnya GPL-3.0; suara `id_ID-news_tts-medium` berlisensi MIT tetapi asal data pelatihannya tidak jelas; MMS-TTS berlisensi CC BY-NC. TTS daring hanya untuk konten publik (DL-037).
+
 ## Aturan determinisme
 
 Dua render dari komposisi dan props yang sama harus menghasilkan frame identik (diverifikasi oleh `bun run uji` lewat `framemd5`).
@@ -204,6 +408,7 @@ Dua render dari komposisi dan props yang sama harus menghasilkan frame identik (
 - Jangan pakai `Math.random()`; pakai `acak(seed)`.
 - Jangan pakai CSS animation atau transition; runtime menyuntikkan aturan yang mematikannya.
 - Font dan gambar harus termuat sebelum frame pertama; renderer menunggu `document.fonts.ready` dan semua `<img>`, dan gagal bila ada gambar rusak.
+- Frame klip digambar ke `<canvas>` lewat `klipGambar` (bukan `<img>`, yang kadang tertangkap dengan frame sebelumnya). Teramati di Chromium mesin pengembangan: kotak berlatar dengan `border-radius` pada posisi pecahan (mis. caption `inline-block` di tengah) menghasilkan 1-2 piksel tepi yang berubah antar-run pada render berurutan; latar bersudut siku atau posisi bulat tidak. Templat `klip-tertanam` memakai latar caption bersudut siku dan lolos uji frame identik.
 
 ## Pemeriksaan mutu (bun run periksa)
 
@@ -351,7 +556,7 @@ Uji: `bun run uji:sop` (validasi, dokumen, props, caption, PDF, perutean, render
 
 - Render serial, sekitar 21 fps pada mesin pengembangan (komposisi contoh); tidak ada paralelisasi antar frame.
 - Hanya Linux yang diuji.
-- Elemen `<video>` di DOM tidak di-seek per frame; gunakan gambar atau `<canvas>` yang digambar dari nomor frame.
+- Elemen `<video>` di DOM tidak di-seek per frame. Untuk video di dalam video pakai fitur klip tertanam (§Video di dalam video: frame diekstrak ke cache lalu digambar per nomor frame); untuk gambar diam pakai `<img>` atau `<canvas>`.
 - Keluaran hanya H.264 (MP4) dan PNG (still). Tidak ada WebM/ProRes/GIF.
 - Hanya SDR BT.709; tidak ada HDR atau ruang warna lain. Normalisasi kenyaringan memakai `loudnorm` linear; bila mode linear tidak dapat dicapai tanpa melewati batas true peak, ffmpeg beralih ke mode dinamis, dan hasil ukur bisa menyimpang dari target (periksa laporan `kenyaringan:`). Hasil dikodekan AAC setelah normalisasi, jadi true peak akhir dapat berbeda sedikit.
 - Resolusi dasar diambil dari `width`/`height` komposisi; ubah ukuran akhir dengan `--skala`.
@@ -370,6 +575,13 @@ scripts/uji-sop.mjs    uji fitur SOP (bun run uji:sop)
 scripts/uji.mjs        uji otomatis renderer (bun run uji)
 templates/<nama>/      komposisi contoh + ASET.md (catatan aset pihak ketiga)
 templates/sop/         template video SOP + sop.json fiktif + props.json hasil generator
+scripts/klip.mjs       validasi manifest sumber dan ekstraksi frame klip ke cache (video di dalam video)
+scripts/audio.mjs      perakit timeline audio (pemegang suara bergantian/campur/bisu)
+scripts/uji-klip.mjs   uji klip.mjs, audio.mjs, helper klip/format id-ID/kenBurns, templat klip-tertanam
+scripts/uji.mjs        uji otomatis renderer (bun run uji)
+templates/<nama>/      komposisi contoh + ASET.md (catatan aset pihak ketiga)
+templates/klip-tertanam/  contoh video di dalam video: sumber.json, props, rencana-audio.json, klip kecil buatan sendiri (.mkv)
+.cache/                cache frame klip dan audio contoh (diabaikan git)
 .github/workflows/     CI uji
 .github/pull_request_template.md   checklist uji dan dokumentasi PR
 .claude/agents/        subagent pelaksana (kompleks, sederhana) untuk orchestrator
@@ -377,13 +589,19 @@ AGENTS.md              aturan kerja AI agent (orchestrator, git, rilis, dokument
 CHANGELOG.md           riwayat perubahan software
 ```
 
-Perintah: `bun run render <komposisi> --out ...`, `bun run periksa <video.mp4>` (lihat §Pemeriksaan mutu), `bun run sop <sop.json> --out DIR` (lihat §SOP sebagai bahan video), dan `bun run uji` (uji unit helper runtime lewat `scripts/uji-runtime.mjs`, uji alat QC lewat `scripts/uji-periksa.mjs`, uji fitur SOP lewat `scripts/uji-sop.mjs`, lalu sembilan uji renderer: properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran; sekitar dua menit). `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
+Perintah utama:
+
+- `bun run render <komposisi> --out ...`: render video atau still.
+- `bun run periksa <video.mp4>`: pemeriksaan mutu (lihat §Pemeriksaan mutu).
+- `bun run sop <sop.json> --out DIR`: SOP menjadi dokumen dan bahan video (lihat §SOP sebagai bahan video).
+- `bun run klip <sumber.json> --fps N` dan `bun run audio <rencana.json> --fps N --out ...`: video di dalam video dan timeline audio.
+- `bun run uji`: uji unit runtime, uji periksa, uji SOP, uji klip, lalu sembilan uji renderer (properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran); sekitar dua setengah menit. `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
 
 ## Kontribusi dan dokumentasi
 
 Setiap perubahan lewat branch dan pull request (`<jenis>/<ringkas>`), dan merge hanya setelah semua check (`uji`, GitGuardian) berstatus SUCCESS. Perubahan konsep atau fitur wajib membawa pembaruan dokumen di PR yang sama. Aturan lengkapnya ada di [AGENTS.md](AGENTS.md): §Git dan PR untuk alur git, dan §Dokumentasi untuk peta "perubahan apa memperbarui dokumen mana".
 
-Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata README dan AGENTS.md) menandai revisi dokumen. Versi software ada di `package.json` dan `CHANGELOG.md`. README `v1.8.0` tidak berarti awvd `1.8.0`.
+Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata README dan AGENTS.md) menandai revisi dokumen. Versi software ada di `package.json` dan `CHANGELOG.md`. README `v1.9.0` tidak berarti awvd `1.9.0`.
 
 ## Rilis
 
@@ -411,9 +629,15 @@ Belum ada rilis bertag. Versi paket `0.1.0`, dan semua perubahan dicatat di [CHA
 
 ### Tanggung jawab pengguna atas aset
 
-Font, musik (`--audio`), gambar, footage, dan suara TTS wajib berlisensi jelas dan dicatat sumbernya. Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
+Font, musik (`--audio`), gambar, footage, klip tertanam, dan suara TTS wajib berlisensi jelas dan dicatat sumbernya (klip tertanam divalidasi `klip.mjs`). Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.9.0
+
+- Menambahkan bagian Video di dalam video (aturan sumber dan lisensi, manifest `sumber.json`, `scripts/klip.mjs`, cache, warna, memakai klip di komposisi, templat `klip-tertanam`, batasan) dan Timeline audio (rencana audio, mode klip dan validasi pemegang suara, gain dan perakitan, narasi dan TTS).
+- §Referensi API runtime: `gambarKosong`, `indeksFrameKlip`, `jalurFrameKlip`, `klipGambar`, `kreditKlip`, `angka`/`persen`/`rupiah`, dan `kenBurns`.
+- §Aturan determinisme, §Batasan yang diketahui (butir `<video>` diganti rujukan ke fitur klip tertanam), §Struktur repo, dan §Tanggung jawab pengguna atas aset disesuaikan.
 
 ### 2026-11-07 - v1.8.0
 
