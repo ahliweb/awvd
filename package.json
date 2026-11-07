@@ -1,0 +1,10 @@
+{
+  "name": "awvd",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Renderer video MP4 dari komposisi web berbasis nomor frame (ahliweb/awvd).",
+  "type": "module",
+  "dependencies": {
+    "playwright-core": "1.64.1"
+  }
+}
