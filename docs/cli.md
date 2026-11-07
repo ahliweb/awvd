@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.2.0`
+- Version: `v1.2.1`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan bun run pelajari, bun run kutipan, dan flag klip --draf ke tabel Perintah lain; bagian Jaringan dan font, flag --izinkan-jaringan, dan kode keluar 3 dari fitur aset dipertahankan.`
+- Changeset: `Perilaku --skala dijelaskan: skala di bawah 1 ditangkap pada skala 1 lalu diperkecil ffmpeg agar deterministik.`
 
 Referensi CLI `scripts/render.mjs` (`bun run render`). Alur di balik perintah ini ada di [arsitektur.md](arsitektur.md).
 
@@ -19,7 +19,7 @@ bun scripts/render.mjs <komposisi.html|URL> --out hasil.mp4 [opsi]
 | `--out F` | wajib | Berkas keluaran (`.mp4`, atau `.png` bersama `--still`). Folder tujuan dibuat otomatis bila belum ada. |
 | `--props JSON` / `--props-file F` | `{}` | Props komposisi; pakai salah satu, harus objek JSON. |
 | `--dari N` / `--sampai M` | `0` / frame terakhir | Rentang frame (inklusif). Audio dan subtitle diselaraskan ke frame awal. |
-| `--skala X` | `1` | Faktor skala keluaran (min 0,1); layout tetap, raster dibuat ulang tajam. Dimensi ganjil dipotong 1 px ke genap. |
+| `--skala X` | `1` | Faktor skala keluaran (min 0,1); layout tetap. `X >= 1`: raster dibuat ulang tajam pada ukuran akhir. `X < 1`: tangkapan skala 1 diperkecil `ffmpeg` (lanczos), sehingga deterministik. Dimensi ganjil dipotong 1 px ke genap. |
 | `--crf N` | `18` | Kualitas x264, `0..51`. |
 | `--audio F` | - | Trek audio, di-encode AAC-LC 48 kHz stereo 384 kbps; yang pendek diberi senyap (setelah normalisasi), yang panjang dipotong sesuai durasi video. |
 | `--kenyaringan M` | `web` | Normalisasi kenyaringan audio dengan `loudnorm` dua-pass (mode `linear`); hanya berlaku bersama `--audio`, diabaikan (dengan peringatan) tanpa `--audio`. `web`: -16 LUFS, true peak -1,5 dBTP, LRA 11. `siaran`: -23 LUFS, -1 dBTP, LRA 11 (EBU R 128; toleransi R 128 ±1 LU). `mati`: tanpa normalisasi. Nilai lain: kode keluar `2`. Pass 1 mengukur segmen audio yang sama dengan yang dipakai video (offset `--dari`, dipotong sepanjang video); audio senyap total dilewati dengan peringatan. |
@@ -69,6 +69,10 @@ Sebelum frame pertama renderer memuat eksplisit setiap `@font-face` (`FontFace.l
 | `bun run uji` | Seluruh uji otomatis | [README](../README.md#perintah-utama) |
 
 ## Changelog
+
+### 2026-11-07 - v1.2.1
+
+- `--skala X` dengan `X < 1` kini menangkap frame pada skala 1 lalu memperkecilnya dengan `ffmpeg` (lanczos); sebelumnya `clip.scale < 1` menghasilkan raster yang berbeda acak antar render (isu #26). Keluaran skala 1 tidak berubah.
 
 ### 2026-11-07 - v1.2.0
 
