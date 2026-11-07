@@ -1,0 +1,41 @@
+name: uji
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uji-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  uji:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: Pasang ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
+      - run: bun install --frozen-lockfile
+      - name: Pasang Chromium headless shell
+        run: bunx playwright-core install --with-deps chromium-headless-shell
+      - name: Jalankan uji
+        run: bun run uji -- --simpan out/artefak
+      - name: Unggah frame contoh
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frame-contoh
+          path: out/artefak/*.png
+          if-no-files-found: ignore
+          retention-days: 7
