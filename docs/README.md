@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Indeks dokumentasi awvd: tabel 13 dokumen docs/ beserta versinya, peta dokumen, dan aturan menambah dokumen baru.`
+- Changeset: `Mendaftarkan visual-audiens.md (14 dokumen docs/) dan memperbarui versi dokumen yang berubah.`
 
 Pintu masuk ke seluruh dokumentasi rinci awvd. Ringkasan proyek, mulai cepat, dan perintah utama ada di [README akar](../README.md); aturan kerja kontributor dan AI agent ada di [AGENTS.md](../AGENTS.md); riwayat perubahan software ada di [CHANGELOG.md](../CHANGELOG.md).
 
@@ -15,18 +15,19 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
 | [arsitektur.md](arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`/`renderFrame`, aturan determinisme, peran upstream, memakai awvd di repo proyek | `v1.0.0` |
-| [api-runtime.md](api-runtime.md) | Referensi seluruh API `scripts/runtime.js`, mode URL, sumber riset helper | `v1.0.0` |
+| [api-runtime.md](api-runtime.md) | Referensi seluruh API `scripts/runtime.js`, mode URL, sumber riset helper | `v1.1.0` |
 | [cli.md](cli.md) | Flag `render.mjs`, kode keluar, encode BT.709, kenyaringan, daftar perintah lain | `v1.0.0` |
-| [pemeriksaan-mutu.md](pemeriksaan-mutu.md) | `bun run periksa` (termasuk `--konsep`): pemeriksaan, ambang, kilatan fotosensitif | `v1.0.0` |
-| [konsep-jenis-alur.md](konsep-jenis-alur.md) | `bun run konsep`, `konsep.json`, 13 jenis video, 5 alur produksi, tingkat bukti | `v1.0.0` |
+| [pemeriksaan-mutu.md](pemeriksaan-mutu.md) | `bun run periksa` (termasuk `--konsep`): pemeriksaan, ambang, kilatan fotosensitif | `v1.0.1` |
+| [konsep-jenis-alur.md](konsep-jenis-alur.md) | `bun run konsep`, `konsep.json`, 13 jenis video, 5 alur produksi, tingkat bukti, profil audiens | `v1.1.0` |
 | [sop.md](sop.md) | SOP sebagai dokumen cetak (PermenPAN-RB 35/2012) dan bahan video | `v1.0.0` |
 | [video-tertanam-audio.md](video-tertanam-audio.md) | Video di dalam video (lisensi sumber, `klip.mjs`) dan timeline audio (`audio.mjs`) | `v1.0.0` |
-| [aksesibilitas.md](aksesibilitas.md) | Subtitle, kontras, kilatan, kontrol pratinjau, peta fitur aksesibilitas | `v1.0.0` |
-| [batasan.md](batasan.md) | Batasan yang diketahui dan penunjuk ke batasan per fitur | `v1.0.0` |
+| [visual-audiens.md](visual-audiens.md) | Profil audiens, ukuran teks, buta warna dan jarak warna, ketajaman (garis 2 px, 4:2:0, supersampling), efek dekoratif | `v1.0.0` |
+| [aksesibilitas.md](aksesibilitas.md) | Subtitle, kontras, kilatan, kontrol pratinjau, peta fitur aksesibilitas | `v1.1.0` |
+| [batasan.md](batasan.md) | Batasan yang diketahui dan penunjuk ke batasan per fitur | `v1.1.0` |
 | [lisensi-kepatuhan.md](lisensi-kepatuhan.md) | Lisensi MIT, asal kode, pihak ketiga, tanggung jawab atas aset | `v1.0.0` |
-| [pedoman-produksi.md](pedoman-produksi.md) | Pedoman produksi berbasis riset, dipetakan ke fitur awvd, checklist, rencana | `v1.0.0` |
-| [log-keputusan.md](log-keputusan.md) | Log keputusan awvd (KP-001 dst.) beserta alasan dan rujukan PR | `v1.0.0` |
-| [README.md](README.md) | Indeks ini | `v1.0.0` |
+| [pedoman-produksi.md](pedoman-produksi.md) | Pedoman produksi berbasis riset, dipetakan ke fitur awvd, checklist, rencana | `v1.1.0` |
+| [log-keputusan.md](log-keputusan.md) | Log keputusan awvd (KP-001 dst.) beserta alasan dan rujukan PR | `v1.1.0` |
+| [README.md](README.md) | Indeks ini | `v1.1.0` |
 
 ## Peta dokumen
 
@@ -43,6 +44,8 @@ flowchart TD
     CLI --> SOP[sop]
     CLI --> KON[konsep-jenis-alur]
     KON --> QC
+    KON --> VIS[visual-audiens]
+    API --> VIS
     I --> PP[pedoman-produksi<br/>dasar riset]
     I --> LK[log-keputusan<br/>alasan]
     I --> AKS[aksesibilitas]
@@ -65,6 +68,10 @@ flowchart TD
 - Dokumen berbahasa Indonesia dan tidak menyebut nama, path, atau tautan repo internal AhliWeb yang privat.
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Mendaftarkan `visual-audiens.md` (14 dokumen) dan memperbarui kolom Versi dokumen yang berubah.
 
 ### 2026-11-07 - v1.0.0
 

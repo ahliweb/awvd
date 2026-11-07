@@ -28,6 +28,9 @@ _Dihasilkan oleh `bun run konsep -- brief` dari konsep.json (id `demo-sop-tautan
 - Bahasa: id
 - Konteks tonton: laptop-kantor
 - Ditonton tanpa suara: tidak
+- Profil audiens: Umum (dewasa) (`umum`)
+- Penyesuaian efektif (yang paling ketat dari preset dan profil; data/audiens.json): caption maksimal 17 cps; kontras teks minimal 4,5:1; kontras non-teks minimal 3:1; pengali ukuran teks 1; paling banyak 4 elemen informatif baru per adegan; pengali tempo adegan 1; pengali kecepatan narasi 1.
+- Ukuran teks minimum: `ukuranTeks(tinggiFrame, peran, 1, konteks)` di runtime; konteks dari konteks tonton: laptop.
 
 ## Pesan utama
 
@@ -70,7 +73,7 @@ Preset `panduan` dari data/jenis-video.json. Banyak nilai adalah keputusan desai
 | durasiTarget | 150 s | keputusan-desain | Tidak ada standar untuk jenis ini; target kerja yang boleh diubah. |
 | durasiMaks | 360 s | bukti | Guo, Kim & Rubin (2014): keterlibatan menurun setelah sekitar 6 menit. |
 | detikPerAdegan | 10 s | keputusan-desain | Tempo rata-rata, bukan nilai tetap; durasi adegan tidak boleh kurang dari durasiBaca(teks). Cutting dkk. (2010) hanya meneliti film naratif. |
-| cps | 17 karakter/detik | pedoman-industri | Netflix Timed Text Style Guide: 17 cps (anak) dan 20 cps (dewasa); angka untuk bahasa Indonesia belum diverifikasi, bawaan konservatif 17. |
+| cps | 17 karakter/detik | pedoman-industri | Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH dewasa 20 cps dan anak 17 cps. Preset memakai subtitle dewasa 17; profil audiens anak menurunkannya ke 13 (data/audiens.json). |
 | burnIn | tidak (sidecar) | keputusan-desain | Sidecar .vtt/.srt adalah bawaan; burn-in dipilih bila penonton diperkirakan menonton tanpa suara. |
 | modeCaption | pop-on | keputusan-desain | pop-on = satu cue tampil utuh (captionAktif); sorot-kata = penyorotan kata per kata, belum ada helper runtime. |
 | transisi | sedang | keputusan-desain | Token durasi gerak Material Design 3 (150/300/500/800 ms); pilihan token per jenis adalah keputusan desain. |

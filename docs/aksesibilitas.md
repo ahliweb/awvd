@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: subtitle lunak, sidecar, kontras, kontrol pratinjau; ditambah peta fitur aksesibilitas yang sudah ada di runtime dan alat QC.`
+- Changeset: `Menambahkan baris peta fitur untuk buta warna (periksaPalet), ukuran teks (ukuranTeks), dan profil audiens (lansia, low vision, anak).`
 
 Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 
@@ -23,6 +23,9 @@ Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 | Caption sebagai trek lunak | `--subtitle`, `--bahasa` | [cli.md](cli.md) |
 | Kontras teks | `luminansRelatif`, `kontras`, `pilihTeksKontras` (WCAG 2.2 SC 1.4.3); preset jenis tidak boleh menurunkan kontras di bawah 4,5:1 | [api-runtime.md](api-runtime.md), [konsep-jenis-alur.md](konsep-jenis-alur.md) |
 | Area aman layar | `areaAman` | [api-runtime.md](api-runtime.md) |
+| Penonton buta warna | `periksaPalet`, `simulasiButaWarna`, `bedaWarna`, `paletOkabeIto` (WCAG 2.2 SC 1.4.1 dan 1.4.11) | [visual-audiens.md](visual-audiens.md#warna-dan-buta-warna) |
+| Ukuran teks terbaca | `ukuranTeks` (menurut sudut pandang, konteks tonton, dan audiens) | [visual-audiens.md](visual-audiens.md#ukuran-teks) |
+| Lansia, low vision, dan anak | Profil di `data/audiens.json` (ukuran teks, kontras 7:1, cps 13, tempo, elemen per adegan); `bun run konsep -- baru --audiens` | [visual-audiens.md](visual-audiens.md#profil-audiens) |
 | Kilatan fotosensitif | Pemeriksa kilatan di `bun run periksa` (penyaringan konservatif, bukan sertifikasi) | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) |
 | Batas subtitle (baris, cps, durasi cue) | Lint subtitle di `bun run periksa --subtitle` | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) |
 | Penonton tanpa suara | Field `audiens.tanpaSuara` dan `caption.burnIn` di `konsep.json` | [konsep-jenis-alur.md](konsep-jenis-alur.md) |
@@ -30,6 +33,10 @@ Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 PDF SOP bertag (outline, bahasa `id`, tabel `th scope`) tetapi **tidak** mengklaim PDF/UA; lihat [sop.md](sop.md).
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Peta fitur: buta warna, ukuran teks, dan profil audiens.
 
 ### 2026-11-07 - v1.0.0
 
