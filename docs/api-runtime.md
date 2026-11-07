@@ -2,11 +2,13 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.2.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: tabel seluruh API runtime scripts/runtime.js, mode URL, dan ringkasan sumber riset tiap helper.`
+- Changeset: `Menambahkan penunjuk ke modul terpisah scripts/transisi.js (window.Transisi) di pengantar; isi API runtime tidak berubah.`
 
 Referensi API `scripts/runtime.js`, yang dimuat komposisi lewat `<script src=".../scripts/runtime.js">`. Konsep komposisi dan protokol dengan renderer ada di [arsitektur.md](arsitektur.md); dasar riset dan checklist pemakaian helper ada di [pedoman-produksi.md](pedoman-produksi.md).
+
+Transisi antar adegan dan animasi elemen berada di modul terpisah `scripts/transisi.js` (`window.Transisi`, dimuat setelah `runtime.js`); referensinya ada di [transisi-animasi.md](transisi-animasi.md). Runtime tidak berubah.
 
 ## Tabel API
 
@@ -30,7 +32,12 @@ Semua fungsi tersedia sebagai global dan di `window.VideoTerprogram`.
 | `areaAman(lebar, tinggi)` | `{ aksi: {x,y,w,h}, grafis: {x,y,w,h} }`. Area aksi 93% (margin 3,5% per sisi) dan grafis 90% (5% per sisi), EBU R 95 v1.1 (2017) catatan 5. Margin per sisi dibulatkan ke piksel terdekat (setengah naik), lalu dipakai simetris: `w = lebar - 2 * x`. Contoh 1920x1080: aksi `{67,38,1786,1004}`, grafis `{96,54,1728,972}`. |
 | `luminansRelatif(warna)`, `kontras(a, b)` | Luminansi relatif dan rasio kontras 1..21 (tidak dibulatkan) menurut WCAG 2.2 SC 1.4.3. `warna` = `[r,g,b]` 0..255 atau `"#rgb"`/`"#rrggbb"`; format lain melempar galat. `kontras("#000","#fff")` = 21; `kontras("#777","#fff")` ≈ 4,48 (di bawah 4,5). |
 | `pilihTeksKontras(latar)` | `"#000000"` atau `"#ffffff"`, mana yang rasio kontrasnya lebih tinggi terhadap `latar`. |
-| `durasiBaca(teks, { cps = 17, min = 5/6, maks = 7, fps })` | `{ detik }`, plus `frame` bila `fps` diberikan. Detik = karakter (termasuk spasi; spasi berurutan dirapikan) / `cps`, dijepit ke `[min, maks]`. Netflix Timed Text Style Guide: dewasa maksimal 20 cps, anak 17 cps; angka untuk bahasa Indonesia belum ada sumber primer, jadi bawaan konservatif 17. |
+| `simulasiButaWarna(warna, jenis, keparahan = 1)` | `[r, g, b]` 0..255 (float, tidak dibulatkan) warna sebagaimana terlihat penonton `protanopia`, `deuteranopia`, atau `tritanopia`. Matriks Machado, Oliveira & Fernandes 2009 (keparahan 1,0) pada RGB linear; `keparahan` 0..1 diinterpolasi linear terhadap identitas (pendekatan). Putih dan hitam tetap. `jenis` atau `keparahan` tak sah melempar galat. |
+| `keLab(warna)`, `bedaLab(lab1, lab2)`, `bedaWarna(a, b)` | `keLab` mengubah sRGB ke CIELAB (D65) `[L, a, b]`. `bedaLab` dan `bedaWarna` mengembalikan selisih warna CIEDE2000 (delta E00; Sharma, Wu & Dalal 2005; 0 = identik, hitam-putih = 100). Diuji terhadap data uji Sharma sampai 1e-3. |
+| `periksaPalet(palet, { ambang = 10, latar, kontrasMin = 3 })` | Memeriksa palet kategorikal (>= 2 warna): untuk tiap pasangan, delta E00 dalam penglihatan normal dan tiga simulasi buta warna; pasangan di bawah `ambang` dilaporkan. Dengan `latar`, warna berkontras < `kontrasMin` terhadapnya juga dilaporkan (WCAG 2.2 SC 1.4.11, 3:1). Hasil: `{ lolos, minPerKondisi: { normal, protanopia, deuteranopia, tritanopia }, pasangan: [{ a, b, warnaA, warnaB, kondisi, deltaE }], lemahKontras: [{ i, warna, kontras }] }`. `ambang` 10 adalah keputusan desain, bukan standar. Tidak menggantikan redundansi bentuk atau teks (WCAG 1.4.1). |
+| `paletOkabeIto` | Array 8 warna Okabe-Ito: `#000000`, `#E69F00`, `#56B4E9`, `#009E73`, `#F0E442`, `#0072B2`, `#D55E00`, `#CC79A7`. Hex dari praktik umum, belum diverifikasi dari teks primer. Hitam tidak berkontras dengan latar gelap. |
+| `ukuranTeks(tinggiFrame, peran = "isi", audiens = "umum", konteks = "ponselLanskap")` | `{ px, persenTinggi, tinggiXDerajat }`: ukuran font minimum (dibulatkan, piksel pada bingkai setinggi `tinggiFrame`) agar tinggi-x memenuhi 0,2 derajat (Legge & Bigelow 2011) dikali pengali peran dan audiens. `peran`: `judul`, `subjudul`, `isi`, `caption`, `keterangan`. `audiens`: `umum`, `remaja`, `anak`, `lansia`, `lowVision`, atau pengali angka > 0. `konteks`: `tv`, `laptop`, `ponselLanskap`, `ponselVertikalPenuh`, `ponselPotret169`. Properti `ukuranTeks.konteks`, `.pengaliAudiens`, `.peran`, `.cpsDerajat`, `.rasioTinggiX` memuat tabel yang dipakainya. Geometri dan pengali adalah asumsi dan keputusan desain; lihat [visual-audiens.md](visual-audiens.md). |
+| `durasiBaca(teks, { cps = 17, min = 5/6, maks = 7, fps })` | `{ detik }`, plus `frame` bila `fps` diberikan. Detik = karakter (termasuk spasi; spasi berurutan dirapikan) / `cps`, dijepit ke `[min, maks]`. Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH (caption untuk tuli dan sulit dengar) dewasa 20 cps dan anak 17 cps. Bawaan 17 = subtitle dewasa; untuk anak pakai `cps: 13`. |
 | `pecahBaris(teks, { maks = 42, baris = 2 })` | Mengembalikan **array** baris, dengan properti `melebihi` (boolean) pada array itu. Muat satu baris: satu elemen. Selain itu dipakai jumlah baris minimum dan potongan di spasi dengan prioritas: semua baris <= `maks`; baris atas bukan 1-2 kata; potongan setelah tanda baca (`, . ; : ? !`) atau sebelum kata sambung umum (dan, atau, tetapi, yang, untuk, dengan, di, ke, dari, karena, agar, sehingga); bentuk piramida terbalik (bawah >= atas); baris seimbang. Tidak muat dalam `baris` baris: `melebihi = true` dan array berisi seluruh teks dibungkus greedy (jumlah elemen bisa > `baris`; tidak ada teks hilang). Teks kosong menghasilkan `[]`. Pedoman: Netflix Timed Text Style Guide (maksimal 42 karakter per baris, dua baris). Properti `melebihi` hilang bila array diserialisasi JSON. |
 | `captionAktif(cues, frame, fps)` | Cue aktif atau `null`. `cues` = array `{ mulai, akhir, teks }` dalam detik; aktif bila `mulai <= frame/fps < akhir`. Cue tumpang tindih: yang pertama dalam array. Untuk burn-in caption di DOM. |
 | `presetJenis(nama)` | Salinan dalam preset jenis video (`formal`, `edukasi`, `kreatif`, `promo`, `produk`, `panduan`, `dokumenter`, `sosial`, `data`, `testimoni`, `psa`, `internal`, `acara`): `{ kunci, label, deskripsi, tujuan, alurBawaan, alurCocok, nilai, bukti, pemeriksaanTambahan }`. Data dimuat lewat `<script src=".../preset-jenis.js">` sebelum dipanggil (lihat [konsep-jenis-alur.md](konsep-jenis-alur.md#preset-di-komposisi-browser)); tanpa itu, atau untuk nama tak dikenal, melempar galat berpetunjuk. Murni dan deterministik. |
@@ -59,12 +66,26 @@ Sumber tiap helper (rincian dan tingkat buktinya ada di baris tabel di atas dan 
 | `easing.standar` dan preset sejenis, `durasi.pendek`..`sangatPanjang` | Token Material Design 3 |
 | `durasi.masuk`, `durasi.keluar` | NN/g (Laubheimer 2020) |
 | `luminansRelatif`, `kontras`, `pilihTeksKontras` | WCAG 2.2 SC 1.4.3 |
+| `simulasiButaWarna` | Machado, Oliveira & Fernandes 2009 (IEEE TVCG 15(6)); matriks dibaca dari halaman sumbernya |
+| `keLab`, `bedaLab`, `bedaWarna` | CIEDE2000, Sharma, Wu & Dalal 2005; titik putih D65 |
+| `periksaPalet` | WCAG 2.2 SC 1.4.1 dan 1.4.11 (standar); ambang delta E00 10 keputusan desain |
+| `paletOkabeIto` | Okabe & Ito, Color Universal Design (jfly); hex dari praktik umum |
+| `ukuranTeks` | Legge & Bigelow 2011 (ukuran cetak kritis); pengali dan geometri keputusan desain ([visual-audiens.md](visual-audiens.md)) |
 | `durasiBaca`, `pecahBaris`, `captionAktif`, `parseVtt`, `parseSrt` | Netflix Timed Text Style Guide |
 | `angka`, `persen`, `rupiah` | EYD Edisi V (Badan Bahasa, 2022), sumber sekunder |
 | `kenBurns` | Praktik; tidak ada bukti eksperimen |
 | `presetJenis` | Preset bertingkat bukti ([konsep-jenis-alur.md](konsep-jenis-alur.md#tingkat-bukti)) |
 
 ## Changelog
+
+### 2026-11-07 - v1.2.0
+
+- Menambahkan penunjuk ke `transisi-animasi.md` untuk modul `scripts/transisi.js`.
+
+### 2026-11-07 - v1.1.0
+
+- Menambahkan `simulasiButaWarna`, `keLab`, `bedaLab`, `bedaWarna`, `periksaPalet`, `paletOkabeIto`, dan `ukuranTeks` beserta sumbernya; rujukan ke [visual-audiens.md](visual-audiens.md).
+- Baris `durasiBaca`: batas cps dikoreksi menjadi subtitle dewasa 17 dan anak 13, SDH 20 dan 17 (Netflix Indonesia); catatan kesenjangan dihapus.
 
 ### 2026-11-07 - v1.0.0
 

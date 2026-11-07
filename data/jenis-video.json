@@ -94,7 +94,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "Netflix Timed Text Style Guide: 17 cps (anak) dan 20 cps (dewasa); angka untuk bahasa Indonesia belum diverifikasi, bawaan konservatif 17."
+          "rujukan": "Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH dewasa 20 cps dan anak 17 cps. Preset memakai subtitle dewasa 17; profil audiens anak menurunkannya ke 13 (data/audiens.json)."
         },
         "burnIn": {
           "tingkat": "keputusan-desain",
@@ -222,7 +222,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "Netflix Timed Text Style Guide: 17 cps (anak) dan 20 cps (dewasa); angka untuk bahasa Indonesia belum diverifikasi, bawaan konservatif 17."
+          "rujukan": "Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH dewasa 20 cps dan anak 17 cps. Preset memakai subtitle dewasa 17; profil audiens anak menurunkannya ke 13 (data/audiens.json)."
         },
         "burnIn": {
           "tingkat": "keputusan-desain",
@@ -340,7 +340,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "Netflix Timed Text Style Guide: 17 cps (anak) dan 20 cps (dewasa); angka untuk bahasa Indonesia belum diverifikasi, bawaan konservatif 17."
+          "rujukan": "Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH dewasa 20 cps dan anak 17 cps. Preset memakai subtitle dewasa 17; profil audiens anak menurunkannya ke 13 (data/audiens.json)."
         },
         "burnIn": {
           "tingkat": "keputusan-desain",
@@ -468,7 +468,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "17 cps bawaan konservatif; boleh sampai 20 (batas dewasa Netflix)."
+          "rujukan": "Netflix Indonesian Timed Text Style Guide: 17 cps = batas subtitle dewasa (anak 13 cps); 20 cps hanya batas SDH dewasa, jadi melebihi 17 harus lewat override beralasan."
         },
         "burnIn": {
           "tingkat": "pedoman-industri",
@@ -575,7 +575,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "Netflix Timed Text Style Guide: 17 cps (anak) dan 20 cps (dewasa); angka untuk bahasa Indonesia belum diverifikasi, bawaan konservatif 17."
+          "rujukan": "Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH dewasa 20 cps dan anak 17 cps. Preset memakai subtitle dewasa 17; profil audiens anak menurunkannya ke 13 (data/audiens.json)."
         },
         "burnIn": {
           "tingkat": "keputusan-desain",
@@ -691,7 +691,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "Netflix Timed Text Style Guide: 17 cps (anak) dan 20 cps (dewasa); angka untuk bahasa Indonesia belum diverifikasi, bawaan konservatif 17."
+          "rujukan": "Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH dewasa 20 cps dan anak 17 cps. Preset memakai subtitle dewasa 17; profil audiens anak menurunkannya ke 13 (data/audiens.json)."
         },
         "burnIn": {
           "tingkat": "keputusan-desain",
@@ -805,7 +805,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "Netflix Timed Text Style Guide: 17 cps (anak) dan 20 cps (dewasa); angka untuk bahasa Indonesia belum diverifikasi, bawaan konservatif 17."
+          "rujukan": "Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH dewasa 20 cps dan anak 17 cps. Preset memakai subtitle dewasa 17; profil audiens anak menurunkannya ke 13 (data/audiens.json)."
         },
         "burnIn": {
           "tingkat": "keputusan-desain",
@@ -916,7 +916,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "20 cps = batas dewasa Netflix. Anjuran TikTok '5-10 kata per detik' untuk teks layar tidak dipakai sebagai batas caption (lihat README)."
+          "rujukan": "20 cps = batas SDH dewasa Netflix Indonesia (subtitle dewasa 17 cps, anak 13 cps), dipilih untuk caption vertikal yang singkat; keputusan menunggu konfirmasi pemilik (KP-016). Anjuran TikTok '5-10 kata per detik' untuk teks layar tidak dipakai sebagai batas caption (lihat docs/konsep-jenis-alur.md, bagian Konflik pedoman: TikTok dan lint caption)."
         },
         "burnIn": {
           "tingkat": "pedoman-industri",
@@ -1035,7 +1035,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "Netflix Timed Text Style Guide: 17 cps (anak) dan 20 cps (dewasa); angka untuk bahasa Indonesia belum diverifikasi, bawaan konservatif 17."
+          "rujukan": "Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH dewasa 20 cps dan anak 17 cps. Preset memakai subtitle dewasa 17; profil audiens anak menurunkannya ke 13 (data/audiens.json)."
         },
         "burnIn": {
           "tingkat": "keputusan-desain",
@@ -1146,7 +1146,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "Netflix Timed Text Style Guide: 17 cps (anak) dan 20 cps (dewasa); angka untuk bahasa Indonesia belum diverifikasi, bawaan konservatif 17."
+          "rujukan": "Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH dewasa 20 cps dan anak 17 cps. Preset memakai subtitle dewasa 17; profil audiens anak menurunkannya ke 13 (data/audiens.json)."
         },
         "burnIn": {
           "tingkat": "keputusan-desain",
@@ -1258,7 +1258,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "Netflix Timed Text Style Guide: 17 cps (anak) dan 20 cps (dewasa); angka untuk bahasa Indonesia belum diverifikasi, bawaan konservatif 17."
+          "rujukan": "Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH dewasa 20 cps dan anak 17 cps. Preset memakai subtitle dewasa 17; profil audiens anak menurunkannya ke 13 (data/audiens.json)."
         },
         "burnIn": {
           "tingkat": "keputusan-desain",
@@ -1374,7 +1374,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "Netflix Timed Text Style Guide: 17 cps (anak) dan 20 cps (dewasa); angka untuk bahasa Indonesia belum diverifikasi, bawaan konservatif 17."
+          "rujukan": "Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH dewasa 20 cps dan anak 17 cps. Preset memakai subtitle dewasa 17; profil audiens anak menurunkannya ke 13 (data/audiens.json)."
         },
         "burnIn": {
           "tingkat": "keputusan-desain",
@@ -1488,7 +1488,7 @@
         },
         "cps": {
           "tingkat": "pedoman-industri",
-          "rujukan": "Netflix Timed Text Style Guide: 17 cps (anak) dan 20 cps (dewasa); angka untuk bahasa Indonesia belum diverifikasi, bawaan konservatif 17."
+          "rujukan": "Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 cps dan anak 13 cps; SDH dewasa 20 cps dan anak 17 cps. Preset memakai subtitle dewasa 17; profil audiens anak menurunkannya ke 13 (data/audiens.json)."
         },
         "burnIn": {
           "tingkat": "keputusan-desain",

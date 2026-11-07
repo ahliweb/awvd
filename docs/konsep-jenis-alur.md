@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: bun run konsep, skema konsep.json, 13 jenis video, 5 alur produksi, tingkat bukti, preset di komposisi, dan batasan.`
+- Changeset: `Menambahkan profil audiens (daftar audiens, baru --audiens, audiens.profil di konsep.json, blok audiens di preset) dan mengoreksi batas cps Netflix Indonesia (subtitle 17/13, SDH 20/17; sosial 20 = batas SDH).`
 
-Saat mendesain konsep video ada dua pilihan awal: **jenis video** (formal, edukasi, kreatif, promo, dan seterusnya) dan **alur produksi** (dari ringkas sampai formal berjenjang). Keduanya adalah data, bukan kode: [`data/jenis-video.json`](../data/jenis-video.json) memuat 13 jenis beserta presetnya, dan [`data/alur-produksi.json`](../data/alur-produksi.json) memuat 5 alur beserta tahap, gate, RACI, dan artefaknya. `scripts/konsep.mjs` (`bun run konsep`) memakai data itu untuk membuat `konsep.json`, memeriksanya, menulis brief, dan mencatat persetujuan; `bun run periksa --konsep` memakainya sebagai ambang QC.
+Saat mendesain konsep video ada dua pilihan awal: **jenis video** (formal, edukasi, kreatif, promo, dan seterusnya) dan **alur produksi** (dari ringkas sampai formal berjenjang). Keduanya adalah data, bukan kode: [`data/jenis-video.json`](../data/jenis-video.json) memuat 13 jenis beserta presetnya, dan [`data/alur-produksi.json`](../data/alur-produksi.json) memuat 5 alur beserta tahap, gate, RACI, dan artefaknya. `scripts/konsep.mjs` (`bun run konsep`) memakai data itu untuk membuat `konsep.json`, memeriksanya, menulis brief, dan mencatat persetujuan; `bun run periksa --konsep` memakainya sebagai ambang QC. Penyesuaian menurut audiens (ukuran teks, cps, kontras, kepadatan elemen) ada di [`data/audiens.json`](../data/audiens.json) dan dijelaskan di [visual-audiens.md](visual-audiens.md).
 
 ```mermaid
 flowchart LR
@@ -26,8 +26,8 @@ Tahap dan gate yang berlaku bergantung pada alur yang dipilih (lihat tabel alur)
 ## Subperintah
 
 ```text
-bun run konsep -- baru --jenis J --alur A --out konsep.json [--judul T] [--timpa]
-bun run konsep -- daftar [jenis|alur [kunci]]
+bun run konsep -- baru --jenis J --alur A --out konsep.json [--judul T] [--audiens P[,P2]] [--timpa]
+bun run konsep -- daftar [jenis|alur|audiens [kunci]]
 bun run konsep -- periksa konsep.json [--video F]
 bun run konsep -- brief konsep.json [--out brief.md]
 bun run konsep -- setuju konsep.json --gate G --oleh "Peran" --tanggal YYYY-MM-DD [--berkas F] [--catatan T]
@@ -37,12 +37,12 @@ bun run konsep -- sinkron-preset [--periksa] [--keluar F]
 
 | Subperintah | Fungsi |
 | --- | --- |
-| `baru` | Membuat `konsep.json` dari preset: field isian kosong (tujuan, audiens, pesan utama, CTA, ...), pilihan yang terisi dari preset (durasi target, rasio, caption, musik, kenyaringan), dan satu entri `persetujuan` per gate alur. Tanpa `--jenis`/`--alur` mencetak tabel pilihan dan exit `2`. Menolak menimpa berkas yang ada tanpa `--timpa`. Alur di luar rekomendasi jenis diterima dengan catatan. |
-| `daftar` | Tabel 13 jenis (dengan alur yang cocok) dan 5 alur. `daftar jenis promo` atau `daftar alur formal` menampilkan rincian, termasuk tingkat bukti tiap nilai. |
-| `periksa` | Validasi skema: jenis dan alur dikenal, tahap sah, rasio sesuai preset, durasi target tidak melebihi durasi maks, `override` hanya untuk kunci preset yang ada (tipe dan enum dicek, kontras tidak boleh di bawah 4,5:1) dan butuh `overrideAlasan`, `tts-daring` dilarang untuk jenis `internal` atau `kepatuhan.sensitif`, tidak ada pola data pribadi (surel, NIK 16 digit, NIP 18 digit, nomor telepon; nilainya tidak ikut dicetak), serta konsistensi persetujuan. Isian inti (judul, tujuan, audiens, pesan utama, CTA; untuk alur instruksional juga `tujuanBelajar`; untuk alur formal juga `kepatuhan.dasarHukum`) hanya peringatan pada tahap pertama dan menjadi galat setelah brief dilewati. `--video F` membandingkan hash SHA-256 video dengan hash gate berhash terakhir. Exit `0` atau `2`. |
-| `brief` | Brief Markdown deterministik: ringkasan, tujuan, audiens, pesan, struktur adegan, preset terpilih beserta tingkat bukti dan rujukan (nilai yang ditimpa ditandai), aturan teknis, kepatuhan, rencana tahap dengan checklist gate dan RACI, tabel persetujuan, dan kriteria selesai. Kolom kosong ditandai `[isi]`; tidak ada cap waktu. |
+| `baru` | Membuat `konsep.json` dari preset: field isian kosong (tujuan, audiens, pesan utama, CTA, ...), pilihan yang terisi dari preset (durasi target, rasio, caption, musik, kenyaringan), dan satu entri `persetujuan` per gate alur. Tanpa `--jenis`/`--alur` mencetak tabel pilihan dan exit `2`. Menolak menimpa berkas yang ada tanpa `--timpa`. Alur di luar rekomendasi jenis diterima dengan catatan. Dengan `--audiens` (satu atau beberapa profil dari `data/audiens.json`, dipisah koma) `audiens.profil` terisi dan `caption.cps` diturunkan ke nilai efektif yang paling ketat (mis. `anak` memberi 13). |
+| `daftar` | Tabel 13 jenis (dengan alur yang cocok) dan 5 alur. `daftar jenis promo` atau `daftar alur formal` menampilkan rincian, termasuk tingkat bukti tiap nilai. `daftar audiens` menampilkan lima profil audiens dan `daftar audiens anak` rincian beserta buktinya. |
+| `periksa` | Validasi skema: jenis dan alur dikenal, tahap sah, rasio sesuai preset, durasi target tidak melebihi durasi maks, `override` hanya untuk kunci preset yang ada (tipe dan enum dicek, kontras tidak boleh di bawah 4,5:1) dan butuh `overrideAlasan`, `tts-daring` dilarang untuk jenis `internal` atau `kepatuhan.sensitif`, tidak ada pola data pribadi (surel, NIK 16 digit, NIP 18 digit, nomor telepon; nilainya tidak ikut dicetak), serta konsistensi persetujuan. Bila `audiens.profil` ada, isinya harus profil yang dikenal; `caption.cps` di atas batas profil dan `kontrasMin` di bawah kebutuhan profil hanya `PERINGATAN`. Isian inti (judul, tujuan, audiens, pesan utama, CTA; untuk alur instruksional juga `tujuanBelajar`; untuk alur formal juga `kepatuhan.dasarHukum`) hanya peringatan pada tahap pertama dan menjadi galat setelah brief dilewati. `--video F` membandingkan hash SHA-256 video dengan hash gate berhash terakhir. Exit `0` atau `2`. |
+| `brief` | Brief Markdown deterministik: ringkasan, tujuan, audiens (beserta profil audiens, penyesuaian efektif, dan konteks `ukuranTeks` bila ada), pesan, struktur adegan, preset terpilih beserta tingkat bukti dan rujukan (nilai yang ditimpa ditandai), aturan teknis, kepatuhan, rencana tahap dengan checklist gate dan RACI, tabel persetujuan, dan kriteria selesai. Kolom kosong ditandai `[isi]`; tidak ada cap waktu. |
 | `setuju` | Mencatat persetujuan satu gate. `--tanggal` wajib (tidak memakai jam sistem agar hasilnya deterministik). Gate berhash (`G5` dan `G6` pada alur formal) wajib `--berkas`; yang dicatat adalah SHA-256 berkas itu. Tahap maju ke tahap sesudah gate. Persetujuan ditolak bila konsep belum cukup lengkap untuk tahap berikutnya. Alur `formal` menolak gate di luar urutan; alur lain hanya memberi catatan. Persetujuan yang sudah ada tidak bisa diubah: perubahan sesudah disahkan berarti versi baru dengan pengesahan ulang. |
-| `preset` | Mencetak `{ jenis, preset }` berisi preset efektif (preset jenis ditambah `override`) sebagai JSON, untuk disuntikkan ke komposisi lewat `--props-file`. |
+| `preset` | Mencetak `{ jenis, preset }` berisi preset efektif (preset jenis ditambah `override`) sebagai JSON, untuk disuntikkan ke komposisi lewat `--props-file`. Bila `audiens.profil` terisi, ditambah blok `audiens` (`profil`, `efektif`, `konteksUkuranTeks`). |
 | `sinkron-preset` | Menulis `scripts/preset-jenis.js` dari `data/jenis-video.json`; dengan `--periksa` hanya memeriksa dan exit `1` bila salinan basi. |
 
 Contoh alur kerja (data fiktif; hasil lengkapnya ada di [`templates/konsep-contoh/`](../templates/konsep-contoh/)):
@@ -62,7 +62,7 @@ bun run periksa out/final.mp4 --konsep konsep.json --subtitle caption.vtt
 | --- | --- |
 | `versi`, `id`, `judul` | Skema versi `1`; `id` huruf kecil dan tanda hubung; judul bebas. |
 | `jenis`, `alur`, `tahap` | Pilihan jenis dan alur, serta id tahap saat ini (`T1`, `T2`, ...; maju otomatis lewat `setuju`). |
-| `tujuan`, `tujuanBelajar[]`, `audiens`, `pesanUtama`, `cta`, `nada` | Isian brief. `audiens` berisi `deskripsi`, `bahasa`, `konteksTonton[]`, `tanpaSuara`. |
+| `tujuan`, `tujuanBelajar[]`, `audiens`, `pesanUtama`, `cta`, `nada` | Isian brief. `audiens` berisi `deskripsi`, `bahasa`, `konteksTonton[]`, `tanpaSuara`, dan opsional `profil[]` (`umum`, `remaja`, `anak`, `lansia`, `lowVision`; lihat [visual-audiens.md](visual-audiens.md)). |
 | `durasiTarget`, `rasio` | Pilihan proyek (detik; `16:9`, `9:16`, `1:1`, `4:5`, atau `21:9`), divalidasi terhadap preset. |
 | `narasi`, `musik`, `kenyaringan`, `caption` | Pilihan proyek yang terisi dari preset. `narasi.mode`: `tanpa`, `tts-lokal`, `tts-daring`, `rekaman`. `caption`: `burnIn`, `cps`, `mode` (`pop-on` atau `sorot-kata`), `bahasa`. `kenyaringan`: `web` atau `siaran`. |
 | `kepatuhan` | `dasarHukum[]`, `izinPotret`, `klaim`, `dataNyata` (harus `false` pada contoh dan templat), `sensitif`. |
@@ -118,7 +118,7 @@ Dari 273 nilai (13 jenis kali 21 atribut) pada 2026-11-07: 171 `keputusan-desain
 
 ## Konflik pedoman: TikTok dan lint caption
 
-Halaman bantuan TikTok for Business menganjurkan teks layar "5-10 kata per detik", sedangkan lint caption awvd (`bun run periksa --subtitle`, Netflix Timed Text Style Guide) membatasi 17-20 karakter per detik (sekitar 3 kata per detik). awvd mempertahankan lint caption untuk **caption ucapan**, dan memperlakukan teks hook TikTok sebagai judul pendek di layar, bukan caption. Karena itu preset `sosial` memakai 20 cps (batas dewasa Netflix), bukan angka TikTok. Keputusan ini perlu dikonfirmasi pemilik; angka optimum untuk bahasa Indonesia belum diverifikasi.
+Halaman bantuan TikTok for Business menganjurkan teks layar "5-10 kata per detik", sedangkan lint caption awvd (`bun run periksa --subtitle`, Netflix Timed Text Style Guide) membatasi 17-20 karakter per detik (sekitar 3 kata per detik): untuk bahasa Indonesia, Netflix menetapkan subtitle dewasa 17 cps dan anak 13 cps, serta SDH (caption untuk tuli dan sulit dengar) dewasa 20 cps dan anak 17 cps. awvd mempertahankan lint caption untuk **caption ucapan**, dan memperlakukan teks hook TikTok sebagai judul pendek di layar, bukan caption. Karena itu preset `sosial` memakai 20 cps (batas SDH dewasa Netflix Indonesia, lebih longgar dari subtitle dewasa 17), bukan angka TikTok. Keputusan ini perlu dikonfirmasi pemilik ([KP-016](log-keputusan.md)); angka optimum untuk caption burn-in vertikal belum punya bukti. Semua jenis lain memakai subtitle dewasa 17 cps, dan profil audiens `anak` menurunkannya ke 13.
 
 ## Preset di komposisi (browser)
 
@@ -142,6 +142,11 @@ Berkas itu tidak boleh diedit tangan. Setelah mengubah `data/jenis-video.json`, 
 - Data pribadi: `periksa` menyaring pola umum (surel, NIK, NIP, telepon), bukan jaminan; konsep dan brief di repo awvd wajib berdata fiktif.
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Profil audiens: `daftar audiens`, `baru --audiens`, `audiens.profil` di `konsep.json`, peringatan di `periksa`, penyesuaian di `brief`, dan blok `audiens` di `preset` (data di `data/audiens.json`).
+- Batas cps dikoreksi menurut Netflix Indonesia (subtitle dewasa 17 dan anak 13; SDH dewasa 20 dan anak 17); preset `sosial` 20 cps dijelaskan sebagai batas SDH dewasa dan tetap menunggu konfirmasi pemilik. Rujukan "lihat README" di `data/jenis-video.json` diganti rujukan ke dokumen ini.
 
 ### 2026-11-07 - v1.0.0
 

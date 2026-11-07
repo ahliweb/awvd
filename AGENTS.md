@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Version: `v1.6.0`
+- Version: `v1.7.0`
 - Last updated: `2026-11-07`
 - Changeset: `Fitur aset: area saling bergantung scripts/aset*, peta pemicu aset dan pemblokiran jaringan renderer, serta risiko tinggi untuk perubahan aturan jaringan dan pemuatan font di render.mjs.`
 
@@ -84,7 +84,7 @@ Aturan:
 
 ### Penerapan di awvd
 
-- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`; `scripts/aset.mjs` bersama `scripts/aset-lib.js`, `scripts/aset-svg.js`, dan `docs/aset.md`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
+- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`; `scripts/transisi.js` bersama `docs/transisi-animasi.md` dan `scripts/uji-transisi.mjs`; `scripts/aset.mjs` bersama `scripts/aset-lib.js`, `scripts/aset-svg.js`, dan `docs/aset.md`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
 - Perubahan pada determinisme, protokol `window.video`/`renderFrame`, pipa ffmpeg, pemblokiran jaringan atau pemuatan font di `render.mjs`, dan pemeriksa SVG (`scripts/aset-svg.js`) tergolong risiko tinggi: delegasikan ke `pelaksana-kompleks` dengan effort `high`, atau kerjakan langsung oleh Opus.
 - Perintah verifikasi yang wajib ada di setiap brief: `bun run uji`.
 - Papan koordinasi: belum ada (dicek 2026-11-07). Penggantinya `gh pr list --state open`; usulkan papan ke pemilik bila kontributor aktif lebih dari satu.
@@ -194,6 +194,7 @@ README akar hanya ringkasan dan indeks. Dokumentasi rinci ada di folder [`docs/`
 | Aset (`scripts/aset.mjs`, `aset-lib.js`, `aset-svg.js`, `templates/aset-contoh/`), matriks lisensi aset | `docs/aset.md`; `docs/lisensi-kepatuhan.md` bila matriks lisensi berubah; `templates/<nama>/ASET.md` |
 | Pemblokiran jaringan atau pemuatan font di `render.mjs` | `docs/cli.md` §Jaringan dan font; `docs/arsitektur.md` §Protokol window.video dan renderFrame; `docs/batasan.md` |
 | Fitur aksesibilitas | `docs/aksesibilitas.md` |
+| Transisi, animasi elemen, profil audiens, `kurangiGerak` (`scripts/transisi.js`, `templates/transisi-galeri/`) | `docs/transisi-animasi.md`; `docs/aksesibilitas.md` bila aturan gerak atau kilatan berubah; komentar kepala `scripts/transisi.js` |
 | Template baru atau berubah | README §Struktur repo; `templates/<nama>/ASET.md` |
 | Uji atau CI | README §Perintah utama dan §Struktur repo (daftar uji dan opsi `bun run uji`); §Git dan PR bila check wajib berubah |
 | Dependensi atau lisensi pihak ketiga | `docs/lisensi-kepatuhan.md`; cek lisensi (§Lisensi dan Aset) |
@@ -263,9 +264,13 @@ Template PR di `.github/pull_request_template.md` memuat checklist ini.
 
 ## Changelog
 
-### 2026-11-07 - v1.6.0
+### 2026-11-07 - v1.7.0
 
 - Fitur aset: `scripts/aset.mjs` bersama `aset-lib.js`, `aset-svg.js`, dan `docs/aset.md` ditambahkan ke area yang tidak boleh paralel; peta pemicu memuat aset serta pemblokiran jaringan dan pemuatan font renderer; perubahan keduanya dan pemeriksa SVG tergolong risiko tinggi.
+
+### 2026-11-07 - v1.6.0
+
+- Peta pemicu memuat baris transisi dan animasi (`scripts/transisi.js`, `templates/transisi-galeri/`) ke `docs/transisi-animasi.md`; Penerapan di awvd menambahkan `scripts/transisi.js` bersama `docs/transisi-animasi.md` dan `scripts/uji-transisi.mjs` sebagai area yang tidak boleh dikerjakan paralel.
 
 ### 2026-11-07 - v1.5.0
 

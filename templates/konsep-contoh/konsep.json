@@ -17,7 +17,10 @@
     "konteksTonton": [
       "laptop-kantor"
     ],
-    "tanpaSuara": false
+    "tanpaSuara": false,
+    "profil": [
+      "umum"
+    ]
   },
   "pesanUtama": "Menambah tautan baru hanya butuh tiga langkah.",
   "cta": {

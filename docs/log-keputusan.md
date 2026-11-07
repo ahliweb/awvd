@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.3.0`
 - Last updated: `2026-11-07`
 - Changeset: `Menambahkan KP-025 sampai KP-028: pemblokiran jaringan renderer, manifest aset.json fail-closed, SVG berdaftar-izin, dan konversi sRGB lewat Chromium.`
 
@@ -23,6 +23,8 @@ flowchart TD
     KP3 --> KP25[KP-025 jaringan diblokir]
     KP25 -->|aset hanya lokal| KP26
     KP15[KP-015 preset bertingkat bukti] -->|konflik lint caption| KP16[KP-016 preset sosial 20 cps]
+    KP16 -->|alasan dikoreksi| KP19[KP-019 cps Netflix Indonesia]
+    KP15 -->|bukti per atribut| KP20[KP-020 profil audiens dan helper visual]
 ```
 
 | ID | Keputusan | Tanggal | Status | Alasan | Rujukan PR |
@@ -42,9 +44,15 @@ flowchart TD
 | KP-013 | Audio klip memakai pemegang suara eksklusif dengan mode `bergantian` (gagal bila narasi induk tumpang tindih), `campur` (audio induk tetap dominan, audio klip turun 8..20 dB, bawaan 12), dan `bisu`. | 2026-11-07 | Berlaku | Ucapan simultan saling mengganggu; tidak ada standar siaran yang melarang tumpang tindih, jadi angka (12 dB, fade 200 ms, musik 12 dB di bawah ucapan) adalah usulan rekayasa dari riset rasio dialog-latar, bukan standar. | #11 |
 | KP-014 | awvd tidak membundel mesin TTS; antarmuka narasi adalah berkas WAV beku (dihash dan dicatat di repo proyek). TTS daring hanya untuk konten publik. | 2026-11-07 | Berlaku | TTS saraf bisa tidak deterministik antar-run. Per 2026-11-07 tidak ditemukan model TTS bahasa Indonesia berlisensi permisif dengan asal data yang jelas. Konten internal atau sensitif tidak dikirim ke layanan daring. | #1, #11 |
 | KP-015 | Preset jenis video (13 jenis) dan alur produksi (5 alur) adalah data bertingkat bukti (`bukti`, `standar`, `pedoman-industri`, `keputusan-desain`); preset adalah bantuan keputusan, bukan standar, dan dapat ditimpa lewat `override` beralasan dengan batas kontras 4,5:1 yang tidak boleh turun. | 2026-11-07 | Berlaku | Pada 2026-11-07 dari 273 nilai preset, 171 berupa keputusan desain dan hanya 6 berbasis bukti; pelabelan jujur mencegah preset dianggap hasil riset. | #12 |
-| KP-016 | Preset `sosial` memakai batas 20 cps (batas dewasa Netflix), bukan angka TikTok "5-10 kata per detik"; teks hook TikTok diperlakukan sebagai judul pendek, bukan caption ucapan. | 2026-11-07 | Menunggu konfirmasi pemilik | Lint caption (Netflix Timed Text Style Guide) bertentangan dengan anjuran TikTok for Business; angka optimum bahasa Indonesia belum diverifikasi. Rumusan batas cps terbaru ada di [pedoman-produksi.md](pedoman-produksi.md). | #12 |
+| KP-016 | Preset `sosial` memakai batas 20 cps (batas SDH dewasa Netflix Indonesia; lihat KP-019), bukan angka TikTok "5-10 kata per detik"; teks hook TikTok diperlakukan sebagai judul pendek, bukan caption ucapan. | 2026-11-07 | Menunggu konfirmasi pemilik | Lint caption (Netflix Timed Text Style Guide) bertentangan dengan anjuran TikTok for Business; angka optimum bahasa Indonesia belum diverifikasi. Rumusan batas cps terbaru ada di [pedoman-produksi.md](pedoman-produksi.md). | #12 |
 | KP-017 | Dokumentasi rinci dipindah dari README ke folder `docs/`; README menjadi ringkas dan memuat indeks. Setiap dokumen di `docs/` memuat Metadata, Changelog, dan terdaftar di [README.md](README.md) (indeks docs) serta indeks README akar. | 2026-11-07 | Berlaku | README yang panjang menjadi sumber konflik merge di setiap PR; dokumen terpisah per topik mengurangi tumpang tindih perubahan dan memudahkan peta pemicu di AGENTS.md. | #13 |
 | KP-018 | Repo ini tidak memakai Release Changeset (`.changeset/`); perubahan software dicatat di `CHANGELOG.md` bagian `[Unreleased]`, versi dokumen dipisah dari versi software, dan rilis bertag belum ada (keputusan di tangan pemilik). | 2026-11-07 | Berlaku | awvd adalah alat CLI internal tanpa deployment; Document Changeset, Release Changeset, dan Changelog adalah tiga hal berbeda dan tidak dicampur. | #2, #3 |
+| KP-019 | Batas cps mengikuti Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 dan anak 13, SDH dewasa 20 dan anak 17. Preset jenis memakai subtitle dewasa 17; `sosial` tetap 20 sebagai batas SDH dewasa (menunggu konfirmasi pemilik, lihat KP-016); profil audiens `anak` menurunkan `caption.cps` ke 13. | 2026-11-07 | Berlaku (nilai `sosial` mengikuti KP-016) | Rumusan lama ("dewasa 20, anak 17") berasal dari panduan Inggris. Panduan Indonesia dibaca langsung pada 2026-11-07. Angka preset tidak berubah karena preset sudah memakai 17; yang dikoreksi adalah rujukan, dokumentasi, dan pembeda anak. | #15 |
+| KP-020 | Profil audiens (`data/audiens.json`) dan helper visual (`ukuranTeks`, `periksaPalet`, `simulasiButaWarna`, `bedaWarna`) dibuat sebagai alat bantu keputusan, bukan standar: ambang selisih warna delta E00 10, pengali ukuran teks, pengali tempo, dan ambang elemen per adegan berlabel `keputusan-desain`; nilai efektif adalah yang paling ketat dari preset jenis dan profil. | 2026-11-07 | Berlaku | Tidak ada riset yang menetapkan angka-angka itu untuk video motion graphics; yang didukung bukti hanya arahnya (WCAG, W3C WAI, Netflix Indonesia). Pelabelan jujur mencegah angka dianggap standar. Rumus (CIEDE2000, Machado) diuji terhadap data uji publikasi. | #15 |
+| KP-021 | Transisi dan animasi elemen berada di modul mandiri `scripts/transisi.js` (`window.Transisi`, dimuat opsional setelah `runtime.js`), bukan digabung ke `runtime.js`, dan tidak membuat alias global. | 2026-11-07 | Berlaku | Runtime tetap kecil dan stabil untuk repo proyek yang mengunci SHA; modul besar (sekitar 1.200 baris) hanya dimuat bila dipakai; tanpa alias global tidak bentrok dengan `easing`, `fade`, dan `pegas` runtime. Konsekuensinya tabel kurva easing diduplikasi demi kemandirian; menyatukannya dengan runtime adalah pekerjaan lanjutan. | #16 |
+| KP-022 | Efek piksel pada konten DOM (blur arah, glitch, RGB split) memakai filter SVG; `<canvas>` hanya untuk lapisan generatif (grain). Tidak memakai pustaka penangkap DOM ke kanvas. | 2026-11-07 | Berlaku | Kanvas tidak dapat membaca piksel DOM; pustaka penangkap menambah dependensi, risiko lisensi, dan fidelitas yang berbeda. Filter SVG terbukti deterministik di Chromium renderer (framemd5 identik) dan diuji di `uji:transisi`. | #16 |
+| KP-023 | `kurangiGerak` adalah praktik terbaik, bukan klaim kepatuhan: ia mengganti jenis gerak besar dan berkilat (kecuali `celup`) dengan `pudar`, dan mematikan kamera, paralaks, dan getar. Diberikan lewat props `profil`, bukan flag CLI. | 2026-11-07 | Berlaku | WCAG 2.3.3 (AAA) secara normatif hanya untuk animasi yang dipicu interaksi, sehingga tidak berlaku langsung ke MP4; yang berlaku langsung ialah SC 2.3.1 (kilatan). Penggantian ke `pudar` mengikuti pola `prefers-reduced-motion` dan pemahaman 2.3.3 bahwa perubahan opasitas bukan animasi gerak. Flag `--gerak` di `render.mjs` belum ada (dijaga agar `render.mjs` tidak berubah di PR ini). | #16 |
+| KP-024 | Efek berbiaya kompresi tinggi (jenis `gangguan`, grain hidup) mati bawaan: `grain` bawaan diam, dan bila opsi `jenisVideo` diberikan, `efekBerat(jenisVideo)` hanya `true` untuk `kreatif`, `promo`, `sosial`, `acara`; selainnya `gangguan` diganti `pudar` kecuali `paksaEfekBerat`. | 2026-11-07 | Berlaku | Terukur pada riset awal (satu mesin, konten sintetis): glitch sekitar 5,3x dan grain hidup sekitar 7,5x ukuran `potong`, sedangkan grain diam 1,16x. Daftar jenis yang mengizinkan efek berat adalah keputusan desain. | #16 |
 | KP-025 | Renderer memblokir semua permintaan jaringan selain `file:`, `data:`, `about:`, `blob:` (HTTP, HTTPS, WebSocket) secara bawaan; render gagal dengan kode keluar 3 beserta daftar URL; `--izinkan-jaringan` (mati bawaan) hanya untuk pratinjau; komposisi yang dibuka lewat http(s) boleh meminta asalnya sendiri. | 2026-11-07 | Berlaku | Uji lokal: renderer lama meneruskan `<img>`, CSS `url()`, `fetch`, `sendBeacon`, dan WebSocket ke server luar, sehingga render bisa bocor ke layanan luar dan tidak deterministik. `context.route` saja tidak menutup WebSocket, jadi `routeWebSocket` dipasang juga. Kegagalan keras dipilih daripada peringatan karena hotlink membuat hasil bergantung pada sumber yang bisa berubah; trade-off: komposisi lama yang memuat sumber luar kini gagal (pakai aset lokal atau `--izinkan-jaringan`). Kode keluar 3 dipisah dari 1 agar skrip pemanggil dapat membedakannya. Memengaruhi repo proyek. | PR fitur aset (nomor menyusul) |
 | KP-026 | Aset dicatat di satu manifest `aset.json` (skema 1) berjenis (gambar, logo, ikon, svg, font, audio) dengan validasi fail-closed sebelum Chromium (kode keluar 2): lisensi dari daftar izin per jenis, `sha256`, berkas lokal di `aset/`, TASL lengkap, bukti, serta aturan khusus (OFL, merek, hak potret, hasil AI, ShareAlike). awvd tidak mengunduh aset dari URL. | 2026-11-07 | Berlaku | Memperluas pola manifest sumber klip (KP-011) agar semua aset melewati satu gerbang yang sama dan bukti lisensi tersimpan bersama aset. Validator hanya memeriksa kelengkapan dan kecocokan dengan matriks lisensi; tinjauan hukum (merek, lambang, hak potret, musik, hasil AI) tetap manusia. Bukan nasihat hukum. | PR fitur aset (nomor menyusul) |
 | KP-027 | SVG diperiksa dan dibersihkan dengan pemeriksa berdaftar-izin buatan sendiri (`scripts/aset-svg.js`), tanpa dependensi; SVG berbahaya ditolak, bukan diperbaiki, bila rusak secara struktural. | 2026-11-07 | Berlaku | SVG inline menjalankan skrip dan memuat sumber luar, dan komposisi sering menyisipkan SVG inline. Daftar-larang mudah dilewati (escape CSS, entitas, namespace); daftar-izin fail-closed lebih aman. Tanpa DOM di Bun, pustaka seperti DOMPurify membutuhkan DOM tambahan (dependensi baru). Batasan: belum diuji dengan korpus XSS publik dan bukan pengganti pustaka matang untuk SVG tak tepercaya dari internet. | PR fitur aset (nomor menyusul) |
@@ -52,9 +60,17 @@ flowchart TD
 
 ## Changelog
 
-### 2026-11-07 - v1.1.0
+### 2026-11-07 - v1.3.0
 
 - Menambahkan KP-025 (pemblokiran jaringan renderer), KP-026 (manifest `aset.json` fail-closed), KP-027 (SVG berdaftar-izin), dan KP-028 (konversi sRGB lewat Chromium).
+
+### 2026-11-07 - v1.2.0
+
+- Menambahkan KP-021 sampai KP-024 (modul transisi dan animasi).
+
+### 2026-11-07 - v1.1.0
+
+- Menambahkan KP-019 (koreksi cps Netflix Indonesia) dan KP-020 (profil audiens dan helper visual); alasan KP-016 dikoreksi.
 
 ### 2026-11-07 - v1.0.0
 
