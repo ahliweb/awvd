@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.2.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan baris peta fitur untuk buta warna (periksaPalet), ukuran teks (ukuranTeks), dan profil audiens (lansia, low vision, anak).`
+- Changeset: `Menambahkan baris peta fitur untuk gerak dan transisi (profil kurangiGerak, periksaKilatan, efek berat) yang menunjuk ke transisi-animasi.md.`
 
 Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 
@@ -28,11 +28,16 @@ Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 | Lansia, low vision, dan anak | Profil di `data/audiens.json` (ukuran teks, kontras 7:1, cps 13, tempo, elemen per adegan); `bun run konsep -- baru --audiens` | [visual-audiens.md](visual-audiens.md#profil-audiens) |
 | Kilatan fotosensitif | Pemeriksa kilatan di `bun run periksa` (penyaringan konservatif, bukan sertifikasi) | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) |
 | Batas subtitle (baris, cps, durasi cue) | Lint subtitle di `bun run periksa --subtitle` | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) |
+| Gerak dan kilatan pada transisi dan animasi | `kurangiGerak` (mengganti jenis gerak besar dan berkilat dengan `pudar`; kamera, paralaks, getar mati), profil `lansia`/`anak`, durasi minimum jenis berkilat, `periksaKilatan` tingkat rencana. `kurangiGerak` adalah praktik terbaik, bukan klaim kepatuhan WCAG 2.3.3 | [transisi-animasi.md](transisi-animasi.md#aksesibilitas) |
 | Penonton tanpa suara | Field `audiens.tanpaSuara` dan `caption.burnIn` di `konsep.json` | [konsep-jenis-alur.md](konsep-jenis-alur.md) |
 
 PDF SOP bertag (outline, bahasa `id`, tabel `th scope`) tetapi **tidak** mengklaim PDF/UA; lihat [sop.md](sop.md).
 
 ## Changelog
+
+### 2026-11-07 - v1.2.0
+
+- Menambahkan baris peta fitur Gerak dan kilatan pada transisi dan animasi.
 
 ### 2026-11-07 - v1.1.0
 

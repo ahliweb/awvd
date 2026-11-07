@@ -2,11 +2,13 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.2.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan helper visual: simulasiButaWarna, keLab, bedaLab, bedaWarna, periksaPalet, paletOkabeIto, dan ukuranTeks (beserta sumber risetnya); mengoreksi batas cps Netflix Indonesia di baris durasiBaca.`
+- Changeset: `Menambahkan penunjuk ke modul terpisah scripts/transisi.js (window.Transisi) di pengantar; isi API runtime tidak berubah.`
 
 Referensi API `scripts/runtime.js`, yang dimuat komposisi lewat `<script src=".../scripts/runtime.js">`. Konsep komposisi dan protokol dengan renderer ada di [arsitektur.md](arsitektur.md); dasar riset dan checklist pemakaian helper ada di [pedoman-produksi.md](pedoman-produksi.md).
+
+Transisi antar adegan dan animasi elemen berada di modul terpisah `scripts/transisi.js` (`window.Transisi`, dimuat setelah `runtime.js`); referensinya ada di [transisi-animasi.md](transisi-animasi.md). Runtime tidak berubah.
 
 ## Tabel API
 
@@ -75,6 +77,10 @@ Sumber tiap helper (rincian dan tingkat buktinya ada di baris tabel di atas dan 
 | `presetJenis` | Preset bertingkat bukti ([konsep-jenis-alur.md](konsep-jenis-alur.md#tingkat-bukti)) |
 
 ## Changelog
+
+### 2026-11-07 - v1.2.0
+
+- Menambahkan penunjuk ke `transisi-animasi.md` untuk modul `scripts/transisi.js`.
 
 ### 2026-11-07 - v1.1.0
 

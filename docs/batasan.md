@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.2.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan batasan ketajaman dan supersampling (--skala memperbesar keluaran, belum memperkecil kembali) serta penunjuk ke batasan visual dan audiens.`
+- Changeset: `Menambahkan baris batasan transisi dan animasi di tabel Batasan di dokumen lain.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -25,10 +25,15 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | Konsep dan preset | [konsep-jenis-alur.md](konsep-jenis-alur.md#batasan-konsep) |
 | Pemeriksaan mutu | [pemeriksaan-mutu.md](pemeriksaan-mutu.md#batasan) |
 | Kilatan fotosensitif | [pemeriksaan-mutu.md](pemeriksaan-mutu.md#kilatan-fotosensitif) |
+| Transisi dan animasi | [transisi-animasi.md](transisi-animasi.md#keterbatasan-dan-hal-yang-belum-terverifikasi) |
 | SOP | [sop.md](sop.md#keputusan-desain-bukan-aturan-regulasi) |
 | Visual dan audiens (ukuran teks, palet buta warna, profil, efek) | [visual-audiens.md](visual-audiens.md#kesenjangan) |
 
 ## Changelog
+
+### 2026-11-07 - v1.2.0
+
+- Menambahkan penunjuk batasan transisi dan animasi.
 
 ### 2026-11-07 - v1.1.0
 
