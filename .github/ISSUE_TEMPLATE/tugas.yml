@@ -1,0 +1,108 @@
+# Templat issue: fitur atau tugas atomik (ukuran S atau M).
+# Standar lintas-portofolio internal: roadmap dan issue GitHub (DL-041).
+name: Fitur atau tugas
+description: Satu unit kerja atomik berukuran S atau M, bisa dikerjakan tanpa membaca epik penuh.
+title: "[Fase/SEQ] jenis: ringkasan"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Satu issue, satu tujuan, satu PR. Pekerjaan berukuran L dipecah lebih dulu lewat form **Epik**.
+        **Repo ini mungkin publik.** Jangan menulis rahasia, token, data pribadi, atau nama repo privat di issue ini.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Satu sampai tiga kalimat, mengapa issue ini ada. Sebut dokumen atau keputusan asalnya.
+    validations:
+      required: true
+  - type: input
+    id: goal
+    attributes:
+      label: Goal
+      description: Satu kalimat hasil akhir.
+    validations:
+      required: true
+  - type: textarea
+    id: scope-in
+    attributes:
+      label: Scope - In
+      description: Yang dikerjakan di issue ini.
+      placeholder: "- ..."
+    validations:
+      required: true
+  - type: textarea
+    id: scope-out
+    attributes:
+      label: Scope - Out
+      description: Yang sengaja tidak dikerjakan. Temuan di luar scope menjadi issue lain.
+      placeholder: "- ..."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: Langkah berurutan.
+      placeholder: |
+        1. ...
+        2. ...
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Dapat diverifikasi dan tidak ambigu. Selesai berarti semuanya tercentang.
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of Done
+      options:
+        - label: Semua acceptance criteria terpenuhi
+        - label: Uji dan check wajib repo berstatus SUCCESS
+        - label: Dokumentasi yang terdampak diperbarui di PR yang sama
+        - label: PR memuat `Closes #<nomor issue ini>`
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependensi
+      description: Issue atau PR yang harus selesai lebih dulu (`#nomor`), atau tulis "tidak ada".
+      value: Tidak ada
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Path berkas, dokumen, keputusan (ADR/DL), dan ID kebutuhan induk bila ada.
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      description: Ukuran L tidak diterima. Pecah menjadi sub-issue S atau M.
+      options:
+        - S
+        - M
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Prioritas yang diusulkan
+      description: Triase menetapkan label akhir.
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Pemeriksaan keamanan isi
+      options:
+        - label: Issue ini tidak memuat rahasia, data pribadi, atau nama repo privat
+          required: true

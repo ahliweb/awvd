@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.8.0`
+- Version: `v1.9.0`
 - Last updated: `2026-11-07`
-- Changeset: `Peta pemicu dan paralelisme memuat kebijakan kutipan wajar dan bun run pelajari (scripts/pelajari.mjs, scripts/kutipan.mjs, docs/pelajari-reaction.md); aturan 11 diperjelas: karya yang dikutip di template harus buatan sendiri.`
+- Changeset: `Menambahkan aturan roadmap dan issue (milestone per fase, label baku, format badan issue, epik dan sub-issue, Closes #n) di Git dan PR, serta baris roadmap di peta pemicu.`
 
 awvd adalah renderer video MP4 dari kode web (lihat [README.md](README.md)). Aturan di dokumen ini menurunkan **pedoman internal AhliWeb** (tidak publik): eksekusi terkelola orchestrator (skill `eksekusi-terkelola`), standar dokumen (skill `standar-dokumen-repo`), standar koordinasi kontributor, standar dokumen formal, dan prosedur pemakaian awvd (skill `video-terprogram`). Nomor keputusan `DL-0xx` merujuk decision log internal tersebut. Isi yang dibutuhkan agent sudah dituangkan di sini, jadi agent di repo ini tidak perlu mengakses pedoman internal.
 
@@ -112,6 +112,7 @@ flowchart TD
 
 - **Branch:** satu branch per PR, dibuat dari `main` yang mutakhir, bernama `<jenis>/<ringkas>`. Jenis: `feat`, `fix`, `docs`, `test`, `ci`, `chore`, `refactor`.
 - **Commit:** `<jenis>: <ringkasan dalam bahasa Indonesia>`, sama dengan riwayat repo. Satu commit, satu tujuan.
+- **Roadmap dan issue:** rencana kerja ada di [docs/roadmap.md](docs/roadmap.md), satu milestone GitHub per fase (`F1`..`F6`). Setiap pekerjaan dimulai dari issue berformat Context, Goal, Scope In/Out, Steps, Acceptance Criteria, Definition of Done, Dependensi, References, Size (S/M; L dipecah lewat epik dan sub-issue GitHub). Judul `[F<n>/<SEQ>] <jenis>: <ringkasan>`. Label wajib tepat satu `jenis:`, `prioritas:`, dan `ukuran:`, ditambah `area:` bila relevan; issue induk berlabel `epik`. Formulir ada di `.github/ISSUE_TEMPLATE/`. PR menulis `Closes #n`. Orchestrator membuat dan memecah issue serta memverifikasi; agent mengerjakan satu issue dan berhenti bila scope melebar. Temuan di luar scope menjadi issue baru di milestone yang sesuai (atau tanpa milestone bila di luar roadmap).
 - **PR atomik:** satu PR, satu tujuan. Temuan di luar scope masuk PR atau issue lain. PR tidak bergantung pada PR lain yang belum di-merge, kecuali urutannya ditulis eksplisit.
 - **Check wajib:** `uji` (GitHub Actions) dan GitGuardian Security Checks. Temuan GitGuardian diperiksa satu per satu: rahasia nyata dirotasi lebih dulu, false positive diperbaiki kalimatnya dan dilaporkan.
 - **Gerbang merge berbasis status.** Jangan menyalurkan perintah gerbang ke `tail`/`head`, karena pipe menelan status keluar:
@@ -204,6 +205,7 @@ README akar hanya ringkasan dan indeks. Dokumentasi rinci ada di folder [`docs/`
 | Keputusan arsitektur, kebijakan, atau trade-off baru atau berubah | `docs/log-keputusan.md` |
 | Dokumen baru di `docs/` | `docs/README.md` dan indeks dokumentasi README akar |
 | Aturan kerja agent, subagent, alur git, rilis | `AGENTS.md`, `.claude/agents/` (CLAUDE.md hanya merujuk ke AGENTS.md) |
+| Fase, milestone, atau paritas fitur berubah (fitur selesai, fase baru, kriteria keluar) | `docs/roadmap.md` (tabel fase dan paritas) |
 | Semua perubahan software di atas | `CHANGELOG.md` bagian `[Unreleased]` |
 
 Skill internal `video-terprogram` merujuk API awvd. Bila API atau flag berubah, tulis di deskripsi PR bahwa "skill pemakaian awvd perlu disesuaikan", tanpa menyebut lokasi internalnya. Penyesuaian dikerjakan pemilik di luar repo ini.
@@ -264,6 +266,10 @@ flowchart TD
 Template PR di `.github/pull_request_template.md` memuat checklist ini.
 
 ## Changelog
+
+### 2026-11-07 - v1.9.0
+
+- Menambahkan aturan roadmap dan issue di §Git dan PR serta baris roadmap di peta pemicu.
 
 ### 2026-11-07 - v1.8.0
 

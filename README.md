@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.4.0`
+- Version: `v2.5.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan bun run pelajari dan kebijakan kutipan wajar (docs/pelajari-reaction.md, templat reaction, uji pelajari) ke perintah utama, indeks dokumentasi, dan struktur repo, beserta peringatan hukum tentang video pihak ketiga.`
+- Changeset: `Mendaftarkan docs/roadmap.md di indeks dokumentasi dan menyebut roadmap serta formulir issue di Kontribusi.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -65,7 +65,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.4.0` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.5.0` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.1.0` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.2.0` |
 | [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.2.0` |
@@ -81,8 +81,9 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.4.0` |
 | [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, tanggung jawab aset, matriks lisensi aset, video pihak ketiga | `v1.3.0` |
 | [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.1.0` |
+| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.0.0` |
 | [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.4.0` |
-| [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.8.0` |
+| [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.9.0` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
 
 ## Struktur repo
@@ -115,7 +116,7 @@ CHANGELOG.md  LICENSE   riwayat software dan lisensi MIT
 
 ## Kontribusi
 
-Setiap perubahan lewat branch dan pull request (`<jenis>/<ringkas>`), dan merge hanya setelah semua check (`uji`, GitGuardian) berstatus SUCCESS. Perubahan konsep atau fitur wajib membawa pembaruan dokumen di PR yang sama. Aturan lengkapnya ada di [AGENTS.md](AGENTS.md): §Git dan PR untuk alur git, dan §Dokumentasi untuk peta "perubahan apa memperbarui dokumen mana".
+Setiap perubahan lewat branch dan pull request (`<jenis>/<ringkas>`), dan merge hanya setelah semua check (`uji`, GitGuardian) berstatus SUCCESS. Perubahan konsep atau fitur wajib membawa pembaruan dokumen di PR yang sama. Aturan lengkapnya ada di [AGENTS.md](AGENTS.md): §Git dan PR untuk alur git, dan §Dokumentasi untuk peta "perubahan apa memperbarui dokumen mana". Rencana kerja ada di [docs/roadmap.md](docs/roadmap.md); setiap pekerjaan dimulai dari issue (formulir tugas, bug, riset, atau epik) dan PR menutupnya dengan `Closes #n`.
 
 Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata README, AGENTS.md, dan dokumen di `docs/`) menandai revisi dokumen. Versi software ada di `package.json` dan `CHANGELOG.md`. README `v2.0.0` tidak berarti awvd `2.0.0`.
 
@@ -130,6 +131,10 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 **Peringatan hukum: video pihak ketiga.** awvd tidak menyediakan dan tidak akan menyediakan pengunduh atau perekam video platform (YouTube, TikTok, Facebook, Instagram, X, dan sejenisnya); fitur sumber hanya menerima berkas yang sah Anda miliki, dengan manifest dan atribusi. Kutipan untuk video reaction dan ulasan diperiksa terhadap kebijakan internal yang terukur dan gerbang tinjauan hukum, bukan jaminan kutipan sah. Dokumentasi ini bukan nasihat hukum; rincian di [docs/pelajari-reaction.md](docs/pelajari-reaction.md).
 
 ## Changelog
+
+### 2026-11-07 - v2.5.0
+
+- Mendaftarkan `docs/roadmap.md` di indeks dokumentasi; Kontribusi menyebut roadmap dan formulir issue.
 
 ### 2026-11-07 - v2.4.0
 

@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.4.0`
+- Version: `v1.5.0`
 - Last updated: `2026-11-07`
-- Changeset: `Indeks memuat dokumen baru pelajari-reaction.md (docs/pelajari-reaction.md) dan menaikkan versi dokumen yang berubah: video-tertanam-audio, cli, lisensi-kepatuhan, batasan, log-keputusan; tabel kini memuat 17 dokumen docs/.`
+- Changeset: `Mendaftarkan roadmap.md (fase F1–F6, paritas fitur, label dan milestone); tabel kini memuat 18 dokumen docs/.`
 
 Pintu masuk ke seluruh dokumentasi rinci awvd. Ringkasan proyek, mulai cepat, dan perintah utama ada di [README akar](../README.md); aturan kerja kontributor dan AI agent ada di [AGENTS.md](../AGENTS.md); riwayat perubahan software ada di [CHANGELOG.md](../CHANGELOG.md).
 
@@ -29,8 +29,9 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | [batasan.md](batasan.md) | Batasan yang diketahui dan penunjuk ke batasan per fitur | `v1.4.0` |
 | [lisensi-kepatuhan.md](lisensi-kepatuhan.md) | Lisensi MIT, asal kode, pihak ketiga, tanggung jawab atas aset, matriks lisensi aset, video pihak ketiga dan kutipan wajar | `v1.3.0` |
 | [pedoman-produksi.md](pedoman-produksi.md) | Pedoman produksi berbasis riset, dipetakan ke fitur awvd, checklist, rencana | `v1.1.0` |
+| [roadmap.md](roadmap.md) | Roadmap: visi, fase F1–F6 dan kriteria keluarnya, paritas fitur, label dan milestone GitHub | `v1.0.0` |
 | [log-keputusan.md](log-keputusan.md) | Log keputusan awvd (KP-001 dst.) beserta alasan dan rujukan PR | `v1.4.0` |
-| [README.md](README.md) | Indeks ini | `v1.4.0` |
+| [README.md](README.md) | Indeks ini | `v1.5.0` |
 
 ## Peta dokumen
 
@@ -78,6 +79,10 @@ flowchart TD
 - Dokumen berbahasa Indonesia dan tidak menyebut nama, path, atau tautan repo internal AhliWeb yang privat.
 
 ## Changelog
+
+### 2026-11-07 - v1.5.0
+
+- Mendaftarkan `roadmap.md` (v1.0.0); indeks kini memuat 18 dokumen.
 
 ### 2026-11-07 - v1.4.0
 
