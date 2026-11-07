@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.2.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan bagian Lisensi dan Kepatuhan: hasil audit lisensi, pihak ketiga, dan tanggung jawab aset.`
+- Changeset: `Menambahkan bagian Kontribusi dan dokumentasi, mendokumentasikan opsi --simpan pada bun run uji, dan mencantumkan ASET.md serta template PR di struktur repo.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -136,13 +136,20 @@ Dua render dari komposisi dan props yang sama harus menghasilkan frame identik (
 scripts/render.mjs     CLI renderer (Chromium + ffmpeg)
 scripts/runtime.js     runtime komposisi (defineVideo, interpolasi, dst.)
 scripts/uji.mjs        uji otomatis (bun run uji)
-templates/             komposisi contoh
+templates/<nama>/      komposisi contoh + ASET.md (catatan aset pihak ketiga)
 .github/workflows/     CI uji
+.github/pull_request_template.md   checklist uji dan dokumentasi PR
 AGENTS.md              aturan kerja AI agent
 CHANGELOG.md           riwayat perubahan software
 ```
 
-Perintah: `bun run render <komposisi> --out ...` dan `bun run uji` (delapan uji: properti video, determinisme, still, rentang, audio, subtitle, skala, galat; sekitar satu menit).
+Perintah: `bun run render <komposisi> --out ...` dan `bun run uji` (delapan uji: properti video, determinisme, still, rentang, audio, subtitle, skala, galat; sekitar satu menit). `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
+
+## Kontribusi dan dokumentasi
+
+Setiap perubahan lewat branch dan pull request, dan merge hanya setelah CI `uji` lolos. Perubahan konsep atau fitur wajib membawa pembaruan dokumen di PR yang sama. Peta "perubahan apa memperbarui dokumen mana" ada di [AGENTS.md §Dokumentasi](AGENTS.md#dokumentasi), mengikuti pedoman `standar-dokumen-repo` dan DL-035 di pedoman internal AhliWeb.
+
+Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata README dan AGENTS.md) menandai revisi dokumen. Versi software ada di `package.json` dan `CHANGELOG.md`. README `v1.2.0` tidak berarti awvd `1.2.0`.
 
 ## Hubungan dengan repo lain
 
@@ -168,6 +175,12 @@ Perintah: `bun run render <komposisi> --out ...` dan `bun run uji` (delapan uji:
 Font, musik (`--audio`), gambar, footage, dan suara TTS wajib berlisensi jelas dan dicatat sumbernya. Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.2.0
+
+- Menambahkan bagian Kontribusi dan dokumentasi (rujukan ke AGENTS.md §Dokumentasi, pemisahan versi dokumen dan software).
+- Mendokumentasikan opsi `--simpan DIR` pada `bun run uji`.
+- Struktur repo mencantumkan `templates/<nama>/ASET.md` dan template PR.
 
 ### 2026-11-07 - v1.1.0
 
