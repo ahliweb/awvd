@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.4.0`
+- Version: `v1.5.0`
 - Last updated: `2026-11-07`
-- Changeset: `Baris bun run narasi menyebut --selaras, flag ASR whisper.cpp, dan subperintah transkripsi. Sebelumnya: baris bun run narasi menyebut flag TTS --cache dan --sintesis-ulang; menambahkan bun run narasi ke tabel Perintah lain.`
+- Changeset: `Baris bun run narasi menyebut --selaras, flag ASR whisper.cpp, dan subperintah transkripsi. Sebelumnya: menambahkan baris bun run ketukan ke tabel Perintah lain.`
 
 Referensi CLI `scripts/render.mjs` (`bun run render`). Alur di balik perintah ini ada di [arsitektur.md](arsitektur.md).
 
@@ -64,6 +64,7 @@ Sebelum frame pertama renderer memuat eksplisit setiap `@font-face` (`FontFace.l
 | `bun run audio <rencana.json> --fps N --out F` | Perakit timeline audio | [video-tertanam-audio.md](video-tertanam-audio.md) |
 | `bun run narasi <naskah.json> --out DIR [--cache DIR] [--sintesis-ulang] [--selaras whisper]` | Naskah narasi dan WAV beku (atau TTS lokal opsional `sherpa-onnx`, dengan cache dan label suara sintetis) menjadi cue caption VTT/SRT, stempel kata, dan rencana audio; `--selaras whisper` memakai ASR whisper.cpp lokal opsional untuk stempel kata (flag `--whisper-bin`, `--whisper-model`, `--cache-asr`, `--asr-ulang`, `--koreksi-asr`) | [narasi-caption.md](narasi-caption.md#asr-lokal-whispercpp) |
 | `bun run narasi transkripsi <audio> --out DIR [--bahasa id] [--fps 30] [--audiens umum]` | Caption dari audio tanpa naskah lewat whisper.cpp lokal opsional; semua keluaran ditandai "hasil ASR, wajib ditinjau manusia" | [narasi-caption.md](narasi-caption.md#caption-dari-audio-tanpa-naskah) |
+| `bun run ketukan <audio> [--fps N] [--out ketukan.json]` | Deteksi onset dan ketukan musik (fluks spektral, tempo autokorelasi) menjadi `ketukan.json` berisi tempo, ketukan, dan onset dalam detik dan frame untuk sinkron potongan | [ketukan.md](ketukan.md) |
 | `bun run pelajari <video-lokal> --sumber-sah CARA` | Statistik gaya dari video lokal yang sah dimiliki (ritme potongan, palet, kenyaringan, pola); laporan JSON/Markdown | [pelajari-reaction.md](pelajari-reaction.md) |
 | `bun run kutipan -- periksa\|hash <sumber.json>` | Periksa kebijakan kutipan wajar; hitung hash gerbang hukum GH | [pelajari-reaction.md](pelajari-reaction.md#bun-run-kutipan) |
 | `bun run konsep -- <subperintah>` | Konsep video: jenis, alur, brief, persetujuan | [konsep-jenis-alur.md](konsep-jenis-alur.md) |
@@ -72,9 +73,13 @@ Sebelum frame pertama renderer memuat eksplisit setiap `@font-face` (`FontFace.l
 
 ## Changelog
 
-### 2026-11-07 - v1.4.0
+### 2026-11-07 - v1.5.0
 
 - Baris `bun run narasi`: flag `--selaras whisper` dan flag ASR; baris baru `bun run narasi transkripsi`; `render.mjs` tidak berubah.
+
+### 2026-11-07 - v1.4.0
+
+- Tabel Perintah lain: `bun run ketukan`; `render.mjs` tidak berubah.
 
 ### 2026-11-07 - v1.3.1
 

@@ -284,7 +284,7 @@ Daftar kata pemicu peringatan adalah heuristik kasar, bukan klasifikasi; penentu
 
 ## ASR lokal (whisper.cpp)
 
-Adaptor opsional yang memanggil CLI [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`whisper-cli`, MIT) dengan model GGML bobot Whisper (MIT; lihat [lisensi-kepatuhan.md](lisensi-kepatuhan.md#asr-lokal-whispercpp)). Dua kegunaan: **menyelaraskan** narasi per kata (`--selaras whisper`) dan **mentranskripsi** audio yang tidak punya naskah (`transkripsi`). **awvd tidak membundel biner maupun model**, dan `bun run render` tidak pernah memanggilnya; ASR hanya berjalan di `bun run narasi`, yang menulis aset beku. Keputusannya tercatat di [log-keputusan.md](log-keputusan.md) (KP-BARU-1 sampai KP-BARU-3 sementara; nomor tetap diberikan saat merge).
+Adaptor opsional yang memanggil CLI [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`whisper-cli`, MIT) dengan model GGML bobot Whisper (MIT; lihat [lisensi-kepatuhan.md](lisensi-kepatuhan.md#asr-lokal-whispercpp)). Dua kegunaan: **menyelaraskan** narasi per kata (`--selaras whisper`) dan **mentranskripsi** audio yang tidak punya naskah (`transkripsi`). **awvd tidak membundel biner maupun model**, dan `bun run render` tidak pernah memanggilnya; ASR hanya berjalan di `bun run narasi`, yang menulis aset beku. Keputusannya tercatat di [log-keputusan.md](log-keputusan.md) (KP-056 sampai KP-058).
 
 **ASR ini lokal.** whisper.cpp berjalan di mesin Anda tanpa jaringan; audio tidak dikirim ke layanan daring. Karena itu ia boleh dipakai untuk naskah `klasifikasi: "internal"`, berbeda dari mesin TTS atau ASR daring yang ditolak untuk naskah internal (aturan 5 AGENTS.md). `laporan.json` mencatat `asr.lokal: true`.
 

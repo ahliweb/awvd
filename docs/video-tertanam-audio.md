@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.6.0`
+- Version: `v1.7.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menunjuk adaptor TTS lokal opsional (sherpa-onnx) di bun run narasi pada bagian Narasi dan TTS. Sebelumnya: penunjuk bun run narasi sebagai penghasil rencana-audio.json dan caption sinkron untuk narasi beku.`
+- Changeset: `Menambahkan bagian Trim, speed, reverse, dan freeze yang menunjuk pemetaan waktu klip di api-runtime.md, serta catatan batasan audio. Sebelumnya: penunjuk adaptor TTS lokal opsional.`
 
 Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md). Efek klip (stabilisasi, chroma key, LUT `.cube`, kecerahan, kontras, saturasi, gamma, keseimbangan warna) yang diterapkan saat ekstraksi ada di [olah-klip.md](olah-klip.md). Peredam bising dan pengubah nada/tempo suara ada di [§Olah suara per trek](#olah-suara-per-trek).
 
@@ -112,6 +112,10 @@ Gambar frame ke `<canvas>` (bukan `<img>`, lihat `klipGambar` di [api-runtime.md
 
 Kredit TASL tampil di layar saat klip tampil (`kreditKlip`, ringkas) dan di kredit akhir (`kreditKlip(k, { ringkas: false })`, lengkap dengan sumber, tautan lisensi, dan pernyataan perubahan); `atribusi.txt` untuk deskripsi video. Praktik CC: kredit boleh di dalam rekaman dan di deskripsi; halaman CC tidak menetapkan lama tayang. PiP sebaiknya sementara, kecil, dekat konten yang dirujuk narasi, dan tidak menutup informasi penting (split attention); posisikan di dalam `areaAman`.
 
+### Trim, speed, reverse, dan freeze
+
+Operasi klip ini dilakukan sebagai pemetaan nomor frame di komposisi, bukan saat ekstraksi: frame klip tetap diekstrak sekali pada fps komposisi, lalu `indeksFrameKlip`, `jalurFrameKlip`, dan `klipGambar` menerima opsi `waktu` (`kecepatan` konstan atau ramp, `balik`, `bekukan`, `habis`) bersama `dari` (trim) dan `durasi`. Aritmetikanya bilangan bulat dan permil, jadi hasilnya sama di setiap render. Rumus, aturan, dan contoh ada di [api-runtime.md](api-runtime.md#pemetaan-waktu-klip). `audio.mjs` tidak meregangkan waktu: klip dengan waktu bukan identitas harus dibisukan di rencana audio.
+
 ### Templat `klip-tertanam`
 
 [`templates/klip-tertanam/`](../templates/klip-tertanam/): komposisi 1280x720, 30 fps, 16 detik: judul, panel PiP berisi dua klip buatan proyek (ffmpeg lavfi: `pola-uji` CC0, `pola-warna` CC BY), kredit TASL di layar dan kredit akhir, caption, serta rencana audio dengan narasi nada sinus (bukan suara orang) yang bergantian (klip `k1`) dan campur (klip `k2`) dengan audio klip. Jalankan dari akar repo:
@@ -134,7 +138,7 @@ Jadwal klip ada di dua tempat (`props.json` untuk komposisi dan `rencana-audio.j
 ### Batasan
 
 - Disk proporsional dengan durasi klip x fps x ukuran frame; JPEG menambah satu generasi kompresi (pakai `format: "png"` bila kualitas kritis).
-- Tidak ada interpolasi frame: sumber dengan fps lain diduplikasi atau dilewati ke fps komposisi. `kecepatan` di `indeksFrameKlip` juga tanpa interpolasi.
+- Tidak ada interpolasi frame: sumber dengan fps lain diduplikasi atau dilewati ke fps komposisi. `kecepatan` dan `waktu` di `indeksFrameKlip` juga tanpa interpolasi (optical flow tidak ada).
 - `akar` di `klip-props.json` adalah URL `file://` absolut; pratinjau lewat server HTTP tidak bisa memuatnya (buka komposisi lewat `file://`).
 - Hanya SDR; hasil ekstraksi diuji determinismenya pada satu mesin dan satu versi Chromium/ffmpeg, belum lintas mesin.
 
@@ -254,6 +258,10 @@ awvd tidak membundel mesin TTS. Antarmuka narasi adalah **berkas WAV beku**: has
 Yang disediakan adalah adaptor opsional `sherpa-onnx` di `bun run narasi` ([TTS lokal](narasi-caption.md#tts-lokal-sherpa-onnx)): pengguna memasang sherpa-onnx dan model sendiri (Supertonic 3 untuk Indonesia, Kokoro untuk Inggris; bobot Supertonic berlisensi OpenRAIL-M dengan syarat label suara sintetis dan larangan nasihat medis, lihat [lisensi-kepatuhan.md](lisensi-kepatuhan.md#model-tts-dan-openrail-m)), adaptor membekukan WAV di cache berhash dan menormalkan kenyaringannya, dan `rencana-audio.json` yang dihasilkan masuk ke `bun run audio` seperti biasa.
 
 ## Changelog
+
+### 2026-11-07 - v1.7.0
+
+- Menambahkan bagian Trim, speed, reverse, dan freeze (penunjuk ke pemetaan waktu klip di `api-runtime.md`, catatan audio) dan memperjelas batasan interpolasi.
 
 ### 2026-11-07 - v1.6.0
 
