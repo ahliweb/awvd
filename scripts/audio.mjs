@@ -9,7 +9,7 @@
  * WAV hasil (48 kHz stereo, float 32-bit, tanpa metadata versi) diberikan ke
  * `render.mjs --audio`, yang menormalisasi kenyaringan campuran (--kenyaringan).
  *
- * Aturan (ringkas; rincian dan dasar di README §Timeline audio):
+ * Aturan (ringkas; rincian dan dasar di docs/video-tertanam-audio.md §Timeline audio):
  *   - Mode klip: "bergantian" (bawaan; klip memegang suara eksklusif pada rentangnya,
  *     validasi GAGAL bila narasi induk tumpang tindih), "campur" (semua terdengar;
  *     audio induk tetap pada level normal, audio KLIP diturunkan turunDb, bawaan 12 dB,

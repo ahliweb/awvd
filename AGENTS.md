@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.4.0`
+- Version: `v1.5.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menetapkan awvd hanya sebagai upstream: aturan 11, pemicu perubahan yang memengaruhi repo proyek, dan butir penguncian SHA di Rilis dan Deployment.`
+- Changeset: `Dokumentasi rinci dipindah dari README ke folder docs/: peta pemicu, bidang dokumentasi, dan rujukan silang menunjuk dokumen docs/; menambahkan aturan dokumen baru di docs/ (Metadata, Changelog, pendaftaran indeks) dan paralelisme per dokumen.`
 
 awvd adalah renderer video MP4 dari kode web (lihat [README.md](README.md)). Aturan di dokumen ini menurunkan **pedoman internal AhliWeb** (tidak publik): eksekusi terkelola orchestrator (skill `eksekusi-terkelola`), standar dokumen (skill `standar-dokumen-repo`), standar koordinasi kontributor, standar dokumen formal, dan prosedur pemakaian awvd (skill `video-terprogram`). Nomor keputusan `DL-0xx` merujuk decision log internal tersebut. Isi yang dibutuhkan agent sudah dituangkan di sini, jadi agent di repo ini tidak perlu mengakses pedoman internal.
 
@@ -25,7 +25,7 @@ flowchart LR
 ## Aturan
 
 1. **Bun-only.** Tidak ada Node.js di lingkungan ini. Jalankan skrip dengan `bun`/`bunx`, bukan `node`/`npx`.
-2. **Determinisme wajib.** Komposisi tidak boleh memakai `Date.now()`, `Math.random()` tak ber-seed (pakai `acak(seed)`), atau CSS animation/transition. Gerak hanya dari nomor frame. Lihat README §Aturan determinisme.
+2. **Determinisme wajib.** Komposisi tidak boleh memakai `Date.now()`, `Math.random()` tak ber-seed (pakai `acak(seed)`), atau CSS animation/transition. Gerak hanya dari nomor frame. Lihat [docs/arsitektur.md](docs/arsitektur.md) §Aturan determinisme.
 3. **Jangan commit** video keluaran (`*.mp4`, `*.webm`, `*.mov`, folder `out/`) maupun `node_modules`.
 4. **Tidak ada data nyata** pasien, pelanggan, atau pegawai di komposisi contoh atau props; pakai data fiktif.
 5. **TTS daring hanya untuk konten publik** (standar dokumen formal internal, DL-037); konten internal atau sensitif tidak dikirim ke layanan daring.
@@ -34,7 +34,7 @@ flowchart LR
 8. **Jalankan `bun run uji`** sampai lolos sebelum membuka PR.
 9. **Dokumentasi ikut setiap perubahan konsep atau fitur**, dalam PR yang sama. Dokumen yang basi adalah cacat. Rinciannya di §Dokumentasi.
 10. Jangan menyatakan rilis atau tag yang belum ada. Lihat §Rilis dan Deployment.
-11. **awvd hanya upstream** (keputusan pemilik, lihat README §Peran repo: upstream). Jangan menambahkan komposisi proyek, aset klien atau merek, naskah atau narasi, maupun hasil render proyek ke repo ini. Template di `templates/` hanya contoh generik berdata fiktif untuk dokumentasi dan uji. Permintaan membuat video diarahkan ke repo proyek video yang memakai awvd sebagai dependensi; perbaikan generik dari repo proyek masuk lewat PR ke repo ini.
+11. **awvd hanya upstream** (keputusan pemilik, lihat [docs/arsitektur.md](docs/arsitektur.md) §Peran repo: upstream). Jangan menambahkan komposisi proyek, aset klien atau merek, naskah atau narasi, maupun hasil render proyek ke repo ini. Template di `templates/` hanya contoh generik berdata fiktif untuk dokumentasi dan uji. Permintaan membuat video diarahkan ke repo proyek video yang memakai awvd sebagai dependensi; perbaikan generik dari repo proyek masuk lewat PR ke repo ini.
 
 ## Pedoman Eksekusi Wajib (Orchestrator & Agent)
 
@@ -84,7 +84,7 @@ Aturan:
 
 ### Penerapan di awvd
 
-- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama README §Referensi API runtime; `scripts/render.mjs` bersama README §Flag CLI; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`. Template di `templates/<nama>/` yang berbeda boleh paralel.
+- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
 - Perubahan pada determinisme, protokol `window.video`/`renderFrame`, atau pipa ffmpeg tergolong risiko tinggi: delegasikan ke `pelaksana-kompleks` dengan effort `high`, atau kerjakan langsung oleh Opus.
 - Perintah verifikasi yang wajib ada di setiap brief: `bun run uji`.
 - Papan koordinasi: belum ada (dicek 2026-11-07). Penggantinya `gh pr list --state open`; usulkan papan ke pemilik bila kontributor aktif lebih dari satu.
@@ -147,7 +147,7 @@ flowchart TD
   2. Lewat PR rilis: pindahkan isi `[Unreleased]` ke `## [X.Y.Z] - YYYY-MM-DD`, lalu naikkan `version` di `package.json`.
   3. Setelah merge dan check SUCCESS, buat tag `vX.Y.Z` pada commit merge, lalu GitHub Release. Jangan lampirkan MP4 ke repo; aset rilis hanya bila pemilik memintanya.
   4. Verifikasi tag dan Release benar-benar ada (`gh release view vX.Y.Z`) sebelum menyatakan "sudah rilis", lalu lepas kunci.
-- **Penguncian oleh repo proyek:** repo proyek mengunci awvd ke SHA commit (README §Memakai awvd di repo proyek). Bila kelak ada tag rilis, repo proyek boleh mengunci tag. Karena itu perubahan jalur `scripts/` dan protokol runtime wajib ditandai di `CHANGELOG.md`.
+- **Penguncian oleh repo proyek:** repo proyek mengunci awvd ke SHA commit ([docs/arsitektur.md](docs/arsitektur.md) §Memakai awvd di repo proyek). Bila kelak ada tag rilis, repo proyek boleh mengunci tag. Karena itu perubahan jalur `scripts/` dan protokol runtime wajib ditandai di `CHANGELOG.md`.
 - Repo ini **tidak** memakai Release Changeset (`.changeset/`).
 
 ## Lisensi dan Aset
@@ -169,18 +169,36 @@ Dasarnya adalah pedoman dokumen internal AhliWeb (skill `standar-dokumen-repo`, 
 
 Setiap PR yang mengubah **konsep** (cara kerja komposisi, model render, aturan determinisme, alur kerja) atau **fitur** (API runtime, flag CLI, mode URL, format keluaran, template, uji, CI, dependensi) wajib menyertakan pembaruan dokumen di PR yang sama. Perubahan yang murni internal tanpa efek yang terlihat pengguna tidak wajib, tetapi sebutkan "docs: tidak berlaku" beserta alasannya di deskripsi PR.
 
+### Struktur dokumentasi
+
+README akar hanya ringkasan dan indeks. Dokumentasi rinci ada di folder [`docs/`](docs/README.md), satu dokumen per topik, supaya perubahan tidak bertumpuk di satu berkas dan menimbulkan konflik merge. Aturan untuk dokumen di `docs/`:
+
+- Setiap dokumen Markdown di `docs/` wajib memiliki blok `## Metadata` tepat setelah judul (`Version` `vX.Y.Z`, `Last updated` `YYYY-MM-DD`, `Changeset` berisi ringkasan revisi terakhir saja) dan `## Changelog` di bawah dengan entri `### YYYY-MM-DD - vX.Y.Z` terbaru di atas.
+- **Dokumen baru di `docs/` wajib didaftarkan** di tabel indeks `docs/README.md` (beserta versinya) dan di indeks dokumentasi README akar.
+- Menaikkan versi dokumen berarti memperbarui kolom Versi di kedua indeks itu.
+- Diagram Mermaid dipakai bila menjelaskan arsitektur, alur, atau keputusan; diagram harus menambah informasi dan berlabel singkat.
+- Bahasa Indonesia. Keputusan baru atau yang berubah dicatat di `docs/log-keputusan.md` (ID `KP-xxx` berikutnya; baris lama tidak dihapus).
+
 ### Peta pemicu ke dokumen
 
 | Perubahan | Dokumen yang diperbarui |
 | --- | --- |
-| API runtime, `ctx`, mode URL (`?preview`, `?frame`, `?props`) | README §Konsep komposisi, §Referensi API runtime; komentar kepala `scripts/runtime.js` |
-| Flag CLI, kode keluar, perilaku renderer | README §Flag CLI, §Alur render; `PETUNJUK` di `scripts/render.mjs` |
-| Aturan determinisme | README §Aturan determinisme; aturan 2 di dokumen ini |
-| Format keluaran, performa, platform | README §Batasan yang diketahui |
+| API runtime, `ctx`, mode URL (`?preview`, `?frame`, `?props`) | `docs/api-runtime.md`; `docs/arsitektur.md` §Konsep komposisi dan §Protokol window.video dan renderFrame; komentar kepala `scripts/runtime.js` |
+| Flag CLI, kode keluar, perilaku renderer, encode | `docs/cli.md`; `docs/arsitektur.md` §Alur render; `PETUNJUK` di `scripts/render.mjs` |
+| Aturan determinisme | `docs/arsitektur.md` §Aturan determinisme; aturan 2 di dokumen ini |
+| Format keluaran, performa, platform | `docs/batasan.md` |
+| Pemeriksaan mutu (`scripts/periksa.mjs`) | `docs/pemeriksaan-mutu.md`; `docs/pedoman-produksi.md` bila ambang atau sumbernya berubah |
+| Konsep video, jenis, alur, preset (`scripts/konsep.mjs`, `data/`) | `docs/konsep-jenis-alur.md`; `docs/pedoman-produksi.md` bila dasar riset berubah |
+| SOP (`scripts/sop.mjs`, `templates/sop/`) | `docs/sop.md` |
+| Klip tertanam atau timeline audio (`scripts/klip.mjs`, `scripts/audio.mjs`) | `docs/video-tertanam-audio.md` |
+| Fitur aksesibilitas | `docs/aksesibilitas.md` |
 | Template baru atau berubah | README §Struktur repo; `templates/<nama>/ASET.md` |
-| Uji atau CI | README §Struktur repo (daftar uji dan opsi `bun run uji`); §Git dan PR bila check wajib berubah |
-| Dependensi atau lisensi pihak ketiga | README §Pihak ketiga; cek lisensi (§Lisensi dan Aset) |
-| Perubahan yang memengaruhi cara repo proyek memakai awvd (jalur `scripts/`, protokol runtime `window.video`/`renderFrame`, struktur paket) | README §Peran repo: upstream; `CHANGELOG.md` (tandai butirnya sebagai memengaruhi repo proyek) |
+| Uji atau CI | README §Perintah utama dan §Struktur repo (daftar uji dan opsi `bun run uji`); §Git dan PR bila check wajib berubah |
+| Dependensi atau lisensi pihak ketiga | `docs/lisensi-kepatuhan.md`; cek lisensi (§Lisensi dan Aset) |
+| Perubahan yang memengaruhi cara repo proyek memakai awvd (jalur `scripts/`, protokol runtime `window.video`/`renderFrame`, struktur paket) | `docs/arsitektur.md` §Peran repo: upstream; `CHANGELOG.md` (tandai butirnya sebagai memengaruhi repo proyek) |
+| Pedoman produksi berbasis riset | `docs/pedoman-produksi.md` |
+| Keputusan arsitektur, kebijakan, atau trade-off baru atau berubah | `docs/log-keputusan.md` |
+| Dokumen baru di `docs/` | `docs/README.md` dan indeks dokumentasi README akar |
 | Aturan kerja agent, subagent, alur git, rilis | `AGENTS.md`, `.claude/agents/` (CLAUDE.md hanya merujuk ke AGENTS.md) |
 | Semua perubahan software di atas | `CHANGELOG.md` bagian `[Unreleased]` |
 
@@ -190,23 +208,26 @@ Skill internal `video-terprogram` merujuk API awvd. Bila API atau flag berubah, 
 
 | Bidang | Status di awvd |
 | --- | --- |
-| Arsitektur | Berlaku: README §Alur render, §Konsep komposisi |
-| Dokumentasi API | Berlaku sebagai API JavaScript runtime dan CLI (README), bukan OpenAPI |
-| Aksesibilitas | Berlaku: README §Aksesibilitas |
-| Pengujian | Berlaku: README §Struktur repo, `scripts/uji.mjs` |
+| Arsitektur | Berlaku: `docs/arsitektur.md` |
+| Dokumentasi API | Berlaku sebagai API JavaScript runtime dan CLI (`docs/api-runtime.md`, `docs/cli.md`), bukan OpenAPI |
+| Aksesibilitas | Berlaku: `docs/aksesibilitas.md` |
+| Pengujian | Berlaku: README §Perintah utama dan §Struktur repo, `scripts/uji.mjs` |
 | Deployment | Tidak berlaku; alasannya tercatat di §Rilis dan Deployment |
-| Alur kerja pengembangan | Berlaku: §Git dan PR, README §Kontribusi dan dokumentasi |
+| Alur kerja pengembangan | Berlaku: §Git dan PR, README §Kontribusi |
 | Instruksi agent | Berlaku: `AGENTS.md`, `CLAUDE.md`, `.claude/agents/` |
-| Pedoman repo | Berlaku: README, CHANGELOG, template PR |
+| Pedoman repo | Berlaku: README (ringkasan dan indeks), `docs/`, CHANGELOG, template PR |
+| Keputusan | Berlaku: `docs/log-keputusan.md` |
+| Lisensi dan kepatuhan | Berlaku: `docs/lisensi-kepatuhan.md` |
+| Pedoman produksi video | Berlaku: `docs/pedoman-produksi.md` |
 | Skill | Berlaku sebagai rujukan (§Skill); tidak ada skill lokal |
 | Manajemen media/aset | Berlaku: `templates/<nama>/ASET.md` |
 | Basis data, CMS, otorisasi, audit logging, taksonomi, routing, iklan, SEO, UI responsif | Tidak berlaku: awvd tidak memiliki komponen tersebut |
 
 ### Dua jenis versi, jangan dicampur
 
-- **Dokumen ber-metadata** (`README.md`, `AGENTS.md`, `templates/<nama>/ASET.md`): naikkan `Version`, ganti `Last updated` dan `Changeset` (ringkasan revisi terakhir saja), lalu tambahkan satu entri di `## Changelog` dokumen tanpa menghapus entri lama. Patch untuk koreksi, minor untuk bagian baru yang kompatibel, major untuk perubahan struktur atau kebijakan.
+- **Dokumen ber-metadata** (`README.md`, `AGENTS.md`, `docs/*.md`, `templates/<nama>/ASET.md`): naikkan `Version`, ganti `Last updated` dan `Changeset` (ringkasan revisi terakhir saja), lalu tambahkan satu entri di `## Changelog` dokumen tanpa menghapus entri lama. Patch untuk koreksi, minor untuk bagian baru yang kompatibel, major untuk perubahan struktur atau kebijakan.
 - **Software** (`CHANGELOG.md`, `package.json`): format Keep a Changelog, perubahan masuk `[Unreleased]`. Versi `package.json` hanya dinaikkan saat rilis yang diputuskan pemilik (§Rilis dan Deployment).
-- Versi dokumen tidak sama dengan versi software. README `v1.4.0` tidak berarti awvd `1.4.0`.
+- Versi dokumen tidak sama dengan versi software. README `v2.0.0` tidak berarti awvd `2.0.0`.
 
 ```mermaid
 flowchart TD
@@ -226,9 +247,11 @@ flowchart TD
 
 ### Checklist sebelum membuka PR
 
-- [ ] Isi dokumen sesuai kode yang di-commit (contoh di README dapat dijalankan apa adanya).
+- [ ] Isi dokumen sesuai kode yang di-commit (contoh di README dan `docs/` dapat dijalankan apa adanya).
 - [ ] `Version` berformat `vX.Y.Z` dan konsisten di Metadata serta judul Changelog; `Last updated` berformat `YYYY-MM-DD`.
 - [ ] Entri lama di Changelog dokumen dan `CHANGELOG.md` tetap utuh.
+- [ ] Dokumen baru atau berversi baru di `docs/`: Metadata dan Changelog lengkap, dan terdaftar di `docs/README.md` serta indeks README akar (versi di kolom Versi sama dengan Metadata).
+- [ ] Tautan relatif antardokumen valid (berkas ada, anchor judul ada).
 - [ ] Tidak ada klaim rilis, tag, atau deploy yang belum terverifikasi.
 - [ ] Tidak ada data nyata, secret, atau token di contoh.
 - [ ] Tidak ada nama, path, atau tautan repo internal AhliWeb yang privat.
@@ -237,6 +260,12 @@ flowchart TD
 Template PR di `.github/pull_request_template.md` memuat checklist ini.
 
 ## Changelog
+
+### 2026-11-07 - v1.5.0
+
+- Dokumentasi rinci dipindah dari README ke folder `docs/` (README menjadi ringkasan dan indeks): peta pemicu, bidang dokumentasi, rujukan silang aturan 2 dan 11, Penerapan di awvd, dan Rilis dan Deployment menunjuk dokumen `docs/`.
+- Menambahkan subbagian Struktur dokumentasi: Metadata dan Changelog wajib untuk setiap dokumen di `docs/`, dokumen baru didaftarkan di `docs/README.md` dan indeks README, keputusan dicatat di `docs/log-keputusan.md`.
+- Penerapan di awvd: dokumen berbeda di `docs/` boleh dikerjakan paralel; indeks hanya disentuh satu agent. Checklist PR menambah butir dokumen `docs/` dan tautan relatif.
 
 ### 2026-11-07 - v1.4.0
 
