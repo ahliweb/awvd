@@ -12,7 +12,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import {
-  ATRIBUT, BERKAS, bangunPresetJs, buatBrief, buatKonsep, muatData, periksaData, periksaKonsep, tulisJson,
+  ATRIBUT, BERKAS, PERAN_TRANSISI, PROFIL_GERAK_AUDIENS, bangunPresetJs, buatBrief, buatKonsep, muatData, muatTransisi,
+  periksaData, periksaKonsep, profilGerak, propsTransisi, rencanaTransisi, tulisJson,
 } from "./konsep.mjs";
 
 const akar = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -366,6 +367,61 @@ daftar("(f) periksa --konsep memakai ambang preset (durasi maks, rasio, cps, ken
   tegas((await jalankan(["bun", periksaCli, v169, "--konsep", join(tmp, "tidak-ada.json")])).kode === 2, "--konsep berkas tidak ada harus exit 2");
   // tanpa --konsep: perilaku lama (tidak ada pemeriksaan rasio/burn-in, durasi INFO)
   tegas(!tanpaKonsep.cari("rasio") && !tanpaKonsep.cari("burn-in") && tanpaKonsep.cari("durasi").status === "INFO" && !tanpaKonsep.hasil.konsep, "tanpa --konsep perilaku harus tidak berubah");
+});
+
+// ----------------------------------------------------------------- (g) transisi
+daftar("(g) #28: preset transisi per jenis di brief, profil gerak dari konsep, props untuk komposisi", async () => {
+  const Tr = muatTransisi();
+  const namaTransisi = Tr.katalog().filter((x) => x.kategori === "transisi").map((x) => x.nama);
+  // tiap jenis video punya preset transisi sah untuk empat peran, dan brief menampilkannya
+  for (const jenis of Object.keys(data.jenis.jenis)) {
+    const k = konsepIsi(jenis, data.jenis.jenis[jenis].alurBawaan);
+    const r = rencanaTransisi(k, data.jenis.jenis[jenis].nilai.fps);
+    const brief = buatBrief(data, k);
+    tegas(/^## Transisi dan gerak$/m.test(brief), `${jenis}: brief tanpa bagian transisi`);
+    for (const peran of PERAN_TRANSISI) {
+      const x = r.peran[peran];
+      tegas(namaTransisi.includes(x.jenis) && namaTransisi.includes(x.jenisEfektif), `${jenis}/${peran}: jenis tidak dikenal ${x.jenis}`);
+      tegas(new RegExp(`^\\| ${peran} \\| ${x.jenis}`, "m").test(brief), `${jenis}/${peran}: baris brief tidak ada`);
+    }
+  }
+  // pemetaan profil audiens -> profil gerak: lengkap dan sah
+  for (const p of Object.keys(data.audiens.profil)) tegas(Object.hasOwn(PROFIL_GERAK_AUDIENS, p) && Tr.profil[PROFIL_GERAK_AUDIENS[p]], `profil audiens ${p} tanpa pemetaan gerak`);
+  const gerak = (jenis, tambahan, audiens) => { const k = konsepIsi(jenis, "standar", tambahan); if (audiens) k.audiens.profil = audiens; return profilGerak(k); };
+  tegas(gerak("promo", {}).profil === "standar", "bawaan");
+  tegas(gerak("promo", {}, ["umum"]).profil === "standar" && gerak("promo", {}, ["lansia"]).profil === "lansia" && gerak("promo", {}, ["anak"]).profil === "anak", "audiens tunggal");
+  tegas(gerak("promo", {}, ["anak", "lansia"]).profil === "lansia" && gerak("promo", {}, ["umum", "anak"]).profil === "anak", "audiens ganda: paling ketat");
+  tegas(gerak("promo", { kurangiGerak: true }, ["lansia"]).profil === "kurangiGerak", "kurangiGerak menimpa profil audiens");
+  tegas(gerak("promo", { kurangiGerak: false }, ["lansia"]).profil === "lansia", "kurangiGerak false tidak menimpa");
+  // kurangiGerak: preset promo antarAdegan `dorong` diganti `pudar`, dicatat di brief; konsep standar tidak
+  const kKg = konsepIsi("promo", "standar", { kurangiGerak: true });
+  const rKg = rencanaTransisi(kKg, 30), rStd = rencanaTransisi(konsepIsi("promo", "standar"), 30);
+  tegas(rKg.profil === "kurangiGerak" && rKg.peran.antarAdegan.jenis === "dorong" && rKg.peran.antarAdegan.jenisEfektif === "pudar", `kurangiGerak: ${JSON.stringify(rKg.peran.antarAdegan)}`);
+  tegas(rStd.peran.antarAdegan.jenisEfektif === "dorong" && rStd.profil === "standar", "standar mempertahankan dorong");
+  tegas(/^\| antarAdegan \| dorong 250 ms .*\| pudar \| .*diganti pudar oleh profil `kurangiGerak`/m.test(buatBrief(data, kKg)), "brief kurangiGerak harus mencatat penggantian");
+  tegas(/Profil gerak: `kurangiGerak` \(konsep.json: kurangiGerak true\)/.test(buatBrief(data, kKg)), "brief harus menyebut sumber profil");
+  // pengali profil terlihat di durasi efektif (lansia 1,5x; kurangiGerak 1x)
+  const rL = rencanaTransisi(Object.assign(konsepIsi("formal", "formal"), { audiens: { ...konsepIsi("formal", "formal").audiens, profil: ["lansia"] } }), 30);
+  tegas(rL.peran.antarAdegan.durasiFrame === 14 && rencanaTransisi(konsepIsi("formal", "formal"), 30).peran.antarAdegan.durasiFrame === 9, `lansia durasi: ${rL.peran.antarAdegan.durasiFrame}`);
+  // validasi
+  tegas(ada(galatDari(konsepIsi("promo", "standar", { kurangiGerak: "ya" })), /kurangiGerak: harus boolean/), "kurangiGerak bukan boolean harus galat");
+  tegas(galatDari(kKg).length === 0, `kurangiGerak true harus lolos: ${galatDari(kKg)}`);
+  const kLansia = konsepIsi("promo", "standar", { kurangiGerak: true });
+  kLansia.audiens.profil = ["lansia"];
+  tegas(ada(periksaKonsep(data, kLansia).peringatan, /kurangiGerak true menggantikan profil gerak/), "peringatan kurangiGerak dengan profil lansia");
+  tegas(buatKonsep(data, { jenis: "promo", alur: "standar" }).kurangiGerak === false, "baru: kurangiGerak false");
+  // props untuk komposisi: profil di atas (konvensi props.profil galeri) dan blok transisi siap susunAdegan
+  const pr = propsTransisi(kKg, 30);
+  tegas(pr.profil === "kurangiGerak" && pr.transisi.profil === "kurangiGerak" && pr.transisi.kurangiGerak === true && pr.transisi.jenisVideo === "promo", JSON.stringify(pr.transisi));
+  const susun = Tr.susunAdegan([{ durasi: 60 }, { durasi: 60, transisi: pr.transisi.antarAdegan }], { fps: 30, profil: pr.profil, jenisVideo: pr.transisi.jenisVideo });
+  const h = susun.pada(susun.peta[1].mulai + 1).transisi;
+  tegas(h.jenisEfektif === "pudar" && h.durasi === susun.peta[1].overlap, `susunAdegan dengan props konsep: ${h.jenisEfektif} ${h.durasi}/${susun.peta[1].overlap}`);
+  // CLI preset memuat profil dan transisi; deterministik
+  const f = simpanJson("k-kg.json", kKg);
+  const [c1, c2] = await Promise.all([konsepJalan("preset", f), konsepJalan("preset", f)]);
+  tegas(c1.kode === 0 && c1.out === c2.out, "preset deterministik");
+  const o = JSON.parse(c1.out);
+  tegas(o.profil === "kurangiGerak" && o.transisi.antarBagian.profil === "kurangiGerak" && o.preset.transisi === data.jenis.jenis.promo.nilai.transisi, "keluaran preset: profil, transisi, dan token tetap terpisah");
 });
 
 // ----------------------------------------------------------------- jalankan

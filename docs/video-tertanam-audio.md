@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- Version: `v1.4.0`
+- Version: `v1.5.0`
 - Last updated: `2026-11-07`
 - Changeset: `Format klip menjadi png otomatis bila ada efek beralfa (kunciWarna); efek klip kini mencakup stabilisasi dan chroma key.`
 
-Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md). Efek klip (stabilisasi, chroma key, LUT `.cube`, kecerahan, kontras, saturasi, gamma, keseimbangan warna) yang diterapkan saat ekstraksi ada di [olah-klip.md](olah-klip.md).
+Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md). Efek klip (stabilisasi, chroma key, LUT `.cube`, kecerahan, kontras, saturasi, gamma, keseimbangan warna) yang diterapkan saat ekstraksi ada di [olah-klip.md](olah-klip.md). Peredam bising dan pengubah nada/tempo suara ada di [§Olah suara per trek](#olah-suara-per-trek).
 
 ## Video di dalam video
 
@@ -153,7 +153,7 @@ flowchart LR
     K[Audio klip<br/>mode per klip] --> V
     M[Musik induk] --> V
     V -->|tumpang tindih terlarang:<br/>exit 2 + rentang frame| X[berhenti]
-    V --> E[Ukur dan samakan level<br/>ebur128] --> F[ffmpeg: volume eval=frame,<br/>adelay, amix normalize=0]
+    V --> O[Olah suara per trek<br/>bersih, nada, tempo] --> E[Ukur dan samakan level<br/>ebur128] --> F[ffmpeg: volume eval=frame,<br/>adelay, amix normalize=0]
     F --> W[campuran.wav<br/>48 kHz stereo float32]
     W --> R[render.mjs --audio<br/>loudnorm dua-pass]
 ```
@@ -177,9 +177,9 @@ Jalur berkas relatif terhadap folder rencana. Rentang frame setengah terbuka: `a
 | Kunci | Keterangan |
 | --- | --- |
 | `durasiFrame` | Wajib; jumlah frame komposisi. WAV hasil tepat sepanjang `durasiFrame / fps`. |
-| `narasi[]` | `berkas` (WAV atau MP3 beku), `mulai` (frame), `id` opsional. Akhir segmen = `mulai + ceil(durasi x fps)` dari `ffprobe`. |
+| `narasi[]` | `berkas` (WAV atau MP3 beku), `mulai` (frame), `id` opsional, `bersih` dan `suara` opsional ([§Olah suara per trek](#olah-suara-per-trek)). Akhir segmen = `mulai + ceil(durasi x fps)` dari `ffprobe` (dibagi `suara.tempo` bila ada). |
 | `musik` | Opsional. `levelDb` (bawaan -12, rentang -20..-8): level musik di bawah ucapan saat ada suara. `bebasDb` (bawaan -6, antara `levelDb` dan 0): level saat tak ada suara. |
-| `klip[]` | `id`, `mulai`, `akhir`, `mode` (`bergantian` bawaan, `campur`, `bisu`), `berkas` audio (bisa dihilangkan bila ada `--klip-props`, diambil dari `audio.wav` hasil `klip.mjs`), `gainDb`, `turunDb` (hanya `campur`, bawaan 12, rentang 8..20), `dariDetik` (offset di berkas audio). |
+| `klip[]` | `id`, `mulai`, `akhir`, `mode` (`bergantian` bawaan, `campur`, `bisu`), `berkas` audio (bisa dihilangkan bila ada `--klip-props`, diambil dari `audio.wav` hasil `klip.mjs`), `gainDb`, `turunDb` (hanya `campur`, bawaan 12, rentang 8..20), `dariDetik` (offset di berkas audio), `bersih` dan `suara` opsional (tanpa `tempo`; [§Olah suara per trek](#olah-suara-per-trek)). |
 | `fadeMs` | Bawaan 200, rentang 100..300. |
 | `ucapanLufs` | Level ucapan acuan, bawaan -16 LUFS. |
 
@@ -206,6 +206,45 @@ Gagal juga bila: dua klip bersuara (bergantian atau campur) tumpang tindih; dua 
 
 Dasar dan batas bukti. Ucapan simultan saling mengganggu (Salamé & Baddeley 1982; Brungart 2001; riset itu hanya terverifikasi sampai metadata), tetapi tingkat bukti untuk aturan ini tidak langsung dan tidak ada standar siaran terverifikasi yang melarang audio tumpang tindih. Selisih 12 dB (rentang 8..20), fade 200 ms, dan musik 12 dB di bawah ucapan adalah usulan rekayasa dari riset rasio dialog-latar (Sugimoto 2026; Ricketts dkk. 2026), bukan standar; riset itu memakai latar non-ucapan, padahal latar klip sering berupa ucapan, sehingga pilih nilai atas rentang bila ragu.
 
+### Olah suara per trek
+
+Narasi dan klip bersuara (bukan `bisu`) boleh diberi peredam bising (`bersih`) dan pengubah nada atau tempo (`suara`). Olah diterapkan **sebelum** penyamaan level: tiap sumber diukur (`ebur128`) sesudah diolah, jadi kenyaringan campuran tetap mengacu ke `ucapanLufs` (bawaan -16 LUFS). Musik induk tidak diolah. Urutan rantai: resample dan stereo, (klip: potong `dariDetik`), `bersih`, `suara`, gain level. Blok yang tidak ada berarti rantai sama persis dengan sebelumnya.
+
+```json
+{
+  "durasiFrame": 180,
+  "narasi": [{
+    "id": "n1", "berkas": "narasi-1.wav", "mulai": 0,
+    "bersih": { "metode": "afftdn", "nr": 20, "nf": -40 },
+    "suara": { "nadaSemiton": -2, "tempo": 1.1, "mesin": "sederhana" }
+  }],
+  "klip": [{ "id": "k1", "mulai": 105, "akhir": 195, "bersih": { "nr": 12 }, "suara": { "nadaSemiton": 2 } }]
+}
+```
+
+**Peredam bising `bersih`.** Kunci tak dikenal, nilai di luar rentang, dan filter yang tidak ada di build ffmpeg ditolak dengan kode keluar `2` sebelum ffmpeg merakit apa pun.
+
+| `metode` | Kunci | Keterangan |
+| --- | --- | --- |
+| `afftdn` (bawaan) | `nr` (0,01..97 dB, bawaan 12), `nf` (-80..-20 dB, bawaan -40), `jenis` (`putih` bawaan, `vinil`, `shellac`), `lacak` (bawaan `true`) | Filter `afftdn` bawaan ffmpeg (peredam bising domain FFT). `nr` banyaknya pengurangan, `nf` perkiraan lantai bising, `lacak` meminta filter mengikuti bising yang berubah (`tn=1`). Tanpa `lacak`, filter hanya memakai `nf` tetap; pada uji sinyal sintetis (`nr` 12) SNR naik hanya sekitar 2 dB, sedangkan dengan `lacak` dan `nr` 20 naik sekitar 18 dB. |
+| `arnndn` | `model` (wajib: berkas model milik Anda, relatif terhadap folder rencana), `campur` (0..1, bawaan 1) | Filter `arnndn` bawaan ffmpeg (jaringan saraf rekuren, RNNoise) untuk ucapan. **awvd tidak membundel model.** Berkas harus berformat model arnndn (baris pertama `rnnoise-nu model file version 1`); model RNNoise format lain tidak kompatibel. Berkas yang bukan model ditolak dengan pesan; bobot yang rusak membuat ffmpeg gagal dan `audio.mjs` keluar dengan kode 1 dan pesan ffmpeg. |
+
+Lisensi `arnndn`: kode RNNoise (xiph.org) berlisensi BSD 3-Clause (terverifikasi dari berkas `COPYING` repositori `xiph/rnnoise`, 2026-11-07), tetapi lisensi **model** yang Anda unduh atau latih adalah urusan Anda: periksa sendiri sebelum memakai dan sebelum mendistribusikan hasilnya, dan catat model (sumber, lisensi, tanggal, hash) di `ASET.md` repo proyek. Repositori model komunitas `rnnoise-models` menyatakan modelnya tidak berhak cipta; itu pernyataan pemiliknya, bukan kepastian hukum. Hasil `arnndn` bergantung pada model dan versi ffmpeg; determinismenya diuji pada filter `afftdn`, bukan pada model nyata (tidak ada model di repo ini). Model sungguhan belum diuji; uji repo memakai berkas model palsu (hanya baris pertama) untuk memastikan validasi dan pesan galatnya.
+
+**Pengubah suara `suara`.** `nadaSemiton` (-12..12, bawaan 0) menggeser nada tanpa mengubah durasi, `tempo` (0,5..2, bawaan 1) mengubah kecepatan tanpa mengubah nada. `tempo` hanya untuk narasi: audio klip harus sepanjang rentang frame-nya agar tetap sinkron dengan gambar, jadi `tempo` pada klip ditolak. Blok netral (nada 0 dan tempo 1) dibuang.
+
+| `mesin` | Perilaku |
+| --- | --- |
+| `otomatis` (bawaan) | `rubberband` bila filter itu ada di build ffmpeg, kalau tidak cadangan `sederhana` dengan peringatan. |
+| `rubberband` | Filter `rubberband` (pustaka Rubber Band): nada dan tempo bebas satu sama lain. Bila tidak ada di build ffmpeg: galat jelas (kode keluar 2) dengan saran. `formant` (bawaan `true`) mempertahankan formant ucapan saat nada bergeser; pada sinus murni (uji) formant dipertahankan justru meredam hasil, jadi uji memakai `formant: false`. |
+| `sederhana` | Cadangan `asetrate` + `aresample` + `atempo` (rantai atempo dipecah agar tiap tahap 0,5..2). Nada bergeser dengan resampling sehingga formant ikut bergeser (suara terdengar "mengecil" atau "membesar") dan mutunya lebih rendah. Tersedia di semua build ffmpeg. |
+
+`audio.mjs` mendeteksi `rubberband` lewat `ffmpeg -filters`. Rubber Band berlisensi GPL-2.0-or-later (atau lisensi komersial terpisah dari pengembangnya; terverifikasi di repositori `breakfastquay/rubberband`, 2026-11-07). awvd tidak membundelnya dan hanya memanggil ffmpeg yang terpasang di mesin pengguna; kewajiban lisensi ada pada pihak yang mendistribusikan ffmpeg ber-rubberband itu. Hasil `otomatis` bergantung pada build ffmpeg: tulis `mesin` secara eksplisit bila hasil harus sama di semua mesin.
+
+`tempo` mengubah durasi narasi: akhir segmen di rencana dihitung dari durasi WAV dibagi `tempo`, dan peringatan "melewati durasiFrame" berlaku pada durasi baru. Cue caption yang dibuat `bun run narasi` dihitung dari WAV aslinya dan tidak ikut bergeser; bila caption harus sinkron, bekukan dulu WAV yang sudah bertempo baru, lalu buat cue dari WAV itu.
+
+**Bukti dan batas.** Uji ([`scripts/uji-audio.mjs`](../scripts/uji-audio.mjs), `bun run uji:audio`) memakai sinus 440 Hz ditambah derau putih ber-seed (`anoisesrc`, seed 7) dengan SNR awal sekitar -0,7 dB. Dengan `afftdn` `nr` 20 dan `nf` -40, SNR campuran naik ke sekitar 17,1 dB (naik sekitar 17,9 dB; ambang uji minimal 10 dB), kenyaringan campuran tetap -16,0 LUFS (ambang uji +-1), dan dua run identik byte demi byte. Nada +12 semiton memindahkan daya sinus ke 880 Hz pada kedua mesin, dan `tempo` 2 memendekkan narasi enam detik menjadi tiga detik. Bukti ini dari **derau putih stasioner pada sinus**; belum diukur pada ucapan manusia dengan bising nyata (dengung, kipas, bising latar yang berubah), tempat `afftdn` dapat meninggalkan artefak "musical noise" atau meredam konsonan lemah. Pilih `nr` sedang, dengarkan hasilnya, dan bandingkan dengan `arnndn` bila punya model yang lisensinya jelas. Kenyaringan akhir video tetap diatur `render.mjs --kenyaringan`; olah suara tidak mengubah jalur itu.
+
 ### Narasi dan TTS
 
 `bun run narasi` ([narasi-caption.md](narasi-caption.md)) menurunkan `rencana-audio.json` (bagian `narasi`: id, `berkas`, `mulai` dalam frame, `sha256`) dari `naskah.json` dan WAV beku, sekaligus cue caption yang sinkron dengan durasi WAV. Berkasnya dibaca `bun run audio` tanpa perubahan.
@@ -214,9 +253,13 @@ awvd tidak membundel mesin TTS. Antarmuka narasi adalah **berkas WAV beku**: has
 
 ## Changelog
 
-### 2026-11-07 - v1.4.0
+### 2026-11-07 - v1.5.0
 
 - Format klip otomatis `png` bila ada efek beralfa dan `jpg` eksplisit ditolak; penunjuk efek klip mencakup stabilisasi dan chroma key (rinci di `olah-klip.md`).
+
+### 2026-11-07 - v1.4.0
+
+- Bagian baru Olah suara per trek: kunci `bersih` (peredam bising `afftdn`, `arnndn` dengan model milik pengguna) dan `suara` (`nadaSemiton`, `tempo` hanya narasi, `mesin` `otomatis`/`rubberband`/`sederhana`, `formant`) di `narasi[]` dan `klip[]`; level diukur sesudah olah; deteksi `rubberband` dengan cadangan `asetrate` + `atempo`; catatan lisensi RNNoise dan Rubber Band; bukti dan batas uji sintetis. Tabel rencana, alur Mermaid, dan uji (`uji-audio.mjs`) disesuaikan.
 
 ### 2026-11-07 - v1.3.0
 

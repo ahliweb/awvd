@@ -8,12 +8,13 @@
  *   bun scripts/konsep.mjs brief konsep.json [--out brief.md]
  *   bun scripts/konsep.mjs setuju konsep.json --gate G --oleh "Peran" --tanggal YYYY-MM-DD
  *                          [--berkas F] [--catatan T]
- *   bun scripts/konsep.mjs preset konsep.json
+ *   bun scripts/konsep.mjs preset konsep.json   (props JSON: preset, audiens, profil gerak, transisi)
  *   bun scripts/konsep.mjs sinkron-preset [--periksa] [--keluar F]
  *
  * Sumber kebenaran preset: data/jenis-video.json dan data/alur-produksi.json; profil audiens
  * (ukuran teks, cps, kontras, kepadatan elemen) dari data/audiens.json. Salinan
  * preset untuk komposisi di browser (scripts/preset-jenis.js) dihasilkan dari data itu.
+ * Preset transisi per jenis video dibaca dari scripts/transisi.js (Transisi.presetJenisVideo).
  * Keluaran deterministik: tidak memakai jam sistem, tanggal persetujuan datang dari
  * argumen. Exit 0 berhasil, 1 salinan preset basi (sinkron-preset --periksa), 2 argumen
  * atau konsep tidak valid. Fungsi diekspor agar dipakai periksa.mjs dan uji. Karya asli.
@@ -22,6 +23,7 @@ import { parseArgs } from "node:util";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const akar = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -40,7 +42,7 @@ const TINGKAT_ALUR = ["buku-teks", "praktik", "keputusan-desain"];
 const FASE = ["pra", "produksi", "pasca", "distribusi", "evaluasi"];
 const KUNCI_KONSEP = ["versi", "id", "judul", "jenis", "alur", "tahap", "tujuan", "tujuanBelajar", "audiens",
   "pesanUtama", "cta", "nada", "durasiTarget", "rasio", "narasi", "musik", "kenyaringan", "caption",
-  "kepatuhan", "persetujuan", "override", "overrideAlasan"];
+  "kurangiGerak", "kepatuhan", "persetujuan", "override", "overrideAlasan"];
 const MODE_NARASI = ["tanpa", "tts-lokal", "tts-daring", "rekaman"];
 const IZIN_POTRET = ["tidak-ada-potret", "tertulis-ada", "belum"];
 const KLAIM = ["tidak-ada", "berbukti", "belum-diperiksa"];
@@ -332,6 +334,76 @@ export function presetEfektif(data, konsep) {
   return { nilai, galat };
 }
 
+// ------------------------------------------------------------------ transisi
+/**
+ * Preset transisi per jenis video ada di scripts/transisi.js (Transisi.presetJenisVideo); data
+ * jenis-video.json hanya memuat token durasi kasar `transisi`. Modul dimuat malas lewat
+ * require (CommonJS, tanpa window tiruan) supaya subperintah lain tidak membayar biayanya.
+ */
+const muat = createRequire(import.meta.url);
+let cacheTransisi = null;
+export function muatTransisi() {
+  cacheTransisi ??= muat(join(akar, "scripts", "transisi.js"));
+  return cacheTransisi;
+}
+
+/** Profil audiens (data/audiens.json) -> profil gerak transisi.js. Keputusan desain (KP-040). */
+export const PROFIL_GERAK_AUDIENS = { umum: "standar", remaja: "standar", anak: "anak", lansia: "lansia", lowVision: "standar" };
+const KETAT_GERAK = ["standar", "anak", "lansia"]; // makin kanan makin ketat; kurangiGerak menimpa semuanya
+export const PERAN_TRANSISI = ["antarAdegan", "antarBagian", "pembuka", "penutup"];
+
+/**
+ * Profil gerak transisi untuk konsep: `kurangiGerak: true` menang; bila tidak, profil audiens
+ * paling ketat (lansia > anak > standar); bila tidak ada profil audiens, bawaan preset jenis.
+ * { profil, alasan }.
+ */
+export function profilGerak(konsep) {
+  const T = muatTransisi();
+  if (konsep.kurangiGerak === true) return { profil: "kurangiGerak", alasan: "konsep.json: kurangiGerak true" };
+  const daftar = (Array.isArray(konsep.audiens?.profil) ? konsep.audiens.profil : []).filter((x) => Object.hasOwn(PROFIL_GERAK_AUDIENS, x));
+  if (daftar.length) {
+    let terketat = "standar", dari = daftar[0];
+    for (const x of daftar) {
+      const g = PROFIL_GERAK_AUDIENS[x];
+      if (KETAT_GERAK.indexOf(g) > KETAT_GERAK.indexOf(terketat)) { terketat = g; dari = x; }
+    }
+    return { profil: terketat, alasan: `audiens.profil: ${daftar.join(", ")}${daftar.length > 1 && terketat !== "standar" ? ` (terketat: ${dari})` : ""}` };
+  }
+  return { profil: T.presetJenisVideo(konsep.jenis, "antarAdegan").profil, alasan: `bawaan preset jenis ${konsep.jenis}` };
+}
+
+/**
+ * Rencana transisi konsep: preset jenis per peran, profil gerak, dan hasil efektifnya
+ * (jenis setelah penggantian oleh profil atau efek berat, durasi setelah pengali profil, pada
+ * fps preset). { profil, alasan, kurangiGerak, efekBerat, peran: { <peran>: {...} } }.
+ */
+export function rencanaTransisi(konsep, fps = 30) {
+  const T = muatTransisi();
+  const { profil, alasan } = profilGerak(konsep);
+  const efekBerat = T.efekBerat(konsep.jenis);
+  const peran = {};
+  for (const nama of PERAN_TRANSISI) {
+    const spec = T.presetJenisVideo(konsep.jenis, nama, profil);
+    const opsi = { jenis: spec.jenis, durasiMs: spec.durasiMs, fps, profil, jenisVideo: konsep.jenis };
+    const efektif = T.transisi(0, { ...opsi, arah: spec.arah, easing: spec.easing }).jenisEfektif;
+    const frame = spec.jenis === "potong" ? 0 : T.durasiTransisi(opsi);
+    peran[nama] = { ...spec, jenisEfektif: efektif, durasiFrame: frame, durasiEfektifMs: Math.round((frame * 1000) / fps) };
+  }
+  return { profil, alasan, kurangiGerak: profil === "kurangiGerak", efekBerat, peran };
+}
+
+/** Blok props untuk komposisi: { profil, transisi } (dipakai subperintah `preset`). */
+export function propsTransisi(konsep, fps = 30) {
+  const r = rencanaTransisi(konsep, fps);
+  const transisi = { profil: r.profil, kurangiGerak: r.kurangiGerak, efekBerat: r.efekBerat, jenisVideo: konsep.jenis };
+  // spesifikasi peran apa adanya dari preset (siap dipakai susunAdegan), tanpa hasil turunan
+  for (const nama of PERAN_TRANSISI) {
+    const { jenisEfektif, durasiFrame, durasiEfektifMs, ...spec } = r.peran[nama];
+    transisi[nama] = spec;
+  }
+  return { profil: r.profil, transisi };
+}
+
 // ------------------------------------------------------------------ data pribadi
 const POLA_PRIBADI = [
   ["surel", /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/],
@@ -409,6 +481,10 @@ export function periksaKonsep(data, k) {
     }
   }
   if (!adalahObjek(k.cta)) galat.push("cta: harus objek");
+  if (k.kurangiGerak !== undefined && typeof k.kurangiGerak !== "boolean") galat.push("kurangiGerak: harus boolean");
+  else if (k.kurangiGerak === true && Array.isArray(k.audiens?.profil) && k.audiens.profil.some((x) => PROFIL_GERAK_AUDIENS[x] && PROFIL_GERAK_AUDIENS[x] !== "standar")) {
+    peringatan.push("kurangiGerak true menggantikan profil gerak dari audiens.profil (pengali durasi dan jarak profil lansia atau anak tidak dipakai; ukuran teks dan cps tetap)");
+  }
 
   // bentuk dan waktu
   if (nilai) {
@@ -536,6 +612,7 @@ export function buatKonsep(data, { jenis, alur, judul = "", audiens = [] }) {
     musik: { tingkat: n.musik, selisihDb: n.selisihNarasiMusikDb },
     kenyaringan: n.kenyaringan,
     caption: { burnIn: n.burnIn, cps: ef ? ef.cps : n.cps, mode: n.modeCaption, bahasa: "ind" },
+    kurangiGerak: false,
     kepatuhan: { dasarHukum: [], izinPotret: "tidak-ada-potret", klaim: "tidak-ada", dataNyata: false, sensitif: false },
     persetujuan: daftarGate(a).map((g) => ({
       gate: g.id, nama: g.nama, peranDiminta: g.penyetuju, status: "menunggu", oleh: "", tanggal: null, hash: null, berkas: null, catatan: "",
@@ -640,6 +717,21 @@ export function buatBrief(data, k) {
     `- Caption: ${k.caption?.burnIn ? "burn-in" : "sidecar"}, mode ${k.caption?.mode}, ${k.caption?.cps} cps, bahasa ${k.caption?.bahasa}.`,
     `- Musik: ${k.musik?.tingkat}${k.musik?.selisihDb == null ? "" : `, selisih narasi-musik >= ${idAngka(k.musik.selisihDb)} dB`}.`,
     `- Kenyaringan: ${k.kenyaringan} (${k.kenyaringan === "siaran" ? "-23 LUFS" : "-16 LUFS"}).`, "");
+
+  const rt = rencanaTransisi(k, n.fps);
+  baris("## Transisi dan gerak", "",
+    `Preset transisi jenis \`${k.jenis}\` dari \`scripts/transisi.js\` (\`Transisi.presetJenisVideo\`); nilainya keputusan desain, bukan hasil riset (docs/transisi-animasi.md). Token durasi \`transisi\` (${n.transisi}) di tabel atas adalah tingkat kasar runtime dan terpisah dari preset ini.`, "",
+    `- Profil gerak: \`${rt.profil}\` (${rt.alasan}).`,
+    `- Efek berat (\`gangguan\`, grain hidup): ${rt.efekBerat ? "diizinkan untuk jenis ini" : "mati untuk jenis ini (diganti \`pudar\`)"}.`,
+    `- Komposisi memilih profil lewat props: \`bun run konsep -- preset konsep.json > preset.json\`, lalu \`render.mjs --props-file preset.json\`; komposisi yang membaca \`props.profil\` (seperti galeri transisi) memakainya tanpa perubahan kode, dan \`props.transisi\` memuat preset per peran. Setel \`kurangiGerak: true\` di konsep.json untuk memaksa profil \`kurangiGerak\`.`, "",
+    "| Peran | Preset | Efektif | Durasi efektif | Catatan |", "| --- | --- | --- | --- | --- |");
+  for (const nama of PERAN_TRANSISI) {
+    const x = rt.peran[nama];
+    const preset = x.jenis === "potong" ? "potong" : `${x.jenis} ${x.durasiMs} ms${x.arah ? `, arah ${x.arah}` : ""}`;
+    const catatan = x.jenisEfektif !== x.jenis ? `diganti ${x.jenisEfektif} oleh profil \`${rt.profil}\` atau efek berat mati` : "-";
+    baris(`| ${nama} | ${preset} | ${x.jenisEfektif} | ${x.durasiFrame} frame (${x.durasiEfektifMs} ms pada ${n.fps} fps) | ${catatan} |`);
+  }
+  baris("");
 
   baris("## Aturan teknis", "",
     `- Caption: baris maksimal 42 karakter, maksimal 2 baris, ${k.caption?.cps} cps, durasi cue 5/6 sampai 7 detik (Netflix Timed Text Style Guide).`,
@@ -935,6 +1027,7 @@ async function utama() {
       process.stdout.write(tulisJson({
         jenis: r.konsep.jenis,
         preset: r.efektif,
+        ...propsTransisi(r.konsep, r.efektif.fps),
         ...(efAud ? { audiens: { profil: r.konsep.audiens.profil, efektif: efAud, konteksUkuranTeks: konteksUkuranTeks(data, r.konsep.audiens.konteksTonton) } } : {}),
       }));
       return 0;
