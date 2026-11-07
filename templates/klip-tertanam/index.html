@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Klip tertanam video-terprogram</title>
+<meta name="viewport" content="width=1280">
+<style>
+  html, body { margin: 0; background: #0b1220; }
+  #layar {
+    position: relative; width: 1280px; height: 720px; overflow: hidden;
+    font-family: system-ui, "Segoe UI", Roboto, "DejaVu Sans", sans-serif;
+    color: #f8fafc; background: linear-gradient(135deg, #0b1220 0%, #1b2a4a 100%);
+  }
+  #garis { position: absolute; height: 8px; border-radius: 4px; }
+  #judul { position: absolute; margin: 0; font-size: 52px; font-weight: 800; letter-spacing: -1px; max-width: 560px; line-height: 1.1; }
+  #subjudul { position: absolute; margin: 0; font-size: 24px; color: #cbd5e1; max-width: 560px; line-height: 1.3; }
+  #poin { position: absolute; margin: 0; padding: 0; list-style: none; font-size: 26px; max-width: 560px; }
+  #poin li { margin: 0 0 18px 0; padding-left: 22px; border-left: 6px solid; line-height: 1.25; }
+  #pip { position: absolute; display: none; }
+  #pip-label { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+  #pip-bingkai { border: 6px solid; border-radius: 14px; overflow: hidden; line-height: 0; background: #000; }
+  #pip-kanvas { display: block; }
+  #pip-kredit { margin-top: 12px; font-size: 20px; line-height: 1.3; color: #e2e8f0; max-width: 492px; }
+  #caption { position: absolute; left: 0; right: 0; text-align: center; font-size: 34px; font-weight: 600; line-height: 1.25; }
+  #caption span { display: inline-block; padding: 8px 22px; background: rgba(0, 0, 0, .7); }
+  #kredit { position: absolute; inset: 0; display: none; background: #0b1220; }
+  #kredit h2 { position: absolute; margin: 0; font-size: 48px; font-weight: 800; }
+  #kredit ol { position: absolute; margin: 0; padding: 0 0 0 36px; font-size: 24px; line-height: 1.4; color: #e2e8f0; }
+  #kredit li { margin: 0 0 20px 0; }
+  #kredit p { position: absolute; margin: 0; font-size: 20px; color: #94a3b8; }
+  #progres { position: absolute; left: 0; bottom: 0; height: 8px; }
+</style>
+</head>
+<body>
+<div id="layar">
+  <div id="garis"></div>
+  <h1 id="judul"></h1>
+  <p id="subjudul"></p>
+  <ul id="poin"></ul>
+  <div id="pip">
+    <div id="pip-label"></div>
+    <div id="pip-bingkai"><canvas id="pip-kanvas" role="img" aria-label="Klip tertanam"></canvas></div>
+    <div id="pip-kredit"></div>
+  </div>
+  <div id="caption"><span></span></div>
+  <div id="kredit"><h2>Kredit</h2><ol></ol><p></p></div>
+  <div id="progres"></div>
+</div>
+<script src="../../scripts/runtime.js"></script>
+<script>
+  // Props: props.json (teks, jadwal, caption) digabung dengan klip-props.json lewat
+  //   bun scripts/klip.mjs sumber.json --fps 30 --out .cache/awvd/klip --gabung props.json
+  // lalu render dengan --props-file .cache/awvd/klip/props-gabungan.json.
+  // Jadwal klip di props.jadwal harus sama dengan rencana-audio.json (diuji di uji-klip).
+  // Catatan determinisme (teramati di Chromium mesin pengembangan):
+  //  - frame klip digambar ke <canvas> lewat klipGambar; target <img> kadang tertangkap
+  //    screenshot dengan frame sebelumnya karena pengecatan gambar baru bersifat asinkron.
+  //  - latar caption sengaja bersudut siku: sudut membulat pada kotak berposisi pecahan
+  //    menghasilkan 1-2 piksel tepi yang berubah antar-run (frame tidak identik).
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    garis: $("garis"), judul: $("judul"), sub: $("subjudul"), poin: $("poin"),
+    pip: $("pip"), label: $("pip-label"), bingkai: $("pip-bingkai"), kanvas: $("pip-kanvas"), kredit: $("pip-kredit"),
+    caption: $("caption"), capTeks: $("caption").firstElementChild,
+    akhir: $("kredit"), akhirJudul: $("kredit").querySelector("h2"), akhirDaftar: $("kredit").querySelector("ol"),
+    akhirCatatan: $("kredit").querySelector("p"), progres: $("progres"),
+  };
+
+  defineVideo({
+    width: 1280, height: 720, fps: 30, durationInFrames: 480,
+    async render(frame, ctx) {
+      const P = ctx.props;
+      if (!Array.isArray(P.klip) || !P.jadwal) {
+        throw new Error("props tidak lengkap: jalankan scripts/klip.mjs dengan --gabung props.json (lihat komentar di index.html)");
+      }
+      const A = areaAman(ctx.width, ctx.height).grafis;
+      const aksen = P.warnaAksen || "#f59f00";
+      const klipPerId = Object.fromEntries(P.klip.map((k) => [k.id, k]));
+
+      // judul, subjudul, dan poin di kolom kiri
+      const masuk = ms(durasi.masuk, ctx.fps);
+      const naik = interpolasi(frame, [0, masuk * 2], [0, 1], { easing: easing.keluarCubic });
+      el.garis.style.cssText = "left:" + A.x + "px;top:" + (A.y + 24) + "px;width:" + (naik * 220) + "px;background:" + aksen;
+      el.judul.textContent = P.judul || "";
+      el.judul.style.left = A.x + "px";
+      el.judul.style.top = (A.y + 56) + "px";
+      el.judul.style.opacity = String(naik);
+      el.sub.textContent = P.subjudul || "";
+      el.sub.style.left = A.x + "px";
+      el.sub.style.top = (A.y + 150) + "px";
+      el.sub.style.opacity = String(interpolasi(frame, [masuk, masuk * 3], [0, 1]));
+      el.poin.style.left = A.x + "px";
+      el.poin.style.top = (A.y + 270) + "px";
+      el.poin.replaceChildren(...(P.poin || []).map((teks, i) => {
+        const li = document.createElement("li");
+        li.textContent = teks;
+        li.style.borderColor = aksen;
+        li.style.opacity = String(interpolasi(berjenjang(frame, i, { mulai: 24, jeda: ms(400, ctx.fps) }), [0, masuk], [0, 1]));
+        return li;
+      }));
+
+      // panel PiP: frame klip digambar dari cache sebagai fungsi murni dari nomor frame
+      const j = P.jadwal.klip.find((x) => frame >= x.mulai && frame < x.akhir);
+      if (j) {
+        const k = klipPerId[j.id];
+        if (!k) throw new Error("klip tidak ada di props: " + j.id);
+        const lokal = frame - j.mulai;
+        await klipGambar(el.kanvas, k, lokal);
+        const buram = fade(lokal, j.akhir - j.mulai, { masuk: ms(durasi.masuk, ctx.fps), keluar: ms(durasi.keluar, ctx.fps) });
+        el.kanvas.style.width = k.lebar + "px";
+        el.kanvas.style.height = k.tinggi + "px";
+        el.pip.style.cssText = "display:block;left:" + (A.x + A.w - (k.lebar + 12)) + "px;top:" + (A.y + 70) +
+          "px;opacity:" + buram + ";transform:translateY(" + ((1 - buram) * 24) + "px)";
+        el.bingkai.style.borderColor = aksen;
+        el.label.textContent = "Klip " + k.id + " · audio " + j.mode;
+        el.kredit.textContent = kreditKlip(k);
+      } else {
+        el.pip.style.display = "none";
+      }
+
+      // caption burn-in (cue dalam detik)
+      const cue = captionAktif(P.caption || [], frame, ctx.fps);
+      el.caption.style.bottom = (ctx.height - A.y - A.h) + "px";
+      el.caption.style.display = cue && frame < P.jadwal.kredit.mulai ? "block" : "none";
+      if (cue) el.capTeks.replaceChildren(...pecahBaris(cue.teks, { maks: 42 }).flatMap((b, i) => (i ? [document.createElement("br"), b] : [b])));
+
+      // kredit akhir: atribusi lengkap (TASL) semua sumber, urut kemunculan
+      const kr = P.jadwal.kredit;
+      if (frame >= kr.mulai) {
+        const unik = [];
+        for (const x of P.jadwal.klip) {
+          const k = klipPerId[x.id];
+          if (k && !unik.some((u) => u.sumber === k.sumber)) unik.push(k);
+        }
+        el.akhir.style.display = "block";
+        el.akhir.style.opacity = String(interpolasi(frame - kr.mulai, [0, ms(durasi.sedang, ctx.fps)], [0, 1]));
+        el.akhirJudul.style.cssText = "left:" + A.x + "px;top:" + (A.y + 40) + "px";
+        el.akhirDaftar.style.cssText = "left:" + A.x + "px;top:" + (A.y + 140) + "px;width:" + (A.w - 40) + "px";
+        el.akhirDaftar.replaceChildren(...unik.map((k) => {
+          const li = document.createElement("li");
+          li.textContent = kreditKlip(k, { ringkas: false });
+          return li;
+        }));
+        el.akhirCatatan.style.cssText = "left:" + A.x + "px;top:" + (A.y + A.h - 30) + "px";
+        el.akhirCatatan.textContent = "Frame klip dibuat ulang (diubah ukuran dan dipotong) dari berkas sumber di atas.";
+      } else {
+        el.akhir.style.display = "none";
+      }
+
+      el.progres.style.background = aksen;
+      el.progres.style.width = (frame / (ctx.durationInFrames - 1)) * ctx.width + "px";
+    },
+  });
+</script>
+</body>
+</html>
