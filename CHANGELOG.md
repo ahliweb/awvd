@@ -11,3 +11,5 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/). Ve
 - Template `templates/contoh-dasar`.
 - Uji otomatis `bun run uji` dan CI GitHub Actions `uji`.
 - Dokumentasi: README, AGENTS.md, CLAUDE.md.
+- Aturan dokumentasi di AGENTS.md §Dokumentasi: setiap perubahan konsep/fitur wajib disertai pembaruan dokumen, dengan peta pemicu dan checklist.
+- Template PR `.github/pull_request_template.md` dan `templates/contoh-dasar/ASET.md`.
