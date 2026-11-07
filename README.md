@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.0.0`
+- Version: `v2.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Struktur dokumentasi berubah: isi rinci README dipindah ke folder docs/ (arsitektur, API runtime, CLI, pemeriksaan mutu, konsep, SOP, video tertanam dan audio, aksesibilitas, batasan, lisensi, pedoman produksi, log keputusan); README menjadi ringkasan dengan indeks dokumentasi.`
+- Changeset: `Mendaftarkan docs/visual-audiens.md di indeks, memperbarui versi dokumen, dan mencatat uji visual, data/audiens.json, serta helper visual di Struktur repo dan Perintah utama.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -54,7 +54,7 @@ Server statis apa pun juga bisa dipakai. Satu frame saja: `?frame=60`. Props pra
 - `bun run sop <sop.json> --out DIR`: SOP menjadi dokumen dan bahan video ([docs/sop.md](docs/sop.md)).
 - `bun run klip <sumber.json> --fps N` dan `bun run audio <rencana.json> --fps N --out ...`: video di dalam video dan timeline audio ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md)).
 - `bun run konsep -- <subperintah>`: konsep video, pilihan jenis video dan alur produksi ([docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md)).
-- `bun run uji`: uji unit runtime, uji periksa, uji SOP, uji klip, uji konsep, lalu sembilan uji renderer (properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran); sekitar dua setengah menit. `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
+- `bun run uji`: uji unit runtime, uji periksa, uji SOP, uji klip, uji konsep, uji visual (helper warna dan ukuran teks, data audiens), lalu sembilan uji renderer (properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran); sekitar dua setengah menit. `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
 
 ## Dokumentasi
 
@@ -62,19 +62,20 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.0.0` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.1.0` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, determinisme, peran upstream | `v1.0.0` |
-| [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.0.0` |
+| [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.1.0` |
 | [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, encode, kenyaringan | `v1.0.0` |
-| [docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md) | `bun run periksa`: pemeriksaan, ambang, kilatan | `v1.0.0` |
-| [docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md) | `bun run konsep`: 13 jenis video, 5 alur, tingkat bukti | `v1.0.0` |
+| [docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md) | `bun run periksa`: pemeriksaan, ambang, kilatan | `v1.0.1` |
+| [docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md) | `bun run konsep`: 13 jenis video, 5 alur, tingkat bukti, profil audiens | `v1.1.0` |
 | [docs/sop.md](docs/sop.md) | SOP sebagai dokumen cetak dan bahan video | `v1.0.0` |
 | [docs/video-tertanam-audio.md](docs/video-tertanam-audio.md) | Klip tertanam dan timeline audio | `v1.0.0` |
-| [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, peta fitur aksesibilitas | `v1.0.0` |
-| [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.0.0` |
+| [docs/visual-audiens.md](docs/visual-audiens.md) | Profil audiens, ukuran teks, buta warna, ketajaman, efek dekoratif | `v1.0.0` |
+| [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, peta fitur aksesibilitas | `v1.1.0` |
+| [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.1.0` |
 | [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, tanggung jawab aset | `v1.0.0` |
-| [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.0.0` |
-| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.0.0` |
+| [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.1.0` |
+| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.1.0` |
 | [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.5.0` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
 
@@ -89,8 +90,8 @@ scripts/klip.mjs        validasi manifest sumber dan ekstraksi frame klip
 scripts/audio.mjs       perakit timeline audio
 scripts/konsep.mjs      konsep video: jenis, alur, brief, persetujuan
 scripts/preset-jenis.js salinan preset untuk browser (DIHASILKAN dari data/jenis-video.json)
-scripts/uji*.mjs        uji otomatis (runtime, periksa, sop, klip, konsep, renderer)
-data/                   jenis-video.json (13 jenis) dan alur-produksi.json (5 alur)
+scripts/uji*.mjs        uji otomatis (runtime, periksa, sop, klip, konsep, visual, renderer)
+data/                   jenis-video.json (13 jenis), alur-produksi.json (5 alur), audiens.json (5 profil audiens)
 templates/<nama>/       komposisi contoh generik + ASET.md (catatan aset pihak ketiga):
                         contoh-dasar, sop, klip-tertanam, konsep-contoh
 docs/                   dokumentasi rinci (indeks: docs/README.md)
@@ -116,6 +117,11 @@ Belum ada rilis bertag. Versi paket `0.1.0`, dan semua perubahan dicatat di [CHA
 awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion maupun repositori skill-nya; pihak ketiga dan tanggung jawab pengguna atas aset (font, musik, gambar, footage, klip, suara TTS) ada di [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md).
 
 ## Changelog
+
+### 2026-11-07 - v2.1.0
+
+- Mendaftarkan `docs/visual-audiens.md` di indeks dokumentasi dan memperbarui kolom Versi dokumen yang berubah (`api-runtime`, `pemeriksaan-mutu`, `konsep-jenis-alur`, `aksesibilitas`, `batasan`, `pedoman-produksi`, `log-keputusan`, `docs/README`).
+- §Perintah utama: `bun run uji` kini juga menjalankan uji visual. §Struktur repo: `data/audiens.json` dan uji visual.
 
 ### 2026-11-07 - v2.0.0
 

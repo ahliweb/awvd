@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: batasan renderer (kinerja, platform, format keluaran, SDR, kenyaringan); ditambah penunjuk ke batasan fitur lain.`
+- Changeset: `Menambahkan batasan ketajaman dan supersampling (--skala memperbesar keluaran, belum memperkecil kembali) serta penunjuk ke batasan visual dan audiens.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -15,7 +15,7 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 - Elemen `<video>` di DOM tidak di-seek per frame. Untuk video di dalam video pakai fitur klip tertanam ([video-tertanam-audio.md](video-tertanam-audio.md): frame diekstrak ke cache lalu digambar per nomor frame); untuk gambar diam pakai `<img>` atau `<canvas>`.
 - Keluaran hanya H.264 (MP4) dan PNG (still). Tidak ada WebM/ProRes/GIF.
 - Hanya SDR BT.709; tidak ada HDR atau ruang warna lain. Normalisasi kenyaringan memakai `loudnorm` linear; bila mode linear tidak dapat dicapai tanpa melewati batas true peak, ffmpeg beralih ke mode dinamis, dan hasil ukur bisa menyimpang dari target (periksa laporan `kenyaringan:`). Hasil dikodekan AAC setelah normalisasi, jadi true peak akhir dapat berbeda sedikit.
-- Resolusi dasar diambil dari `width`/`height` komposisi; ubah ukuran akhir dengan `--skala`.
+- Resolusi dasar diambil dari `width`/`height` komposisi; ubah ukuran akhir dengan `--skala`. `--skala` membuat raster tajam pada ukuran akhir tetapi keluaran ikut membesar; supersampling (render lebih besar lalu diperkecil ke ukuran keluaran) belum didukung renderer. Garis berwarna 1 px melemah pada 4:2:0 (pakai >= 2 px); lihat [visual-audiens.md](visual-audiens.md#ketajaman-dan-encode).
 
 ## Batasan di dokumen lain
 
@@ -26,8 +26,13 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | Pemeriksaan mutu | [pemeriksaan-mutu.md](pemeriksaan-mutu.md#batasan) |
 | Kilatan fotosensitif | [pemeriksaan-mutu.md](pemeriksaan-mutu.md#kilatan-fotosensitif) |
 | SOP | [sop.md](sop.md#keputusan-desain-bukan-aturan-regulasi) |
+| Visual dan audiens (ukuran teks, palet buta warna, profil, efek) | [visual-audiens.md](visual-audiens.md#kesenjangan) |
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Menambahkan batasan `--skala` dan supersampling, garis berwarna 1 px, dan penunjuk ke batasan visual dan audiens.
 
 ### 2026-11-07 - v1.0.0
 
