@@ -247,8 +247,10 @@ defineVideo({ width: 640, height: 360, fps: 30, durationInFrames: 60,
   const benar = await psnr(j("dapat.png"), await rujukan(15));
   const geser = await psnr(j("dapat.png"), await rujukan(20));
   console.log(`       PSNR area PiP: frame benar ${benar.toFixed(1)} dB, frame +5 ${geser.toFixed(1)} dB`);
-  tegas(benar >= 30, `PSNR area PiP terhadap frame sumber terlalu rendah: ${benar.toFixed(1)} dB (minimal 30)`);
-  tegas(benar > geser + 5, `indeks frame salah? PSNR frame benar ${benar.toFixed(1)} dB vs frame +5 ${geser.toFixed(1)} dB`);
+  // Ambang dibuat relatif: nilai absolut PSNR bergantung pada penskalaan canvas
+  // build Chromium (lokal ~35 dB, CI ~27 dB). Yang diuji adalah frame yang benar.
+  tegas(benar >= 22, `PSNR area PiP terhadap frame sumber terlalu rendah: ${benar.toFixed(1)} dB (minimal 22)`);
+  tegas(benar > geser + 10, `indeks frame salah? PSNR frame benar ${benar.toFixed(1)} dB vs frame +5 ${geser.toFixed(1)} dB (selisih minimal 10 dB)`);
 });
 
 // =========================================================== (d) audio
