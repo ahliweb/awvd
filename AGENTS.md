@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.3.0`
+- Version: `v1.3.1`
 - Last updated: `2026-11-07`
-- Changeset: `Menerapkan pedoman internal AhliWeb yang belum ada: Pedoman Eksekusi Wajib (orchestrator dan subagent), bagian Skill, Git dan PR (gerbang merge berbasis status, pembersihan branch, konvensi), serta Rilis dan Deployment; menghapus rujukan nama, path, dan tautan repo pedoman internal karena repo itu privat.`
+- Changeset: `Memperbarui kondisi GitHub: proteksi main, check wajib, merge commit saja, hapus branch otomatis, dan catatan penulisan ulang riwayat sekali.`
 
 awvd adalah renderer video MP4 dari kode web (lihat [README.md](README.md)). Aturan di dokumen ini menurunkan **pedoman internal AhliWeb** (tidak publik): eksekusi terkelola orchestrator (skill `eksekusi-terkelola`), standar dokumen (skill `standar-dokumen-repo`), standar koordinasi kontributor, standar dokumen formal, dan prosedur pemakaian awvd (skill `video-terprogram`). Nomor keputusan `DL-0xx` merujuk decision log internal tersebut. Isi yang dibutuhkan agent sudah dituangkan di sini, jadi agent di repo ini tidak perlu mengakses pedoman internal.
 
@@ -134,7 +134,7 @@ flowchart TD
   gh pr list --state open                  # PR terbuka dilaporkan beserta alasannya
   ```
 
-- **Kondisi GitHub per 2026-11-07:** `main` belum diproteksi, `delete_branch_on_merge` nonaktif, dan merge commit, squash, serta rebase semuanya diizinkan. Aturan di atas ditegakkan lewat disiplin kerja sampai pemilik memutuskan pengaturan repo.
+- **Pengaturan GitHub (sejak 2026-11-07):** `main` diproteksi: check `uji` dan `GitGuardian Security Checks` wajib SUCCESS dan branch harus mutakhir terhadap `main` sebelum merge; semua percakapan review harus diselesaikan; force push dan penghapusan `main` diblokir; aturan berlaku juga untuk admin. Tidak ada kewajiban review karena pemilik bekerja sendiri dan GitHub tidak mengizinkan menyetujui PR sendiri. Hanya merge commit yang diizinkan, dan branch dihapus otomatis setelah merge. Riwayat `main` pernah ditulis ulang sekali pada 2026-11-07 atas keputusan pemilik untuk menghapus rujukan repo internal; force push selain itu tetap dilarang.
 
 ## Rilis dan Deployment
 
@@ -234,6 +234,10 @@ flowchart TD
 Template PR di `.github/pull_request_template.md` memuat checklist ini.
 
 ## Changelog
+
+### 2026-11-07 - v1.3.1
+
+- Kondisi GitHub diperbarui setelah proteksi branch dan pengaturan merge diterapkan; mencatat penulisan ulang riwayat atas keputusan pemilik.
 
 ### 2026-11-07 - v1.3.0
 
