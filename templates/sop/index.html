@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>SOP sebagai video (contoh)</title>
+<meta name="viewport" content="width=1280">
+<style>
+  html, body { margin: 0; background: #0f172a; }
+  #layar {
+    position: relative; width: 1280px; height: 720px; overflow: hidden;
+    font-family: system-ui, "Segoe UI", Roboto, "Noto Sans", "DejaVu Sans", sans-serif;
+    color: #f8fafc; background: #0f172a;
+  }
+  #isi { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
+  #caption { position: absolute; display: none; text-align: center; }
+  #caption span {
+    display: inline-block; max-width: 1000px; padding: 8px 20px; border-radius: 10px;
+    background: #0b1020; color: #ffffff; font-size: 30px; line-height: 38px; white-space: pre-line;
+  }
+</style>
+</head>
+<body>
+<div id="layar"><div id="isi"></div><div id="caption"><span></span></div></div>
+<script src="../../scripts/runtime.js"></script>
+<script src="../../scripts/sop-alir.js"></script>
+<script>
+  // Komposisi SOP -> video. Semua gerak berasal dari nomor frame (fungsi murni).
+  // Props: keluaran `bun scripts/sop.mjs sop.json --out DIR` (DIR/video-props.json).
+  const W = 1280, H = 720;
+
+  // ---- palet dan pemeriksaan kontras (WCAG 2.2 SC 1.4.3, minimal 4,5:1 untuk teks)
+  const C = {
+    latar: "#0f172a", panel: "#1e293b", pita: "#18223a", teks: "#f8fafc", teks2: "#cbd5e1",
+    redup: "#94a3b8", garisRedup: "#64748b", aksen: "#fbbf24", tinta: "#0f172a",
+    capLatar: "#0b1020", capTeks: "#ffffff",
+  };
+  const WARNA_LAJUR = ["#38bdf8", "#a78bfa", "#34d399", "#fb7185", "#f59e0b", "#22d3ee", "#f472b6", "#a3e635"];
+  const PASANGAN = [
+    [C.teks, C.latar], [C.teks, C.panel], [C.teks2, C.latar], [C.teks2, C.panel],
+    [C.redup, C.latar], [C.redup, C.panel], [C.aksen, C.latar], [C.aksen, C.panel],
+    [C.tinta, C.aksen], [C.capTeks, C.capLatar],
+    ...WARNA_LAJUR.flatMap((w) => [[C.tinta, w], [w, C.latar], [w, C.panel]]),
+  ];
+  for (const [fg, bg] of PASANGAN) {
+    if (kontras(fg, bg) < 4.5) throw new Error("kontras teks " + fg + " pada " + bg + " di bawah 4,5:1");
+  }
+
+  // ---- props (window.videoProps disuntik renderer sebelum skrip berjalan; ?props= saat pratinjau)
+  function bacaProps() {
+    let p = window.videoProps;
+    if ((!p || !p.adegan) && window.location) {
+      try { const q = new URLSearchParams(window.location.search).get("props"); if (q) p = JSON.parse(q); } catch (e) { p = null; }
+    }
+    if (p && Array.isArray(p.adegan) && p.adegan.length && Number.isInteger(p.durationInFrames) && p.durationInFrames > 0) return p;
+    return { fps: 30, durationInFrames: 90, adegan: [{ jenis: "kosong", mulai: 0, durasi: 90 }], caption: [], pelaksana: [], prosedur: [], identitas: {} };
+  }
+  const P = bacaProps();
+  const FPS = P.fps || 30;
+  const AMAN = areaAman(W, H);
+  const G = AMAN.grafis;   // judul dan isi di area grafis (90%)
+  const A = AMAN.aksi;     // caption di area aksi (93%)
+  const ISI_BAWAH = 587;   // batas bawah isi, di atas kotak caption dua baris
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const n2 = (x) => Math.round(x * 100) / 100;
+  const jepit = (x, a, b) => Math.min(b, Math.max(a, x));
+  const warnaLajur = (i) => WARNA_LAJUR[i % WARNA_LAJUR.length];
+  const idGlobal = (id) => Math.max(0, P.pelaksana.findIndex((x) => x.id === id)); // warna konsisten antar prosedur
+  const NAMA_JENIS = { mulai: "Mulai", proses: "Proses", keputusan: "Keputusan", selesai: "Selesai" };
+
+  // kemunculan elemen: 0..1, perlambat, berjenjang satu elemen per ketukan
+  const masukFrame = ms(durasi.masuk, FPS);
+  function muncul(lf, indeks, jeda, mulai) {
+    const l = berjenjang(lf, indeks || 0, { mulai: mulai || 0, jeda: jeda == null ? 5 : jeda });
+    return interpolasi(l, [0, masukFrame], [0, 1], { easing: easing.perlambat });
+  }
+  const gayaMuncul = (p, dy) => "opacity:" + n2(p) + ";transform:translateY(" + n2((1 - p) * (dy == null ? 18 : dy)) + "px)";
+
+  // ------------------------------------------------------------------ adegan
+  function adeganJudul(s, lf) {
+    const id = P.identitas;
+    const garis = interpolasi(lf, [0, ms(durasi.panjang, FPS)], [0, 220], { easing: easing.standar });
+    const baris = [
+      ["Nomor dokumen", s.nomor], ["Unit", s.unit], ["Berlaku efektif", s.tanggalEfektif],
+      ["Disahkan oleh", s.disahkanOleh.jabatan + (s.disahkanOleh.nama ? ", " + s.disahkanOleh.nama : "")],
+    ];
+    return '<div style="position:absolute;left:' + G.x + 'px;top:150px;width:' + n2(garis) + 'px;height:8px;border-radius:4px;background:' + C.aksen + '"></div>' +
+      '<div style="position:absolute;left:' + G.x + 'px;top:178px;width:' + G.w + 'px;font-size:22px;letter-spacing:4px;color:' + C.aksen + ';' + gayaMuncul(muncul(lf, 0)) + '">STANDAR OPERASIONAL PROSEDUR</div>' +
+      '<div style="position:absolute;left:' + G.x + 'px;top:222px;width:' + G.w + 'px;font-size:58px;line-height:68px;font-weight:800;' + gayaMuncul(muncul(lf, 1)) + '">' + esc(s.judul) + '</div>' +
+      '<div style="position:absolute;left:' + G.x + 'px;top:400px;width:' + G.w + 'px;font-size:24px;line-height:32px">' +
+      baris.map((b, i) => '<div style="display:flex;gap:20px;margin-bottom:8px;' + gayaMuncul(muncul(lf, 3 + i)) + '"><span style="width:220px;color:' + C.teks2 + '">' + esc(b[0]) + '</span><span style="flex:1">' + esc(b[1]) + '</span></div>').join("") +
+      '</div>';
+  }
+
+  function adeganDasarHukum(s, lf) {
+    const kartu = s.butir.map((b, i) =>
+      '<div style="display:flex;gap:16px;align-items:flex-start;padding:14px 18px;border-radius:14px;background:' + C.panel + ';' + gayaMuncul(muncul(lf, 1 + i, 6)) + '">' +
+      '<span style="flex:none;width:34px;height:34px;border-radius:17px;background:' + C.aksen + ';color:' + C.tinta + ';font-weight:700;font-size:20px;line-height:34px;text-align:center">' + (i + 1) + '</span>' +
+      '<span style="font-size:21px;line-height:28px">' + esc(b) + '</span></div>').join("");
+    const lain = s.lainnya > 0
+      ? '<div style="font-size:20px;color:' + C.teks2 + ';margin-top:4px;' + gayaMuncul(muncul(lf, 4, 6)) + '">dan ' + s.lainnya + ' dasar hukum lain di dokumen SOP</div>' : "";
+    const chip = P.pelaksana.map((p, i) =>
+      '<div style="display:flex;align-items:center;gap:14px;padding:12px 18px;border-radius:14px;background:' + C.panel + ';' + gayaMuncul(muncul(lf, 2 + i, 6)) + '">' +
+      '<span style="flex:none;width:22px;height:22px;border-radius:11px;background:' + warnaLajur(i) + '"></span>' +
+      '<span style="font-size:26px;font-weight:600">' + esc(p.nama) + '</span></div>').join("");
+    return '<div style="position:absolute;left:' + G.x + 'px;top:64px;font-size:22px;letter-spacing:4px;color:' + C.aksen + ';' + gayaMuncul(muncul(lf, 0)) + '">SEBELUM MULAI</div>' +
+      '<div style="position:absolute;left:' + G.x + 'px;top:100px;font-size:44px;font-weight:800;' + gayaMuncul(muncul(lf, 0)) + '">Dasar hukum</div>' +
+      '<div style="position:absolute;left:' + G.x + 'px;top:178px;width:650px;display:flex;flex-direction:column;gap:14px">' + kartu + lain + '</div>' +
+      '<div style="position:absolute;left:' + (G.x + 700) + 'px;top:100px;width:' + (G.w - 700) + 'px;font-size:44px;font-weight:800;' + gayaMuncul(muncul(lf, 1)) + '">Pelaksana</div>' +
+      '<div style="position:absolute;left:' + (G.x + 700) + 'px;top:178px;width:' + (G.w - 700) + 'px;display:flex;flex-direction:column;gap:14px">' + chip + '</div>';
+  }
+
+  function adeganProsedur(s, lf) {
+    const total = P.prosedur.length;
+    return '<div style="position:absolute;left:' + G.x + 'px;top:150px;width:' + n2(interpolasi(lf, [0, ms(durasi.panjang, FPS)], [0, 160], { easing: easing.standar })) + 'px;height:8px;border-radius:4px;background:' + C.aksen + '"></div>' +
+      '<div style="position:absolute;left:' + G.x + 'px;top:178px;font-size:22px;letter-spacing:4px;color:' + C.aksen + ';' + gayaMuncul(muncul(lf, 0)) + '">PROSEDUR ' + (s.p + 1) + (total > 1 ? ' DARI ' + total : '') + ' | ' + esc(s.kode) + ' | ' + s.jumlahLangkah + ' LANGKAH</div>' +
+      '<div style="position:absolute;left:' + G.x + 'px;top:222px;width:' + G.w + 'px;font-size:54px;line-height:64px;font-weight:800;' + gayaMuncul(muncul(lf, 1)) + '">' + esc(s.judul) + '</div>' +
+      '<div style="position:absolute;left:' + G.x + 'px;top:370px;width:' + (G.w - 100) + 'px;' + gayaMuncul(muncul(lf, 3)) + '"><div style="font-size:22px;letter-spacing:2px;color:' + C.teks2 + ';margin-bottom:10px">TUJUAN</div><div style="font-size:32px;line-height:44px">' + esc(s.tujuan) + '</div></div>';
+  }
+
+  // ---- diagram swimlane: geometri dari SopAlir (sama dengan dokumen cetak)
+  const cacheRute = {};
+  const DG_X = G.x, DG_W = 700, KEPALA_H = 44;
+  const DG_Y0 = G.y + KEPALA_H + 6;
+  function geometri(pi) {
+    if (cacheRute[pi]) return cacheRute[pi];
+    const pr = P.prosedur[pi];
+    const nL = pr.pelaksana.length, N = pr.langkah.length;
+    const laneW = DG_W / nL;
+    const rowH = Math.min(84, (ISI_BAWAH - DG_Y0) / N);
+    const simW = Math.max(60, Math.min(laneW - 64, 150));
+    const setengah = pr.langkah.map((l) => (l.jenis === "keputusan" ? Math.min(rowH * 0.38, 30) : l.jenis === "proses" ? Math.min(rowH * 0.30, 24) : Math.min(rowH * 0.26, 19)));
+    const tops = pr.langkah.map((_, i) => i * rowH);
+    const tinggi = pr.langkah.map(() => rowH);
+    const tepi = SopAlir.rute({ langkah: pr.langkah, lajurLebar: laneW, simLebar: simW, tops, tinggi, setengah, satuan: 10 });
+    return (cacheRute[pi] = { nL, N, laneW, rowH, simW, setengah, tops, tepi });
+  }
+
+  function simbol(l, i, g, aktif, p) {
+    const cx = (l.lajur + 0.5) * g.laneW, cy = g.tops[i] + g.rowH / 2, hw = g.simW / 2, hh = g.setengah[i];
+    const gaya = aktif
+      ? 'fill="' + C.aksen + '" stroke="' + C.aksen + '"'
+      : 'fill="' + C.panel + '" stroke="' + C.garisRedup + '"';
+    const warnaTeks = aktif ? C.tinta : C.redup;
+    let bentuk;
+    if (l.jenis === "keputusan") {
+      bentuk = '<polygon points="' + n2(cx - hw) + "," + n2(cy) + " " + n2(cx) + "," + n2(cy - hh) + " " + n2(cx + hw) + "," + n2(cy) + " " + n2(cx) + "," + n2(cy + hh) + '" ' + gaya + ' stroke-width="2.5"/>';
+    } else {
+      bentuk = '<rect x="' + n2(cx - hw) + '" y="' + n2(cy - hh) + '" width="' + n2(g.simW) + '" height="' + n2(2 * hh) + '" rx="' + (l.jenis === "proses" ? 6 : n2(hh)) + '" ' + gaya + ' stroke-width="2.5"/>';
+    }
+    const terminal = l.jenis === "mulai" || l.jenis === "selesai";
+    const label = terminal ? NAMA_JENIS[l.jenis] : String(l.no);
+    const fs = terminal ? jepit(g.rowH * 0.26, 12, 20) : jepit(g.rowH * 0.32, 14, 26);
+    const teks = '<text x="' + n2(cx) + '" y="' + n2(cy) + '" dy=".35em" text-anchor="middle" font-size="' + n2(fs) + '" font-weight="700" fill="' + warnaTeks + '">' + esc(label) + '</text>';
+    const skala = aktif ? 0.7 + 0.3 * p : 1;
+    return '<g opacity="' + n2(aktif ? p : 1) + '" transform="translate(' + n2(cx) + " " + n2(cy) + ") scale(" + n2(skala) + ") translate(" + n2(-cx) + " " + n2(-cy) + ')">' + bentuk + teks + "</g>";
+  }
+
+  function kepalaPanah(k, warna, alpha) {
+    const a = 12, b = 6, x = k.x, y = k.y;
+    const t = k.arah === "bawah" ? [[x, y], [x - b, y - a], [x + b, y - a]]
+      : k.arah === "kanan" ? [[x, y], [x - a, y - b], [x - a, y + b]]
+        : [[x, y], [x + a, y - b], [x + a, y + b]];
+    return '<polygon points="' + t.map((q) => n2(q[0]) + "," + n2(q[1])).join(" ") + '" fill="' + warna + '" opacity="' + n2(alpha) + '"/>';
+  }
+
+  function diagram(pi, aktif, lf, alpha) {
+    const pr = P.prosedur[pi], g = geometri(pi);
+    const tinggiSvg = g.N * g.rowH;
+    const pSimbol = interpolasi(lf, [0, masukFrame], [0, 1], { easing: easing.perlambat });
+    const pGaris = interpolasi(lf, [0, ms(durasi.panjang, FPS)], [0, 1], { easing: easing.standar });
+    const aktifLajur = pr.langkah[aktif].lajur;
+    let svg = "";
+    for (let q = 0; q < g.nL; q++) {
+      if (q % 2 === 1) svg += '<rect x="' + n2(q * g.laneW) + '" y="0" width="' + n2(g.laneW) + '" height="' + n2(tinggiSvg) + '" fill="#121b32"/>';
+    }
+    svg += '<rect x="0" y="' + n2(g.tops[aktif]) + '" width="' + DG_W + '" height="' + n2(g.rowH) + '" fill="' + C.pita + '"/>';
+    // garis alir: tampil setelah kedua ujungnya tampil; yang baru digambar bertahap dan disorot
+    for (const e of g.tepi) {
+      const muncul_ = Math.max(e.dari, e.ke);
+      if (muncul_ > aktif) continue;
+      const baru = muncul_ === aktif;
+      const prog = baru ? pGaris : 1;
+      const warna = baru ? C.aksen : C.garisRedup;
+      const d = "M" + e.titik.map((t) => n2(t[0]) + " " + n2(t[1])).join(" L");
+      svg += '<path d="' + d + '" pathLength="1" stroke-dasharray="1 1" stroke-dashoffset="' + n2(1 - prog) + '" fill="none" stroke="' + warna + '" stroke-width="' + (baru ? 3.5 : 2.5) + '"/>';
+      svg += kepalaPanah(e.kepala, warna, jepit((prog - 0.8) / 0.2, 0, 1));
+      if (e.label) {
+        svg += '<text x="' + n2(e.labelPos.x) + '" y="' + n2(e.labelPos.y) + '" text-anchor="' + e.labelPos.anchor + '" font-size="16" font-weight="700" fill="' + (baru ? C.aksen : C.redup) + '" opacity="' + n2(jepit((prog - 0.2) / 0.3, 0, 1)) + '">' + e.label + "</text>";
+      }
+    }
+    for (let i = 0; i <= aktif; i++) svg += simbol(pr.langkah[i], i, g, i === aktif, pSimbol);
+    const kepala = pr.pelaksana.map((pl, i) => {
+      const hidup = i === aktifLajur;
+      return '<div style="width:' + n2(g.laneW - 8) + 'px;margin-right:8px;height:' + KEPALA_H + 'px;box-sizing:border-box;border-radius:10px;padding:0 10px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:17px;font-weight:700;line-height:20px;' +
+        'background:' + (hidup ? warnaLajur(idGlobal(pl.id)) : C.panel) + ';color:' + (hidup ? C.tinta : C.redup) + '">' + esc(pl.nama) + "</div>";
+    }).join("");
+    return '<div style="position:absolute;left:' + DG_X + 'px;top:' + G.y + 'px;width:' + DG_W + 'px;display:flex;opacity:' + n2(alpha) + '">' + kepala + "</div>" +
+      '<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;left:' + DG_X + "px;top:" + DG_Y0 + 'px;opacity:' + n2(alpha) + '" width="' + DG_W + '" height="' + n2(tinggiSvg) + '" viewBox="0 0 ' + DG_W + " " + n2(tinggiSvg) + '">' + svg + "</svg>";
+  }
+
+  function panel(s, lf, dur, pr) {
+    const X = DG_X + DG_W + 24, PW = G.x + G.w - X;
+    const lajur = pr.langkah[s.l].lajur;
+    const pel = pr.pelaksana[lajur];
+    const a = s.aktivitas.length;
+    const fs = a < 30 ? 30 : a < 70 ? 26 : 22;
+    const alpha = fade(lf, dur, { masuk: masukFrame, keluar: ms(durasi.keluar, FPS) });
+    const pIn = (i) => muncul(lf, i, 4, 3);
+    const baris = (label, isi, i) =>
+      '<div style="margin-top:12px;' + gayaMuncul(pIn(i), 10) + '"><div style="font-size:16px;letter-spacing:2px;color:' + C.teks2 + '">' + label + '</div><div style="font-size:22px;line-height:28px;margin-top:2px">' + isi + "</div></div>";
+    let isi = '<div style="display:flex;align-items:center;gap:12px;' + gayaMuncul(pIn(0), 10) + '">' +
+      '<span style="font-size:20px;color:' + C.teks2 + '">Langkah ' + s.no + " dari " + pr.langkah.length + (s.jumlahSegmen > 1 ? " | subtugas " + s.segmen + "/" + s.jumlahSegmen : "") + "</span>" +
+      '<span style="padding:3px 12px;border-radius:12px;background:' + C.aksen + ';color:' + C.tinta + ';font-size:16px;font-weight:700">' + NAMA_JENIS[s.jenisLangkah].toUpperCase() + "</span></div>" +
+      '<div style="margin-top:14px;font-size:' + fs + "px;line-height:" + Math.round(fs * 1.25) + "px;font-weight:700;" + gayaMuncul(pIn(1), 10) + '">' + esc(s.aktivitas) + "</div>" +
+      baris("PELAKSANA", '<span style="display:inline-block;width:14px;height:14px;border-radius:7px;background:' + warnaLajur(idGlobal(pel.id)) + ';margin-right:10px"></span>' + esc(pel.nama), 2) +
+      baris("WAKTU", esc(s.waktu), 3) + baris("OUTPUT", esc(s.output), 4) + baris("KELENGKAPAN", esc(s.kelengkapan), 5);
+    if (s.jenisLangkah === "keputusan") {
+      isi += baris("CABANG", '<span style="color:' + C.aksen + ';font-weight:700">Ya</span> ke langkah ' + s.ya + '<br><span style="color:' + C.aksen + ';font-weight:700">Tidak</span> ke langkah ' + s.tidak, 6);
+    }
+    return '<div style="position:absolute;left:' + X + "px;top:" + G.y + "px;width:" + PW + "px;height:" + (ISI_BAWAH - G.y) + 'px;box-sizing:border-box;padding:20px 24px;border-radius:18px;background:' + C.panel + ';overflow:hidden;opacity:' + n2(alpha) + '">' + isi + "</div>";
+  }
+
+  function adeganPenutup(s, lf) {
+    const daftar = s.prosedur.map((p, i) =>
+      '<div style="display:flex;gap:16px;align-items:baseline;margin-bottom:10px;' + gayaMuncul(muncul(lf, 3 + i)) + '"><span style="width:120px;font-size:20px;color:' + C.aksen + ';font-weight:700">' + esc(p.kode) + '</span><span style="flex:1;font-size:26px">' + esc(p.judul) + '</span><span style="font-size:20px;color:' + C.teks2 + '">' + p.jumlahLangkah + " langkah</span></div>").join("");
+    const awas = s.peringatan.map((t, i) =>
+      '<div style="padding:12px 18px;border-radius:12px;background:' + C.panel + ';font-size:21px;line-height:28px;margin-top:10px;' + gayaMuncul(muncul(lf, 5 + i)) + '">' + esc(t) + "</div>").join("");
+    const angka = (n, ket, i) => '<div style="' + gayaMuncul(muncul(lf, i)) + '"><span style="font-size:64px;font-weight:800;color:' + C.aksen + '">' + n + '</span> <span style="font-size:26px">' + ket + "</span></div>";
+    return '<div style="position:absolute;left:' + G.x + 'px;top:64px;font-size:22px;letter-spacing:4px;color:' + C.aksen + ';' + gayaMuncul(muncul(lf, 0)) + '">RINGKASAN</div>' +
+      '<div style="position:absolute;left:' + G.x + 'px;top:100px;width:' + G.w + 'px;font-size:40px;line-height:48px;font-weight:800;' + gayaMuncul(muncul(lf, 0)) + '">' + esc(s.judul) + "</div>" +
+      '<div style="position:absolute;left:' + G.x + 'px;top:196px;display:flex;gap:56px">' + angka(s.jumlahLangkah, "langkah", 1) + angka(s.jumlahPelaksana, "pelaksana", 2) + "</div>" +
+      '<div style="position:absolute;left:' + G.x + 'px;top:296px;width:' + G.w + 'px">' + daftar + "</div>" +
+      (awas ? '<div style="position:absolute;left:' + G.x + 'px;top:400px;width:' + (G.w - 60) + 'px"><div style="font-size:20px;letter-spacing:3px;color:' + C.teks2 + ';' + gayaMuncul(muncul(lf, 4)) + '">PERHATIKAN</div>' + awas + "</div>" : "");
+  }
+
+  function adeganKosong() {
+    return '<div style="position:absolute;left:' + G.x + 'px;top:200px;width:' + G.w + 'px;font-size:30px;line-height:42px">Props SOP belum diberikan.<br>' +
+      '<span style="font-size:24px;color:' + C.teks2 + '">Jalankan <code>bun scripts/sop.mjs sop.json --out DIR</code>, lalu render dengan <code>--props-file DIR/video-props.json</code>.</span></div>';
+  }
+
+  // ---- adegan langkah dikelompokkan per prosedur agar diagram bertahan antar adegan
+  const rentangLangkah = {};
+  P.adegan.forEach((s) => {
+    if (s.jenis !== "langkah") return;
+    const r = rentangLangkah[s.p] || (rentangLangkah[s.p] = { dari: s.mulai, sampai: s.mulai + s.durasi });
+    r.dari = Math.min(r.dari, s.mulai);
+    r.sampai = Math.max(r.sampai, s.mulai + s.durasi);
+  });
+
+  const elIsi = $("isi"), elCap = $("caption"), elCapTeks = elCap.firstElementChild;
+  elCap.style.left = A.x + "px";
+  elCap.style.width = A.w + "px";
+  elCap.style.bottom = (H - (A.y + A.h)) + "px";
+
+  defineVideo({
+    width: W, height: H, fps: FPS, durationInFrames: P.durationInFrames,
+    render(frame, ctx) {
+      let s = P.adegan[P.adegan.length - 1];
+      for (const x of P.adegan) if (frame >= x.mulai && frame < x.mulai + x.durasi) { s = x; break; }
+      const lf = frame - s.mulai;
+      const alpha = fade(lf, s.durasi, { masuk: masukFrame, keluar: ms(durasi.keluar, FPS) });
+      let html;
+      if (s.jenis === "langkah") {
+        const r = rentangLangkah[s.p];
+        const pr = P.prosedur[s.p];
+        const alphaDiagram = fade(frame - r.dari, r.sampai - r.dari, { masuk: masukFrame, keluar: ms(durasi.keluar, FPS) });
+        html = diagram(s.p, s.l, lf, alphaDiagram) + panel(s, lf, s.durasi, pr);
+      } else {
+        const buat = { judul: adeganJudul, dasarHukum: adeganDasarHukum, prosedur: adeganProsedur, penutup: adeganPenutup, kosong: adeganKosong }[s.jenis];
+        html = '<div style="position:absolute;left:0;top:0;width:1280px;height:720px;opacity:' + n2(alpha) + '">' + (buat ? buat(s, lf) : "") + "</div>";
+      }
+      elIsi.innerHTML = html;
+
+      const cue = captionAktif(ctx.props.caption || [], frame, ctx.fps);
+      if (cue) {
+        elCap.style.display = "block";
+        elCapTeks.textContent = cue.teks;
+      } else {
+        elCap.style.display = "none";
+      }
+    },
+  });
+</script>
+</body>
+</html>
