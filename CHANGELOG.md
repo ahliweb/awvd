@@ -58,6 +58,7 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/). Ve
 
 ### Diubah
 
+- Refaktor (tanpa perubahan perilaku): `scripts/render.mjs` dan `scripts/sop.mjs` memakai `cariBrowser()` dari `scripts/browser.js` dan tidak lagi menyimpan salinan logika pencarian Chromium (urutan kandidat, flag `--browser`, variabel `PLAYWRIGHT_BROWSERS_PATH`, dan pesan galat serta kode keluar tetap sama; #27). Memengaruhi repo proyek: tidak ada perubahan wajib.
 - Dependensi `playwright-core` naik 1.64.1 -> 1.65.0 (minor, dipin eksak). Bun 1.4.4 dan aksi CI sudah terbaru.
 - Batas cps dikoreksi menurut Netflix Indonesian Timed Text Style Guide: subtitle dewasa 17 dan anak 13, SDH dewasa 20 dan anak 17 (sebelumnya ditulis dewasa 20 dan anak 17). Nilai preset tidak berubah (17; `sosial` 20 sebagai batas SDH dewasa, menunggu konfirmasi pemilik); yang berubah rujukan di `data/jenis-video.json` (rujukan "lihat README" diganti `docs/konsep-jenis-alur.md`), salinan `scripts/preset-jenis.js` (dihasilkan ulang), komentar `durasiBaca`, peringatan `periksa` konsep (batas SDH), dan dokumen. Memengaruhi repo proyek: salinan preset berubah teks rujukannya saja; tidak ada perubahan perilaku.
 - Templat `contoh-dasar`: ukuran teks dinaikkan (subjudul 36 ke 40 px, judul lower-third 32 ke 34 px, keterangan 24 ke 28 px) agar memenuhi `ukuranTeks()` untuk audiens umum; templat `konsep-contoh` memuat `audiens.profil` dan brief dihasilkan ulang.

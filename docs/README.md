@@ -20,7 +20,7 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | [aset.md](aset.md) | `bun run aset`: manifest `aset.json`, matriks lisensi, SVG berdaftar-izin, resolusi, sRGB, atribusi, helper runtime (logo, ikon, kredit, font) | `v1.1.0` |
 | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) | `bun run periksa` (termasuk `--konsep`): pemeriksaan, ambang, kilatan fotosensitif | `v1.0.1` |
 | [konsep-jenis-alur.md](konsep-jenis-alur.md) | `bun run konsep`, `konsep.json`, 13 jenis video, 5 alur produksi, tingkat bukti, profil audiens | `v1.2.0` |
-| [sop.md](sop.md) | SOP sebagai dokumen cetak (PermenPAN-RB 35/2012) dan bahan video | `v1.0.0` |
+| [sop.md](sop.md) | SOP sebagai dokumen cetak (PermenPAN-RB 35/2012) dan bahan video | `v1.0.1` |
 | [video-tertanam-audio.md](video-tertanam-audio.md) | Video di dalam video (lisensi sumber, `klip.mjs`) dan timeline audio (`audio.mjs`) | `v1.3.0` |
 | [olah-klip.md](olah-klip.md) | Efek klip saat ekstraksi: `klip[].efek` (LUT `.cube`, warna, keseimbangan), rantai ffmpeg, kunci cache, LUT identitas, titik perluasan | `v1.0.0` |
 | [pelajari-reaction.md](pelajari-reaction.md) | `bun run pelajari` (statistik gaya), kebijakan kutipan wajar, gerbang hukum GH, templat reaction, dasar hukum ringkas (bukan nasihat hukum) | `v1.0.0` |
@@ -84,6 +84,10 @@ flowchart TD
 - Dokumen berbahasa Indonesia dan tidak menyebut nama, path, atau tautan repo internal AhliWeb yang privat.
 
 ## Changelog
+
+### 2026-11-07 - v1.8.0
+
+- Memperbarui kolom Versi: `konsep-jenis-alur.md` v1.2.0, `transisi-animasi.md` v1.1.0, `aksesibilitas.md` v1.4.1, `log-keputusan.md` v1.8.0.
 
 ### 2026-11-07 - v1.8.0
 
