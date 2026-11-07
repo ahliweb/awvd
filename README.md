@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.3.0`
+- Version: `v1.3.1`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan bagian Klasifikasi repo dan Rilis, mencantumkan subagent di struktur repo, serta menghapus rujukan ke repo pedoman internal yang privat.`
+- Changeset: `Menetapkan klasifikasi repo (internal, internal-ops, risiko low) sebagai keputusan pemilik.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -13,11 +13,14 @@ Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibua
 | Atribut | Nilai |
 | --- | --- |
 | Status | `active` |
-| Kelas repo | `internal` (usulan, menunggu konfirmasi pemilik) |
-| Domain operasional | `internal-ops` (usulan, menunggu konfirmasi pemilik) |
+| Kelas repo | `internal` |
+| Domain operasional | `internal-ops` |
+| Tingkat risiko | `low` |
 | Source of truth | `primary` untuk kode renderer awvd |
 | Owner operasional | AhliWeb (akun GitHub `ahliweb`) |
 | Risiko dan batasan | Tidak menyentuh production dan tidak di-deploy. Repo publik: tanpa secret, data nyata, aset tanpa lisensi jelas, atau rujukan ke repo internal yang privat. |
+
+Klasifikasi ditetapkan pemilik pada 2026-11-07.
 
 ## Alur render
 
@@ -191,6 +194,10 @@ Belum ada rilis bertag. Versi paket `0.1.0`, dan semua perubahan dicatat di [CHA
 Font, musik (`--audio`), gambar, footage, dan suara TTS wajib berlisensi jelas dan dicatat sumbernya. Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.3.1
+
+- Klasifikasi repo ditetapkan pemilik; menambahkan tingkat risiko.
 
 ### 2026-11-07 - v1.3.0
 

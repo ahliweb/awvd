@@ -19,3 +19,4 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/). Ve
 ### Diubah
 
 - Dokumentasi tidak lagi menyebut nama, path, atau tautan repo pedoman internal AhliWeb yang privat.
+- Klasifikasi repo ditetapkan dan pengaturan GitHub (proteksi `main`, check wajib, merge commit saja) didokumentasikan.
