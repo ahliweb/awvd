@@ -2,11 +2,13 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.0.1`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: tabel seluruh API runtime scripts/runtime.js, mode URL, dan ringkasan sumber riset tiap helper.`
+- Changeset: `Menambahkan penunjuk ke modul terpisah scripts/transisi.js (window.Transisi) di pengantar; isi API runtime tidak berubah.`
 
 Referensi API `scripts/runtime.js`, yang dimuat komposisi lewat `<script src=".../scripts/runtime.js">`. Konsep komposisi dan protokol dengan renderer ada di [arsitektur.md](arsitektur.md); dasar riset dan checklist pemakaian helper ada di [pedoman-produksi.md](pedoman-produksi.md).
+
+Transisi antar adegan dan animasi elemen berada di modul terpisah `scripts/transisi.js` (`window.Transisi`, dimuat setelah `runtime.js`); referensinya ada di [transisi-animasi.md](transisi-animasi.md). Runtime tidak berubah.
 
 ## Tabel API
 
@@ -65,6 +67,10 @@ Sumber tiap helper (rincian dan tingkat buktinya ada di baris tabel di atas dan 
 | `presetJenis` | Preset bertingkat bukti ([konsep-jenis-alur.md](konsep-jenis-alur.md#tingkat-bukti)) |
 
 ## Changelog
+
+### 2026-11-07 - v1.0.1
+
+- Menambahkan penunjuk ke `transisi-animasi.md` untuk modul `scripts/transisi.js`.
 
 ### 2026-11-07 - v1.0.0
 

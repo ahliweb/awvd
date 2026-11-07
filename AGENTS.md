@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.5.0`
+- Version: `v1.6.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumentasi rinci dipindah dari README ke folder docs/: peta pemicu, bidang dokumentasi, dan rujukan silang menunjuk dokumen docs/; menambahkan aturan dokumen baru di docs/ (Metadata, Changelog, pendaftaran indeks) dan paralelisme per dokumen.`
+- Changeset: `Peta pemicu dan area paralel memuat modul transisi: scripts/transisi.js (window.Transisi), templates/transisi-galeri/, dan scripts/uji-transisi.mjs dipetakan ke docs/transisi-animasi.md.`
 
 awvd adalah renderer video MP4 dari kode web (lihat [README.md](README.md)). Aturan di dokumen ini menurunkan **pedoman internal AhliWeb** (tidak publik): eksekusi terkelola orchestrator (skill `eksekusi-terkelola`), standar dokumen (skill `standar-dokumen-repo`), standar koordinasi kontributor, standar dokumen formal, dan prosedur pemakaian awvd (skill `video-terprogram`). Nomor keputusan `DL-0xx` merujuk decision log internal tersebut. Isi yang dibutuhkan agent sudah dituangkan di sini, jadi agent di repo ini tidak perlu mengakses pedoman internal.
 
@@ -84,7 +84,7 @@ Aturan:
 
 ### Penerapan di awvd
 
-- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
+- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`; `scripts/transisi.js` bersama `docs/transisi-animasi.md` dan `scripts/uji-transisi.mjs`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
 - Perubahan pada determinisme, protokol `window.video`/`renderFrame`, atau pipa ffmpeg tergolong risiko tinggi: delegasikan ke `pelaksana-kompleks` dengan effort `high`, atau kerjakan langsung oleh Opus.
 - Perintah verifikasi yang wajib ada di setiap brief: `bun run uji`.
 - Papan koordinasi: belum ada (dicek 2026-11-07). Penggantinya `gh pr list --state open`; usulkan papan ke pemilik bila kontributor aktif lebih dari satu.
@@ -192,6 +192,7 @@ README akar hanya ringkasan dan indeks. Dokumentasi rinci ada di folder [`docs/`
 | SOP (`scripts/sop.mjs`, `templates/sop/`) | `docs/sop.md` |
 | Klip tertanam atau timeline audio (`scripts/klip.mjs`, `scripts/audio.mjs`) | `docs/video-tertanam-audio.md` |
 | Fitur aksesibilitas | `docs/aksesibilitas.md` |
+| Transisi, animasi elemen, profil audiens, `kurangiGerak` (`scripts/transisi.js`, `templates/transisi-galeri/`) | `docs/transisi-animasi.md`; `docs/aksesibilitas.md` bila aturan gerak atau kilatan berubah; komentar kepala `scripts/transisi.js` |
 | Template baru atau berubah | README §Struktur repo; `templates/<nama>/ASET.md` |
 | Uji atau CI | README §Perintah utama dan §Struktur repo (daftar uji dan opsi `bun run uji`); §Git dan PR bila check wajib berubah |
 | Dependensi atau lisensi pihak ketiga | `docs/lisensi-kepatuhan.md`; cek lisensi (§Lisensi dan Aset) |
@@ -260,6 +261,10 @@ flowchart TD
 Template PR di `.github/pull_request_template.md` memuat checklist ini.
 
 ## Changelog
+
+### 2026-11-07 - v1.6.0
+
+- Peta pemicu memuat baris transisi dan animasi (`scripts/transisi.js`, `templates/transisi-galeri/`) ke `docs/transisi-animasi.md`; Penerapan di awvd menambahkan `scripts/transisi.js` bersama `docs/transisi-animasi.md` dan `scripts/uji-transisi.mjs` sebagai area yang tidak boleh dikerjakan paralel.
 
 ### 2026-11-07 - v1.5.0
 

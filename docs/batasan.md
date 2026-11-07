@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.0.1`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: batasan renderer (kinerja, platform, format keluaran, SDR, kenyaringan); ditambah penunjuk ke batasan fitur lain.`
+- Changeset: `Menambahkan baris batasan transisi dan animasi di tabel Batasan di dokumen lain.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -25,9 +25,14 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | Konsep dan preset | [konsep-jenis-alur.md](konsep-jenis-alur.md#batasan-konsep) |
 | Pemeriksaan mutu | [pemeriksaan-mutu.md](pemeriksaan-mutu.md#batasan) |
 | Kilatan fotosensitif | [pemeriksaan-mutu.md](pemeriksaan-mutu.md#kilatan-fotosensitif) |
+| Transisi dan animasi | [transisi-animasi.md](transisi-animasi.md#keterbatasan-dan-hal-yang-belum-terverifikasi) |
 | SOP | [sop.md](sop.md#keputusan-desain-bukan-aturan-regulasi) |
 
 ## Changelog
+
+### 2026-11-07 - v1.0.1
+
+- Menambahkan penunjuk batasan transisi dan animasi.
 
 ### 2026-11-07 - v1.0.0
 
