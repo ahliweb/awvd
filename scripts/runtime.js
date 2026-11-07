@@ -45,6 +45,8 @@
  *   pecahBaris(teks, { maks = 42, baris = 2 }) -> array baris; properti .melebihi
  *   captionAktif(cues, frame, fps) -> cue aktif atau null
  *   parseVtt(teks), parseSrt(teks) -> [{ mulai, akhir, teks }] (detik)
+ *   presetJenis(nama) -> salinan preset jenis video (formal, edukasi, promo, ...);
+ *                                  butuh <script src=".../preset-jenis.js"> dimuat lebih dulu
  *
  *   Video di dalam video (frame klip diekstrak ffmpeg oleh scripts/klip.mjs, lalu
  *   digambar per nomor frame; elemen <video> tidak dipakai):
@@ -713,6 +715,23 @@
     var y = jepit(d0.y + (d1.y - d0.y) * p);
     var f = function (v, n) { return v.toFixed(n).replace(/^-(0\.0+)$/, "$1"); };
     return "translate(" + f((0.5 - x) * s * 100, 4) + "%, " + f((0.5 - y) * s * 100, 4) + "%) scale(" + f(s, 6) + ")";
+  // ------------------------------------------------------------ preset jenis
+  // Preset jenis video untuk komposisi. Runtime berjalan di browser tanpa fetch berkas
+  // data, jadi datanya dimuat lewat <script src=".../preset-jenis.js"> (dihasilkan dari
+  // data/jenis-video.json oleh `bun run konsep -- sinkron-preset`; global
+  // PRESET_JENIS_DATA). Mengembalikan salinan dalam (mengubahnya tidak memengaruhi
+  // pemanggilan berikutnya), ditambah `kunci`. Murni: tanpa Date/Math.random/timer.
+  function presetJenis(nama) {
+    var data = g.PRESET_JENIS_DATA;
+    if (!data || !data.jenis) {
+      throw new Error("presetJenis: muat scripts/preset-jenis.js lebih dulu (<script src=\".../preset-jenis.js\">)");
+    }
+    if (typeof nama !== "string" || !Object.prototype.hasOwnProperty.call(data.jenis, nama)) {
+      throw new Error("presetJenis: jenis tidak dikenal '" + nama + "'; pilihan: " + Object.keys(data.jenis).join(", "));
+    }
+    var salinan = JSON.parse(JSON.stringify(data.jenis[nama]));
+    salinan.kunci = nama;
+    return salinan;
   }
 
   // ------------------------------------------------------------ defineVideo
@@ -890,6 +909,7 @@
     persen: persen,
     rupiah: rupiah,
     kenBurns: kenBurns,
+    presetJenis: presetJenis,
   };
   g.VideoTerprogram = api;
   Object.keys(api).forEach(function (k) { g[k] = api[k]; });

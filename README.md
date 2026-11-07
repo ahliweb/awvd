@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.9.0`
+- Version: `v1.10.0`
 - Last updated: `2026-11-07`
-- Changeset: `Video di dalam video (scripts/klip.mjs: manifest sumber berlisensi, ekstraksi frame ke cache, atribusi TASL) dan Timeline audio (scripts/audio.mjs: pemegang suara bergantian/campur/bisu, ducking musik, fade); helper runtime klipGambar/jalurFrameKlip/kreditKlip, angka/persen/rupiah id-ID, kenBurns; templat klip-tertanam; uji scripts/uji-klip.mjs; butir batasan <video> diganti.`
+- Changeset: `Bagian baru Konsep: jenis video dan alur produksi (bun run konsep): 13 jenis video dan 5 alur produksi sebagai data preset bertingkat bukti, brief, gate persetujuan berhash, presetJenis di runtime, dan flag periksa --konsep.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -162,6 +162,7 @@ Semua fungsi tersedia sebagai global dan di `window.VideoTerprogram`.
 | `durasiBaca(teks, { cps = 17, min = 5/6, maks = 7, fps })` | `{ detik }`, plus `frame` bila `fps` diberikan. Detik = karakter (termasuk spasi; spasi berurutan dirapikan) / `cps`, dijepit ke `[min, maks]`. Netflix Timed Text Style Guide: dewasa maksimal 20 cps, anak 17 cps; angka untuk bahasa Indonesia belum ada sumber primer, jadi bawaan konservatif 17. |
 | `pecahBaris(teks, { maks = 42, baris = 2 })` | Mengembalikan **array** baris, dengan properti `melebihi` (boolean) pada array itu. Muat satu baris: satu elemen. Selain itu dipakai jumlah baris minimum dan potongan di spasi dengan prioritas: semua baris <= `maks`; baris atas bukan 1-2 kata; potongan setelah tanda baca (`, . ; : ? !`) atau sebelum kata sambung umum (dan, atau, tetapi, yang, untuk, dengan, di, ke, dari, karena, agar, sehingga); bentuk piramida terbalik (bawah >= atas); baris seimbang. Tidak muat dalam `baris` baris: `melebihi = true` dan array berisi seluruh teks dibungkus greedy (jumlah elemen bisa > `baris`; tidak ada teks hilang). Teks kosong menghasilkan `[]`. Pedoman: Netflix Timed Text Style Guide (maksimal 42 karakter per baris, dua baris). Properti `melebihi` hilang bila array diserialisasi JSON. |
 | `captionAktif(cues, frame, fps)` | Cue aktif atau `null`. `cues` = array `{ mulai, akhir, teks }` dalam detik; aktif bila `mulai <= frame/fps < akhir`. Cue tumpang tindih: yang pertama dalam array. Untuk burn-in caption di DOM. |
+| `presetJenis(nama)` | Salinan dalam preset jenis video (`formal`, `edukasi`, `kreatif`, `promo`, `produk`, `panduan`, `dokumenter`, `sosial`, `data`, `testimoni`, `psa`, `internal`, `acara`): `{ kunci, label, deskripsi, tujuan, alurBawaan, alurCocok, nilai, bukti, pemeriksaanTambahan }`. Data dimuat lewat `<script src=".../preset-jenis.js">` sebelum dipanggil (lihat §Konsep); tanpa itu, atau untuk nama tak dikenal, melempar galat berpetunjuk. Murni dan deterministik. |
 | `parseVtt(teks)`, `parseSrt(teks)` | Teks berkas ke array cues. Timestamp `hh:mm:ss.mmm` atau `mm:ss.mmm` (koma juga diterima). Header, `NOTE`, `STYLE`, nomor/id cue, dan pengaturan cue diabaikan; tag seperti `<i>` dan `<v Nama>` dibuang; `parseVtt` juga mengurai `&amp; &lt; &gt; &nbsp;`. Cue kosong atau berakhir sebelum mulai dibuang. |
 | `gambarKosong` | String `data:` URI GIF 1x1 transparan, `src` awal untuk target `<img>` (renderer menolak `<img>` tanpa gambar termuat saat halaman dibuka). Target `<canvas>` tidak membutuhkannya. |
 | `indeksFrameKlip(klip, frameLokal, { ulang = false, kecepatan = 1 })` | Indeks frame sumber (0 = frame pertama klip) untuk frame lokal klip: `floor(frameLokal * kecepatan)`. Negatif menghasilkan `-1` (belum mulai); melewati akhir ditahan di frame terakhir, atau diulang bila `ulang: true`. Frame diekstrak pada fps komposisi, jadi `kecepatan` <> 1 menduplikasi atau melewati frame tanpa interpolasi. |
@@ -414,7 +415,7 @@ Dua render dari komposisi dan props yang sama harus menghasilkan frame identik (
 
 ```text
 bun run periksa <video.mp4> [--subtitle F.vtt|.srt] [--kenyaringan web|siaran]
-                [--jenis penjelasan|promo] [--cps 17] [--json]
+                [--jenis penjelasan|promo] [--cps 17] [--konsep konsep.json] [--json]
 ```
 
 Alat QC pasca-render: memeriksa berkas MP4 hasil render dengan `ffprobe`/`ffmpeg` sistem (tanpa dependensi baru) dan mencetak tabel `LOLOS`/`GAGAL`/`PERINGATAN` per pemeriksaan (`INFO` dan `LEWATI` untuk yang tidak dinilai). `--json` mencetak satu objek JSON (`lolos`, `ringkasan`, `pemeriksaan[]` dengan `id`, `status`, `wajib`, `ringkas`, `rincian`, `data`) untuk CI. Kode keluar `0` bila semua pemeriksaan **wajib** lolos, `1` bila ada yang gagal, `2` untuk argumen salah (flag tidak valid, berkas tidak ada, berkas tanpa trek video atau tidak terbaca ffprobe).
@@ -425,6 +426,7 @@ Alat QC pasca-render: memeriksa berkas MP4 hasil render dengan `ffprobe`/`ffmpeg
 | `--kenyaringan M` | `web` | Target kenyaringan: `web` atau `siaran`. |
 | `--jenis J` | - | `penjelasan` atau `promo`; menentukan penilaian durasi. |
 | `--cps N` | `17` | Batas karakter per detik subtitle (Netflix dewasa: 20). |
+| `--konsep F` | - | `konsep.json` (lihat §Konsep): kenyaringan dan cps diambil dari konsep (flag eksplisit `--kenyaringan`/`--cps` menang), durasi dinilai terhadap durasi maks preset jenis (dengan `override`), rasio video dibandingkan dengan rasio konsep (`GAGAL` bila beda, wajib), dan harapan burn-in dicatat sebagai `INFO` (tidak bisa dideteksi otomatis). `--jenis` diabaikan bila `--konsep` dipakai. Konsep tidak valid: exit `2`. Tanpa flag ini perilaku tidak berubah. |
 | `--json` | mati | Cetak hasil sebagai JSON, bukan tabel. |
 
 | Pemeriksaan | Wajib | Ambang | Sumber |
@@ -433,7 +435,9 @@ Alat QC pasca-render: memeriksa berkas MP4 hasil render dengan `ffprobe`/`ffmpeg
 | Kenyaringan | ya bila ada audio (tanpa audio: `LEWATI`) | `web`: I = -16 LUFS +-1 LU, true peak <= -1,0 dBTP. `siaran`: I = -23 LUFS +-1 LU, true peak <= -1,0 dBTP. Diukur dengan `ebur128=peak=true`. | EBU R 128; AES TD1004/TD1008 |
 | Kilatan umum dan kilatan merah | ya | Gagal bila ada lebih dari 3 flash (lebih dari 6 transisi berlawanan) dalam jendela geser 1 detik pada area uji (lihat di bawah). | WCAG 2.2 SC 2.3.1 Three Flashes or Below Threshold |
 | Subtitle | ya bila `--subtitle` | Gagal bila baris > 42 karakter, > 2 baris per cue, cps > `--cps`, durasi cue < 5/6 detik atau > 7 detik, atau cue tumpang tindih. `PERINGATAN` bila `pecahBaris` menghasilkan pemecahan baris yang berbeda dari yang ada. Nomor cue = urutan cue yang terurai (mulai 1; cue yang tidak sah dibuang parser). | Netflix Timed Text Style Guide |
-| Durasi | tidak (hanya peringatan) | `--jenis penjelasan`: `PERINGATAN` bila > 6 menit. `promo`: hanya `INFO` (tidak ada ambang berbasis bukti). Tanpa `--jenis`: `INFO`. | Guo, Kim & Rubin (2014), keterlibatan penonton video pembelajaran |
+| Durasi | tidak (hanya peringatan) | `--jenis penjelasan`: `PERINGATAN` bila > 6 menit. `promo`: hanya `INFO` (tidak ada ambang berbasis bukti). Tanpa `--jenis`: `INFO`. Dengan `--konsep`: `PERINGATAN` bila melebihi durasi maks preset jenis (mis. 360 s untuk `edukasi`, 60 s untuk `promo`); target konsep dicantumkan. | Guo, Kim & Rubin (2014), keterlibatan penonton video pembelajaran; tingkat bukti ambang preset lain tertera di `data/jenis-video.json` |
+| Rasio (hanya `--konsep`) | ya | Lebar:tinggi video sama dengan `rasio` konsep (toleransi 1%). | konsep.json |
+| Burn-in (hanya `--konsep`) | tidak (`INFO`) | Mencatat apakah konsep mengharapkan caption burn-in atau sidecar. | konsep.json |
 
 **Kilatan fotosensitif.** Video didekode `ffmpeg` pada fps aslinya, diskalakan (`scale=48:48:flags=area`, rata-rata area) ke kisi sampel 48x48, dialirkan sebagai `rgb24` mentah (tidak ada frame yang disimpan; memori konstan). Tiap sampel dilinearisasi sRGB dan dirata-ratakan per blok, lalu luminans relatif WCAG dihitung dari rata-rata RGB linear blok. Satu **flash** adalah pasangan transisi berlawanan (naik lalu turun, atau sebaliknya) dengan selisih luminans relatif >= 0,10 dan sisi lebih gelap < 0,80. Transisi dihitung per blok dengan penyaring zig-zag per frame dan jendela geser 1 detik (jumlah frame = fps); gagal bila ada blok dengan lebih dari 6 transisi dalam jendela mana pun. **Flash merah** dihitung terpisah: transisi dengan selisih `(R-G-B)*320` >= 20 yang salah satu sisinya merah jenuh (`R/(R+G+B)` >= 0,8, nilai RGB linear).
 
@@ -442,6 +446,143 @@ Aproksimasi area uji: WCAG menguji flash yang luasnya lebih dari sekitar 0,006 s
 > **Penting.** Ini penyaringan konservatif untuk menangkap kilatan yang jelas, **bukan sertifikasi** PEAT/Harding atau bukti kepatuhan WCAG. Batasannya: (1) blok dirata-ratakan, sehingga elemen kecil berkontras penuh yang berkedip (sekitar 1% layar atau lebih) sudah bisa memicu `GAGAL` meski WCAG tidak menganggapnya pelanggaran (positif palsu); (2) rata-rata area dilakukan pada nilai sRGB sebelum linearisasi, jadi luminans campuran sedikit meleset; (3) tidak memodelkan sudut pandang 10 derajat atau ukuran layar nyata; (4) dihitung dari video yang sudah dikompresi, bukan master. Untuk siaran atau kebutuhan regulasi, pakai alat uji tersertifikasi.
 
 Batasan lain: encoding hanya memeriksa trek video pertama; subtitle dinilai dari berkas `.vtt`/`.srt`, bukan trek `mov_text` di dalam MP4; waktu kilatan mengasumsikan fps konstan. Contoh waktu: video 6 detik 1280x720 selesai dalam sekitar 0,3 detik.
+
+## Konsep: jenis video dan alur produksi
+
+Saat mendesain konsep video ada dua pilihan awal: **jenis video** (formal, edukasi, kreatif, promo, dan seterusnya) dan **alur produksi** (dari ringkas sampai formal berjenjang). Keduanya adalah data, bukan kode: [`data/jenis-video.json`](data/jenis-video.json) memuat 13 jenis beserta presetnya, dan [`data/alur-produksi.json`](data/alur-produksi.json) memuat 5 alur beserta tahap, gate, RACI, dan artefaknya. `scripts/konsep.mjs` (`bun run konsep`) memakai data itu untuk membuat `konsep.json`, memeriksanya, menulis brief, dan mencatat persetujuan; `bun run periksa --konsep` memakainya sebagai ambang QC.
+
+```mermaid
+flowchart LR
+    K[konsep.json<br/>jenis + alur + preset] --> B[brief.md]
+    B --> N[naskah dua kolom<br/>props]
+    N --> S[storyboard<br/>--still per adegan]
+    S --> A[animatic<br/>--skala 0.25 + audio sementara]
+    A --> R[rough dan fine cut<br/>--skala 0.5 dan 1]
+    R --> P[bun run periksa<br/>--konsep konsep.json]
+    P --> G{gate persetujuan<br/>konsep setuju}
+    G -->|disetujui| F[final.mp4 + caption.vtt<br/>atribusi.txt + ASET.md]
+    G -->|revisi| R
+```
+
+Tahap dan gate yang berlaku bergantung pada alur yang dipilih (lihat tabel alur); `konsep.json` mencatat tahap saat ini dan persetujuan tiap gate.
+
+### Subperintah
+
+```text
+bun run konsep -- baru --jenis J --alur A --out konsep.json [--judul T] [--timpa]
+bun run konsep -- daftar [jenis|alur [kunci]]
+bun run konsep -- periksa konsep.json [--video F]
+bun run konsep -- brief konsep.json [--out brief.md]
+bun run konsep -- setuju konsep.json --gate G --oleh "Peran" --tanggal YYYY-MM-DD [--berkas F] [--catatan T]
+bun run konsep -- preset konsep.json
+bun run konsep -- sinkron-preset [--periksa] [--keluar F]
+```
+
+| Subperintah | Fungsi |
+| --- | --- |
+| `baru` | Membuat `konsep.json` dari preset: field isian kosong (tujuan, audiens, pesan utama, CTA, ...), pilihan yang terisi dari preset (durasi target, rasio, caption, musik, kenyaringan), dan satu entri `persetujuan` per gate alur. Tanpa `--jenis`/`--alur` mencetak tabel pilihan dan exit `2`. Menolak menimpa berkas yang ada tanpa `--timpa`. Alur di luar rekomendasi jenis diterima dengan catatan. |
+| `daftar` | Tabel 13 jenis (dengan alur yang cocok) dan 5 alur. `daftar jenis promo` atau `daftar alur formal` menampilkan rincian, termasuk tingkat bukti tiap nilai. |
+| `periksa` | Validasi skema: jenis dan alur dikenal, tahap sah, rasio sesuai preset, durasi target tidak melebihi durasi maks, `override` hanya untuk kunci preset yang ada (tipe dan enum dicek, kontras tidak boleh di bawah 4,5:1) dan butuh `overrideAlasan`, `tts-daring` dilarang untuk jenis `internal` atau `kepatuhan.sensitif`, tidak ada pola data pribadi (surel, NIK 16 digit, NIP 18 digit, nomor telepon; nilainya tidak ikut dicetak), serta konsistensi persetujuan. Isian inti (judul, tujuan, audiens, pesan utama, CTA; untuk alur instruksional juga `tujuanBelajar`; untuk alur formal juga `kepatuhan.dasarHukum`) hanya peringatan pada tahap pertama dan menjadi galat setelah brief dilewati. `--video F` membandingkan hash SHA-256 video dengan hash gate berhash terakhir. Exit `0` atau `2`. |
+| `brief` | Brief Markdown deterministik: ringkasan, tujuan, audiens, pesan, struktur adegan, preset terpilih beserta tingkat bukti dan rujukan (nilai yang ditimpa ditandai), aturan teknis, kepatuhan, rencana tahap dengan checklist gate dan RACI, tabel persetujuan, dan kriteria selesai. Kolom kosong ditandai `[isi]`; tidak ada cap waktu. |
+| `setuju` | Mencatat persetujuan satu gate. `--tanggal` wajib (tidak memakai jam sistem agar hasilnya deterministik). Gate berhash (`G5` dan `G6` pada alur formal) wajib `--berkas`; yang dicatat adalah SHA-256 berkas itu. Tahap maju ke tahap sesudah gate. Persetujuan ditolak bila konsep belum cukup lengkap untuk tahap berikutnya. Alur `formal` menolak gate di luar urutan; alur lain hanya memberi catatan. Persetujuan yang sudah ada tidak bisa diubah: perubahan sesudah disahkan berarti versi baru dengan pengesahan ulang. |
+| `preset` | Mencetak `{ jenis, preset }` berisi preset efektif (preset jenis ditambah `override`) sebagai JSON, untuk disuntikkan ke komposisi lewat `--props-file`. |
+| `sinkron-preset` | Menulis `scripts/preset-jenis.js` dari `data/jenis-video.json`; dengan `--periksa` hanya memeriksa dan exit `1` bila salinan basi. |
+
+Contoh alur kerja (data fiktif; hasil lengkapnya ada di [`templates/konsep-contoh/`](templates/konsep-contoh/)):
+
+```bash
+bun run konsep -- baru --jenis panduan --alur instruksional --judul "Mengelola tautan di portal" --out konsep.json
+# isi tujuan, audiens, pesanUtama, cta, tujuanBelajar di konsep.json
+bun run konsep -- periksa konsep.json
+bun run konsep -- brief konsep.json --out brief.md
+bun run konsep -- setuju konsep.json --gate GA --oleh PS --tanggal 2026-11-07
+bun run periksa out/final.mp4 --konsep konsep.json --subtitle caption.vtt
+```
+
+### Isi konsep.json
+
+| Field | Isi |
+| --- | --- |
+| `versi`, `id`, `judul` | Skema versi `1`; `id` huruf kecil dan tanda hubung; judul bebas. |
+| `jenis`, `alur`, `tahap` | Pilihan jenis dan alur, serta id tahap saat ini (`T1`, `T2`, ...; maju otomatis lewat `setuju`). |
+| `tujuan`, `tujuanBelajar[]`, `audiens`, `pesanUtama`, `cta`, `nada` | Isian brief. `audiens` berisi `deskripsi`, `bahasa`, `konteksTonton[]`, `tanpaSuara`. |
+| `durasiTarget`, `rasio` | Pilihan proyek (detik; `16:9`, `9:16`, `1:1`, `4:5`, atau `21:9`), divalidasi terhadap preset. |
+| `narasi`, `musik`, `kenyaringan`, `caption` | Pilihan proyek yang terisi dari preset. `narasi.mode`: `tanpa`, `tts-lokal`, `tts-daring`, `rekaman`. `caption`: `burnIn`, `cps`, `mode` (`pop-on` atau `sorot-kata`), `bahasa`. `kenyaringan`: `web` atau `siaran`. |
+| `kepatuhan` | `dasarHukum[]`, `izinPotret`, `klaim`, `dataNyata` (harus `false` pada contoh dan templat), `sensitif`. |
+| `persetujuan[]` | Satu entri per gate: `gate`, `nama`, `peranDiminta`, `status` (`menunggu` atau `disetujui`), `oleh`, `tanggal`, `hash`, `berkas`, `catatan`. |
+| `override{}`, `overrideAlasan` | Penimpa nilai preset yang tidak tercakup field di atas (mis. `transisi`, `easing`, `tipografi`, `kontrasMin`, `durasiMaks`). Kunci harus ada di preset; alasan wajib. Preset tidak memaksa, tetapi batas aksesibilitas (kontras minimal 4,5:1) tidak boleh diturunkan. |
+
+### Jenis video
+
+Tabel ringkas kolom inti; seluruh atribut (fps, resolusi, easing, tipografi, palet, kontras minimum, selisih narasi-musik, gaya narasi, kenyaringan, adegan wajib dan umum, kepatuhan) dan rujukannya ada di `data/jenis-video.json` atau lewat `bun run konsep -- daftar jenis <kunci>`.
+
+| Jenis (`kunci`) | Tujuan | Rasio | Target/maks (s) | Detik per adegan | cps | Burn-in | Musik | Alur bawaan (cocok) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Formal (`formal`) | Menyampaikan informasi resmi dengan otoritas. | 16:9 | 90/300 | 10 | 17 | tidak | tidak | `formal` |
+| Edukasi (`edukasi`) | Mengubah pengetahuan atau kemampuan. | 16:9 | 240/360 | 12 | 17 | tidak | tidak | `instruksional` |
+| Kreatif (`kreatif`) | Membangun emosi dan citra. | 16:9, 21:9 | 60/180 | 4 | 17 | tidak | sedang | `standar` |
+| Promo (`promo`) | Mendorong tindakan (kunjungan, daftar, beli). | 16:9, 9:16, 1:1 | 30/60 | 3 | 17 | ya | sedang | `standar` (`ringkas`) |
+| Penjelasan produk (`produk`) | Memahamkan cara kerja dan manfaat produk. | 16:9 | 75/120 | 7 | 17 | tidak | rendah | `standar` |
+| Panduan atau tutorial (`panduan`) | Memandu penonton menyelesaikan langkah demi langkah. | 16:9 | 150/360 | 10 | 17 | tidak | tidak | `instruksional` |
+| Dokumenter (`dokumenter`) | Menceritakan fakta dan konteks. | 16:9 | 300/600 | 7 | 17 | tidak | rendah | `dokumenter` |
+| Sosial vertikal (`sosial`) | Menarik perhatian cepat di feed. | 9:16 | 20/60 | 2,5 | 20 | ya | sedang | `ringkas` (`standar`) |
+| Laporan data (`data`) | Menyampaikan angka dan temuan. | 16:9 | 90/180 | 10 | 17 | tidak | tidak | `standar` (`formal`) |
+| Testimoni atau profil (`testimoni`) | Membangun kepercayaan. | 16:9, 9:16 | 60/120 | 8 | 17 | tidak | rendah | `standar` |
+| Layanan masyarakat (`psa`) | Mengubah perilaku atau kesadaran publik. | 16:9, 9:16 | 30/60 | 4 | 17 | ya | rendah | `standar` (`formal`) |
+| Internal atau onboarding (`internal`) | Orientasi, kebijakan, dan prosedur. | 16:9 | 180/360 | 12 | 17 | tidak | tidak | `ringkas` (`instruksional`) |
+| Acara atau rekap (`acara`) | Mengabadikan acara dan mengundang berikutnya. | 16:9, 9:16 | 75/180 | 3 | 17 | tidak | sedang | `standar` (`ringkas`) |
+
+### Alur produksi
+
+Urutan tahap (pra-produksi, produksi, pasca-produksi, distribusi, evaluasi) dan peta artefak adalah konvensi yang stabil di buku teks produksi dan praktik agensi. Jumlah gate, ronde review, dan penyetuju adalah keputusan desain: tidak ditemukan bukti empiris yang membandingkan alur produksi untuk motion graphics. Artefak dipetakan ke fitur awvd: `konsep.json` + `brief.md`, naskah di `props`, `--still N` per adegan sebagai storyboard, `--skala 0.25`/`0.5` dengan `--dari`/`--sampai` dan `--audio` sementara sebagai animatic dan rough cut, `bun run periksa`, `caption.vtt`, `atribusi.txt`, `templates/<nama>/ASET.md`, dan `sop.json` untuk panduan atau SOP bila fitur SOP tersedia di versi yang dipakai.
+
+| Alur (`kunci`) | Gate (`R` = review, `*` = opsional) | Ronde review | Overhead | Cocok untuk | Tahap |
+| --- | --- | --- | --- | --- | --- |
+| Ringkas (`ringkas`) | G1, G2 | 1 | rendah | `promo`, `sosial`, `internal`, `acara` | 5 |
+| Standar (`standar`) | G1, G2, G3, R1, R2, G4, G5* | 2 | sedang | `kreatif`, `promo`, `produk`, `sosial`, `data`, `testimoni`, `psa`, `acara` | 8 |
+| Instruksional (`instruksional`) | GA, GD, GV1, GV2, GV3, GI, GE | 2 | sedang-tinggi | `edukasi`, `panduan`, `internal` | 7 |
+| Formal (`formal`) | G1, G2, G3, R1, R2, G4, G5, G6 | 2 | tinggi | `formal`, `data`, `psa` | 10 |
+| Dokumenter (`dokumenter`) | G1, G2, R1, R2, G3, G4 | 3 | tinggi | `dokumenter` | 10 |
+
+Peran RACI memakai kode `PS` (pemilik/sponsor isi), `PM` (produser), `PN` (penulis naskah), `DS` (desainer gerak/operator awvd), `AU` (audio), `AH` (ahli materi), `KP` (kepatuhan/humas), `PJ` (pejabat pengesah), dan `QC`; satu orang boleh memegang beberapa peran. Alur `formal` menolak gate di luar urutan dan mewajibkan hash pada `G5` dan `G6` (versi yang disahkan harus sama dengan video terbit, diperiksa lewat `periksa konsep.json --video`). Pengesahan berjenjang oleh beberapa pejabat belum didukung sebagai beberapa tanda tangan per gate: satu gate mencatat satu penyetuju.
+
+### Tingkat bukti
+
+Setiap atribut preset membawa `bukti.tingkat` dan `bukti.rujukan`:
+
+| Tingkat | Arti |
+| --- | --- |
+| `bukti` | Berbasis riset empiris atau meta-analisis (mis. batas 6 menit Guo, Kim & Rubin 2014; prinsip koherensi Mayer; gaya percakapan Mayer dkk. 2004 dan Ginns dkk. 2013, yang belum diuji untuk bahasa Indonesia). |
+| `standar` | Standar teknis atau teks peraturan (WCAG 2.2, EBU R 128, Perpres 63/2019 Pasal 41, UU 28/2014 Pasal 12). |
+| `pedoman-industri` | Pedoman platform atau praktik industri (Netflix Timed Text Style Guide, TikTok for Business, YouTube Help, Wistia); bukan eksperimen, dan sebagian data milik vendor. |
+| `keputusan-desain` | Usulan awvd tanpa sumber ilmiah. |
+
+Dari 273 nilai (13 jenis kali 21 atribut) pada 2026-11-07: 171 `keputusan-desain`, 80 `pedoman-industri`, 16 `standar`, dan 6 `bukti`. Jadi sebagian besar preset adalah titik awal yang masuk akal, **bukan** hasil riset: durasi target, tempo adegan, skala tipografi, palet, tingkat musik, selisih narasi-musik, transisi, dan easing per jenis tidak punya bukti kuat (riset warna-emosi dan huruf-emosi hanya menunjukkan efek yang bergantung konteks). Ubahlah lewat `override` dengan alasan bila proyek memerlukan. Rujukan peraturan bukan nasihat hukum: hanya Perpres 63/2019 Pasal 41 dan UU 28/2014 Pasal 12 yang dibaca dari teks peraturan; Etika Pariwara Indonesia, UU 8/1999, dan ketentuan kehumasan hanya dari sumber sekunder, jadi tim kepatuhan wajib memeriksanya. Penyerahan siaran file-based (mis. DPP AS-11 di Inggris, MXF) bukan keluaran awvd; minta spesifikasi stasiun.
+
+### Konflik pedoman: TikTok dan lint caption
+
+Halaman bantuan TikTok for Business menganjurkan teks layar "5-10 kata per detik", sedangkan lint caption awvd (`bun run periksa --subtitle`, Netflix Timed Text Style Guide) membatasi 17-20 karakter per detik (sekitar 3 kata per detik). awvd mempertahankan lint caption untuk **caption ucapan**, dan memperlakukan teks hook TikTok sebagai judul pendek di layar, bukan caption. Karena itu preset `sosial` memakai 20 cps (batas dewasa Netflix), bukan angka TikTok. Keputusan ini perlu dikonfirmasi pemilik; angka optimum untuk bahasa Indonesia belum diverifikasi.
+
+### Preset di komposisi (browser)
+
+Runtime berjalan di browser tanpa `fetch` berkas data, jadi preset disediakan sebagai salinan yang **dihasilkan** dari `data/jenis-video.json`: `scripts/preset-jenis.js` (isinya `window.PRESET_JENIS_DATA`). Muat sebelum memanggil `presetJenis`:
+
+```html
+<script src="../../scripts/runtime.js"></script>
+<script src="../../scripts/preset-jenis.js"></script>
+<script>
+  const preset = presetJenis("promo"); // salinan; preset.nilai.durasiMaks, preset.nilai.easing, ...
+</script>
+```
+
+Berkas itu tidak boleh diedit tangan. Setelah mengubah `data/jenis-video.json`, jalankan `bun run konsep -- sinkron-preset`; `bun run uji` gagal bila salinan basi. Untuk preset efektif dengan `override` konsep, suntikkan lewat props, yang sama deterministiknya: `bun run konsep -- preset konsep.json > preset.json` lalu `bun run render komposisi.html --props-file preset.json --out hasil.mp4` dan baca `ctx.props.preset`. Catatan: mode caption `sorot-kata` (preset `sosial`) baru berupa pilihan di data; belum ada helper runtime yang menyorot kata per kata, sedangkan `pop-on` didukung `captionAktif`.
+
+### Batasan konsep
+
+- Preset adalah bantuan keputusan, bukan standar. Hanya `periksa` yang menegakkan ambang, dan hanya sebagian (lihat §Pemeriksaan mutu); `pemeriksaanTambahan` di data (logo, istilah pra-latih, nomor langkah, dan sejenisnya) adalah daftar periksa manual di brief.
+- Tidak ada hubungan otomatis antara `konsep.json` dan komposisi selain preset yang disuntikkan lewat props.
+- `setuju` mencatat siapa, kapan, dan hash artefak; ia tidak memverifikasi identitas penyetuju (bukan tanda tangan digital).
+- Data pribadi: `periksa` menyaring pola umum (surel, NIK, NIP, telepon), bukan jaminan; konsep dan brief di repo awvd wajib berdata fiktif.
 
 ## Aksesibilitas
 
@@ -582,6 +723,14 @@ scripts/uji.mjs        uji otomatis renderer (bun run uji)
 templates/<nama>/      komposisi contoh + ASET.md (catatan aset pihak ketiga)
 templates/klip-tertanam/  contoh video di dalam video: sumber.json, props, rencana-audio.json, klip kecil buatan sendiri (.mkv)
 .cache/                cache frame klip dan audio contoh (diabaikan git)
+scripts/konsep.mjs     konsep video: jenis, alur, brief, persetujuan (bun run konsep)
+scripts/preset-jenis.js  salinan preset jenis untuk browser (DIHASILKAN dari data/jenis-video.json)
+scripts/uji-konsep.mjs   uji data preset, alur, konsep.mjs, preset runtime, periksa --konsep
+data/jenis-video.json  13 jenis video + preset bertingkat bukti (sumber kebenaran)
+data/alur-produksi.json  5 alur produksi: tahap, gate, RACI, artefak
+scripts/uji.mjs        uji otomatis renderer (bun run uji)
+templates/<nama>/      komposisi contoh + ASET.md (catatan aset pihak ketiga)
+templates/konsep-contoh/  konsep.json fiktif + brief.md hasil generator
 .github/workflows/     CI uji
 .github/pull_request_template.md   checklist uji dan dokumentasi PR
 .claude/agents/        subagent pelaksana (kompleks, sederhana) untuk orchestrator
@@ -595,13 +744,14 @@ Perintah utama:
 - `bun run periksa <video.mp4>`: pemeriksaan mutu (lihat §Pemeriksaan mutu).
 - `bun run sop <sop.json> --out DIR`: SOP menjadi dokumen dan bahan video (lihat §SOP sebagai bahan video).
 - `bun run klip <sumber.json> --fps N` dan `bun run audio <rencana.json> --fps N --out ...`: video di dalam video dan timeline audio.
-- `bun run uji`: uji unit runtime, uji periksa, uji SOP, uji klip, lalu sembilan uji renderer (properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran); sekitar dua setengah menit. `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
+- `bun run konsep -- <subperintah>`: konsep video, pilihan jenis video dan alur produksi (lihat §Konsep).
+- `bun run uji`: uji unit runtime, uji periksa, uji SOP, uji klip, uji konsep, lalu sembilan uji renderer (properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran); sekitar dua setengah menit. `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
 
 ## Kontribusi dan dokumentasi
 
 Setiap perubahan lewat branch dan pull request (`<jenis>/<ringkas>`), dan merge hanya setelah semua check (`uji`, GitGuardian) berstatus SUCCESS. Perubahan konsep atau fitur wajib membawa pembaruan dokumen di PR yang sama. Aturan lengkapnya ada di [AGENTS.md](AGENTS.md): §Git dan PR untuk alur git, dan §Dokumentasi untuk peta "perubahan apa memperbarui dokumen mana".
 
-Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata README dan AGENTS.md) menandai revisi dokumen. Versi software ada di `package.json` dan `CHANGELOG.md`. README `v1.9.0` tidak berarti awvd `1.9.0`.
+Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata README dan AGENTS.md) menandai revisi dokumen. Versi software ada di `package.json` dan `CHANGELOG.md`. README `v1.10.0` tidak berarti awvd `1.10.0`.
 
 ## Rilis
 
@@ -632,6 +782,13 @@ Belum ada rilis bertag. Versi paket `0.1.0`, dan semua perubahan dicatat di [CHA
 Font, musik (`--audio`), gambar, footage, klip tertanam, dan suara TTS wajib berlisensi jelas dan dicatat sumbernya (klip tertanam divalidasi `klip.mjs`). Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.10.0
+
+- Menambahkan §Konsep: jenis video dan alur produksi: subperintah `bun run konsep` (`baru`, `daftar`, `periksa`, `brief`, `setuju`, `preset`, `sinkron-preset`), skema `konsep.json`, tabel 13 jenis dan 5 alur, diagram alur konsep sampai final, penjelasan tingkat bukti (banyak nilai adalah keputusan desain), konflik pedoman TikTok dan lint caption, preset di komposisi, dan batasan.
+- §Referensi API runtime: menambahkan `presetJenis(nama)` (data dimuat lewat `scripts/preset-jenis.js`, dihasilkan dari `data/jenis-video.json`).
+- §Pemeriksaan mutu: menambahkan flag `--konsep` (ambang durasi maks, cps, kenyaringan dari preset; pemeriksaan rasio; info burn-in).
+- §Struktur repo: mencantumkan `scripts/konsep.mjs`, `scripts/preset-jenis.js`, `scripts/uji-konsep.mjs`, `data/`, dan `templates/konsep-contoh/`; `bun run uji` kini juga menjalankan uji konsep.
 
 ### 2026-11-07 - v1.9.0
 

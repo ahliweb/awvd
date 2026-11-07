@@ -13,10 +13,12 @@
     "sop": "bun scripts/sop.mjs",
     "klip": "bun scripts/klip.mjs",
     "audio": "bun scripts/audio.mjs",
-    "uji": "bun scripts/uji-runtime.mjs && bun scripts/uji-periksa.mjs && bun scripts/uji-sop.mjs && bun scripts/uji-klip.mjs && bun scripts/uji.mjs",
+    "konsep": "bun scripts/konsep.mjs",
+    "uji": "bun scripts/uji-runtime.mjs && bun scripts/uji-periksa.mjs && bun scripts/uji-sop.mjs && bun scripts/uji-klip.mjs && bun scripts/uji-konsep.mjs && bun scripts/uji.mjs",
     "uji:runtime": "bun scripts/uji-runtime.mjs",
     "uji:periksa": "bun scripts/uji-periksa.mjs",
     "uji:sop": "bun scripts/uji-sop.mjs",
-    "uji:klip": "bun scripts/uji-klip.mjs"
+    "uji:klip": "bun scripts/uji-klip.mjs",
+    "uji:konsep": "bun scripts/uji-konsep.mjs"
   }
 }

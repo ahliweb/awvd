@@ -1,0 +1,134 @@
+{
+  "versi": 1,
+  "id": "demo-sop-tautan",
+  "judul": "Mengelola tautan di portal (contoh fiktif)",
+  "jenis": "panduan",
+  "alur": "instruksional",
+  "tahap": "T3",
+  "tujuan": "Setelah menonton, staf dapat menambah tautan baru di portal latihan tanpa bantuan.",
+  "tujuanBelajar": [
+    "Membuka menu tautan",
+    "Mengisi tiga bidang wajib",
+    "Memverifikasi tautan aktif"
+  ],
+  "audiens": {
+    "deskripsi": "Staf baru unit layanan (peran fiktif untuk contoh)",
+    "bahasa": "id",
+    "konteksTonton": [
+      "laptop-kantor"
+    ],
+    "tanpaSuara": false
+  },
+  "pesanUtama": "Menambah tautan baru hanya butuh tiga langkah.",
+  "cta": {
+    "teks": "Coba sekarang di portal latihan",
+    "tautan": null
+  },
+  "nada": "percakapan",
+  "durasiTarget": 150,
+  "rasio": "16:9",
+  "narasi": {
+    "mode": "tts-lokal",
+    "gaya": "percakapan",
+    "voice": null
+  },
+  "musik": {
+    "tingkat": "tidak",
+    "selisihDb": null
+  },
+  "kenyaringan": "web",
+  "caption": {
+    "burnIn": false,
+    "cps": 17,
+    "mode": "pop-on",
+    "bahasa": "ind"
+  },
+  "kepatuhan": {
+    "dasarHukum": [],
+    "izinPotret": "tidak-ada-potret",
+    "klaim": "tidak-ada",
+    "dataNyata": false,
+    "sensitif": false
+  },
+  "persetujuan": [
+    {
+      "gate": "GA",
+      "nama": "Tujuan belajar",
+      "peranDiminta": "PS",
+      "status": "disetujui",
+      "oleh": "PS",
+      "tanggal": "2026-11-07",
+      "hash": null,
+      "berkas": null,
+      "catatan": "Contoh fiktif: tujuan belajar disetujui."
+    },
+    {
+      "gate": "GD",
+      "nama": "Desain",
+      "peranDiminta": "AH",
+      "status": "disetujui",
+      "oleh": "AH",
+      "tanggal": "2026-11-07",
+      "hash": null,
+      "berkas": null,
+      "catatan": "Contoh fiktif: isi diverifikasi."
+    },
+    {
+      "gate": "GV1",
+      "nama": "Design Proof",
+      "peranDiminta": "PM",
+      "status": "menunggu",
+      "oleh": "",
+      "tanggal": null,
+      "hash": null,
+      "berkas": null,
+      "catatan": ""
+    },
+    {
+      "gate": "GV2",
+      "nama": "Alpha lengkap",
+      "peranDiminta": "PM",
+      "status": "menunggu",
+      "oleh": "",
+      "tanggal": null,
+      "hash": null,
+      "berkas": null,
+      "catatan": ""
+    },
+    {
+      "gate": "GV3",
+      "nama": "Beta diuji pelajar",
+      "peranDiminta": "PM",
+      "status": "menunggu",
+      "oleh": "",
+      "tanggal": null,
+      "hash": null,
+      "berkas": null,
+      "catatan": ""
+    },
+    {
+      "gate": "GI",
+      "nama": "Rilis",
+      "peranDiminta": "PS",
+      "status": "menunggu",
+      "oleh": "",
+      "tanggal": null,
+      "hash": null,
+      "berkas": null,
+      "catatan": ""
+    },
+    {
+      "gate": "GE",
+      "nama": "Evaluasi",
+      "peranDiminta": "PS",
+      "status": "menunggu",
+      "oleh": "",
+      "tanggal": null,
+      "hash": null,
+      "berkas": null,
+      "catatan": ""
+    }
+  ],
+  "override": {},
+  "overrideAlasan": ""
+}
