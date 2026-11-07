@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru: manifest aset.json (skema 1), bun run aset (tambah, impor, periksa), matriks lisensi per jenis, aturan validasi fail-closed, pembersih SVG berdaftar-izin, pemeriksa resolusi, deteksi ICC/EXIF dan konversi sRGB, keluaran aset-props.json, atribusi.txt, font-face.css, serta pemblokiran jaringan dan pemuatan font di renderer.`
+- Changeset: `Menambahkan bagian Helper runtime: asetGambar, pasangGambar, logo, ikon, kreditAset, dan pasangFont di scripts/runtime.js beserta aturan yang ditegakkan sebagai galat (teks alternatif, hanya <img>, area aman, ukuran minimum, clear space, kontras, tanpa rotasi atau regang) dan keputusan desainnya; Rencana dan templat aset-contoh disesuaikan.`
 
 Fitur aset mencatat sumber, lisensi, dan bukti setiap aset, menolak pemakaian yang jelas melanggar aturan teknis atau lisensi yang dikenal, dan memastikan render hanya memakai berkas lokal yang ber-hash. Alur render ada di [arsitektur.md](arsitektur.md), flag renderer di [cli.md](cli.md), ringkasan lisensi di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Dasar risetnya: pola manifest sumber klip ([video-tertanam-audio.md](video-tertanam-audio.md#aturan-sumber)) diperluas menjadi manifest generik berjenis.
 
@@ -157,13 +157,55 @@ Keterbatasan: bukan pengganti pustaka matang untuk SVG tak tepercaya dari intern
 | `font-face.css` | `@font-face` dari entri font (`font-display: block`). Jalur `url()` relatif terhadap berkas CSS itu sendiri: muat dengan `<link rel="stylesheet">`. |
 | `props-gabungan.json` | Dengan `--gabung`: props dasar ditambah kunci `aset`. |
 
-Komposisi memakai aset dengan `<img src="aset/...">` atau CSS `url()` lokal (relatif terhadap komposisi) dan membaca `aset-props.json` lewat props bila perlu. SVG dipakai lewat `<img>` atau inline setelah lolos pemeriksa. Renderer menunggu semua `<img>` dan `document.fonts` sebelum frame pertama dan memblokir semua permintaan jaringan ([cli.md](cli.md#jaringan-dan-font)).
+Komposisi memakai aset lewat [helper runtime](#helper-runtime) (dianjurkan: menegakkan teks alternatif, area aman, dan kredit), atau langsung dengan `<img src="aset/...">` dan CSS `url()` lokal (relatif terhadap komposisi). SVG dipakai lewat `<img>`; inline hanya bila lolos pemeriksa dan atas keputusan sendiri (helper tidak menyediakannya). Renderer menunggu semua `<img>` dan `document.fonts` sebelum frame pertama dan memblokir semua permintaan jaringan ([cli.md](cli.md#jaringan-dan-font)).
+
+## Helper runtime
+
+Helper di [`scripts/runtime.js`](../scripts/runtime.js) memakai `aset-props.json` agar komposisi memperlakukan aset secara konsisten. Referensi lengkap tanda tangan ada di [api-runtime.md](api-runtime.md); ringkasannya:
+
+| Helper | Fungsi |
+| --- | --- |
+| `asetGambar(id, { props, target })` | `Promise` info aset (`url`, `lebar`, `tinggi`, `rasio`, `fokus`, `alt`, `dekoratif`); dengan `target` `<img>` sekalian memasangnya. Untuk `gambar`, `svg`, `logo`, `ikon`. |
+| `pasangGambar(img, deskriptor)` | Satu-satunya jalur DOM: memasang hasil `asetGambar`, `logo`, atau `ikon` ke elemen `<img>` (src, alt, `aria-hidden`, posisi dan ukuran, fokus, opacity) lalu menunggu `decode()`. |
+| `logo(id, posisi, opsi)` | Murni: kotak `{ x, y, w, h, url, alt, opacity, clearSpace }` di area grafis aman, dengan aturan merek ditegakkan. |
+| `ikon(id, opsi)` | Murni: `{ w, h, url, alt, dekoratif, filter }`. |
+| `kreditAset(ids, opsi)` | Teks atribusi dari manifest (`ringkas: true` untuk layar, `false` untuk kredit akhir). |
+| `pasangFont(ids, opsi)` | `Promise`: membuat `FontFace` dari entri font, memuatnya, dan melempar bila gagal. |
+
+Sumber data adalah `props` yang memuat kunci `aset`: isi `aset-props.json` apa adanya, atau `ctx.props` bila props digabung dengan `bun run aset periksa --gabung props.json` lalu diberikan ke `render.mjs --props-file props-gabungan.json`. `opsi.ctx` (argumen kedua `render`) adalah jalan pintas untuk `props`, `lebar`, dan `tinggi`. `opsi.akar` menambah awalan pada `jalur` bila komposisi tidak berada di folder manifest. Pemakaian lengkap: [`templates/aset-contoh/index.html`](../templates/aset-contoh/index.html).
+
+```js
+defineVideo({
+  width: 1280, height: 720, fps: 30, durationInFrames: 60,
+  async render(frame, ctx) {
+    // ctx.props.aset berasal dari props-gabungan.json
+    await pasangFont("font-judul", { ctx });
+    const kotak = logo("logo-contoh", "kiri-atas", { ctx, ukuran: 28, latar: "#ffffff" });
+    await pasangGambar(document.getElementById("logo-img"), kotak);   // <img>, bukan SVG inline
+    await pasangGambar(document.getElementById("ikon-img"), ikon("ikon-centang", { ctx, ukuran: 48, warna: "putih" }));
+    document.getElementById("kredit").textContent = kreditAset("semua", { ctx });
+  },
+});
+```
+
+Aturan yang ditegakkan (pelanggaran = galat yang menggagalkan render dengan pesan berisi id dan sebabnya, bukan fallback senyap):
+
+- **Logo dan SVG hanya lewat `<img>`.** `pasangGambar` menolak target selain `<img>` dan runtime tidak punya jalur menyisipkan markup, sehingga skrip atau sumber luar di dalam SVG tidak pernah berjalan. Uji menjaga ini (target `<div>`/`<svg>` ditolak, `runtime.js` tidak memakai `innerHTML` dan sejenisnya).
+- **Teks alternatif (WCAG 1.1.1).** Aset informatif tanpa `teksAlternatif` memicu galat; aset dengan `peran: "dekoratif"` mendapat `alt=""` dan `aria-hidden="true"`. Peran ditentukan manifest dan tidak bisa diubah per pemakaian; `opsi.teksAlternatif` menggantikan teks manifest hanya bila tidak kosong (teks kosong tidak bisa menghapusnya). `gambar`, `logo`, dan `svg` tanpa `peran` dianggap informatif; `ikon` tanpa `peran` dan tanpa `teksAlternatif` dianggap dekoratif (keputusan desain: ikon lazimnya mendampingi teks).
+- **Id dan jalur.** Id yang tidak ada di `props`, jenis yang salah (mis. font lewat `asetGambar`), dan `jalur` berskema, mutlak, atau berisi `..` ditolak.
+- **Logo di area aman.** `logo` menghitung kotak di dalam area grafis `areaAman` (EBU R 95). `ukuran` adalah persen lebar frame (bawaan 10); tinggi mengikuti `rasio` dari manifest, jadi tidak ada parameter rotasi atau regang (`rotasi`, `regang`, `miring` ditolak). `merek.aturan.ukuranMinPx` dibandingkan dengan lebar kotak dan lebar di bawahnya = galat (tidak dijepit diam-diam); `clearSpace` (dalam satuan tinggi atau lebar logo, dibulatkan ke atas) menjadi margin dari tepi area aman dan kotak beserta clear space harus muat di area aman; `larangan` yang memuat `transparansi` menolak `opacity < 1`. `latar` (warna latar) memeriksa kontras >= 3:1 (WCAG 2.2 SC 1.4.11) terhadap setidaknya satu warna di `warnaDiizinkan`, dan bersama `varian: { diLatarTerang, diLatarGelap }` memilih varian logo menurut luminans latar. Posisi: `kiri-atas`, `kanan-atas`, `kiri-bawah`, `kanan-bawah`, `tengah`. Elemen induk harus `position: relative` seukuran frame karena logo ditempatkan dengan `position: absolute`.
+- **Ikon.** `ukuran` adalah sisi terpanjang (bawaan 24 px). `warna` hanya `putih` atau `hitam` (filter CSS pada `<img>`); warna lain butuh SVG inline atau CSS mask sehingga tidak disediakan: pakai berkas ikon yang sudah berwarna itu.
+- **Kredit.** `kreditAset(id, { ringkas: false })` mengembalikan `atribusi.kredit` dari manifest apa adanya, jadi sama dengan baris di `atribusi.txt` (uji membandingkannya pada proyek uji). `ringkas: true` (bawaan, untuk layar): `"Judul" oleh Pencipta · CC BY 4.0 · diubah`. `"semua"` memuat aset yang `atribusiTampil`-nya `layar` atau `akhir` menurut urutan manifest (`tampil` menyaring salah satunya); array id mempertahankan urutan array, jadi untuk kredit akhir menurut urutan kemunculan beri array berurutan. Id ganda dibuang dan id yang tidak ada = galat. Hasil kosong (`""`) bila tidak ada aset yang perlu dikreditkan.
+- **Font.** `pasangFont` idempoten per famili, bobot, gaya, dan URL (aman dipanggil di tiap `render`), menunggu `face.load()`, dan melempar `font gagal dimuat` bila gagal. Alternatif statis tanpa JavaScript: muat `font-face.css` dengan `<link rel="stylesheet">`.
+
+Angka yang bukan standar adalah keputusan desain: ukuran logo bawaan 10% lebar frame (riset menyebut rentang 8-12% untuk bug logo dari praktik penyiaran; tidak ada angka baku yang terverifikasi), kontras logo minimum 3:1 (angka WCAG 1.4.11, tetapi penerapannya ke logo adalah pilihan kita), dan ikon tanpa peran dianggap dekoratif. Aturan merek yang diperiksa hanyalah yang tercatat di manifest; pedoman merek pemilik tetap perlu dibaca manusia.
+
+Belum ada: pencatat pemakaian per frame (`render --periksa-aset`) yang memeriksa ukuran akhir logo di tiap frame; helper tidak menghitung zoom, `transform`, atau elemen induk yang dikenakan komposisi pada gambar setelah dipasang.
 
 ## Rencana
 
-Belum ada di kode; tanpa janji tanggal. Dikerjakan di PR berikutnya karena menyentuh `scripts/runtime.js`:
+Belum ada di kode; tanpa janji tanggal:
 
-- Helper runtime: `asetGambar(id)` (promise, gagal keras bila id tak ada), `pasangFont(...)`, `logo(id, posisi, {...})` (area aman, ukuran minimum, kontras varian latar, tanpa rotasi atau regang), `kreditAset(...)`, dan `ikon(id, {...})`.
 - Uji-tayang `render --periksa-aset` (pencatat pemakaian per frame sampel).
 - Jenis `lottie` (hanya `animationData` tervalidasi, `goToAndStop(frame)`), audio lewat `idAset` di rencana audio, `periksa --aset`, dan logo wajib untuk jenis `formal` lewat `konsep.json`.
 
@@ -171,11 +213,15 @@ Belum ada di kode; tanpa janji tanggal. Dikerjakan di PR berikutnya karena menye
 
 - Lisensi dan syarat pihak ketiga tidak dapat diverifikasi mesin; hanya kelengkapan catatan dan kecocokan dengan matriks yang diperiksa.
 - Konversi sRGB bergantung pada build Chromium; AVIF dan subset font tidak diuji; Lottie belum ada.
+- Helper runtime memeriksa aturan pada saat dipanggil dengan nilai yang diberikan komposisi; yang dikenakan sesudahnya (CSS `transform`, `filter` lain, elemen induk yang diskalakan) tidak terlihat olehnya. Ukuran minimum logo dibandingkan dengan lebar kotak, bukan piksel akhir di layar.
 - Pemindaian komposisi (`--komposisi`) adalah lapis kedua berbasis teks (peringatan, bukan jaminan); lapis utama adalah pemblokiran jaringan saat render.
 - Kebijakan lisensi dan hukum yang belum terverifikasi dari sumber primer (FAQ OFL tentang subset, Ubuntu Font License, Pixabay untuk musik, YouTube Audio Library di luar YouTube, tafsir ShareAlike, status hak cipta hasil AI di Indonesia) ditandai di pesan validator atau di dokumen ini.
 
 ## Changelog
 
+### 2026-11-07 - v1.1.0
+
+- Menambahkan bagian Helper runtime (`asetGambar`, `pasangGambar`, `logo`, `ikon`, `kreditAset`, `pasangFont`), aturan yang ditegakkan, dan keputusan desainnya; Rencana tidak lagi memuat helper; templat `aset-contoh` memakainya.
 ### 2026-11-07 - v1.0.0
 
 - Dokumen baru: manifest `aset.json` (skema 1), perintah `bun run aset` (`tambah`, `impor`, `periksa`), matriks lisensi, aturan validasi, pembersih SVG, pemeriksa resolusi, ICC/EXIF dan konversi sRGB, keluaran, dan rencana helper runtime.
