@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Mengganti README singkat dengan dokumentasi lengkap renderer: mulai cepat, API runtime, flag CLI, determinisme, aksesibilitas, batasan, dan struktur repo.`
+- Changeset: `Menambahkan bagian Lisensi dan Kepatuhan: hasil audit lisensi, pihak ketiga, dan tanggung jawab aset.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -149,11 +149,29 @@ Perintah: `bun run render <komposisi> --out ...` dan `bun run uji` (delapan uji:
 - Prosedur pemakaian oleh AI agent: skill `video-terprogram` di pedoman internal AhliWeb.
 - Panduan video formal untuk pemerintah dan swasta mengikuti standar dokumen formal DL-037 (dokumen standar internal di pedoman internal AhliWeb); awvd menjadi alat render videonya.
 
-## Lisensi
+## Lisensi dan Kepatuhan
 
-[MIT](LICENSE). awvd adalah karya asli dan tidak memakai, menyalin, atau menurunkan kode maupun teks Remotion.
+- awvd berlisensi [MIT](LICENSE).
+- Kode awvd ditulis sendiri. awvd tidak memakai, tidak bergantung pada, dan tidak menyalin kode Remotion maupun remotion-dev/skills. Pemeriksaan 2026-11-07 membandingkan interpolasi, pegas, easing/bezier, dan PRNG dengan sumber Remotion: pendekatan dan implementasinya berbeda. Satu-satunya kesamaan adalah algoritma mulberry32, yang berstatus domain publik (atribusi di `scripts/runtime.js`).
+- Konsep "video dari kode yang digambar per frame" adalah ide/metode, bukan ekspresi. Ide dan metode tidak dilindungi hak cipta (UU 28/2014 Pasal 41 huruf b; doktrin dikotomi ide-ekspresi).
+- "Remotion" adalah merek milik pemiliknya. Nama itu disebut hanya untuk menjelaskan bahwa awvd tidak memakainya. Tidak ada afiliasi.
+
+### Pihak ketiga
+
+- **playwright-core 1.64.1:** Apache-2.0 (Microsoft). Dependensi npm, bukan kode yang disalin ke repo; LICENSE/NOTICE-nya ikut dalam paket.
+- **Chromium/Chrome:** dipakai dari instalasi lokal dan tidak didistribusikan.
+- **ffmpeg:** dipanggil sebagai program sistem lewat CLI dan tidak didistribusikan atau ditautkan, sehingga kewajiban LGPL/GPL (libx264) tidak berlaku untuk repo ini. Video keluaran tidak terkena GPL.
+- **H.264:** lisensi paten AVC (dulu MPEG LA, kini Via LA) secara historis tidak memungut royalti untuk video internet yang gratis bagi pengguna akhir. Untuk distribusi berbayar, siaran, atau platform streaming komersial, cek ketentuan Via LA terbaru. Status 2026 belum diverifikasi dari halaman resmi.
+
+### Tanggung jawab pengguna atas aset
+
+Font, musik (`--audio`), gambar, footage, dan suara TTS wajib berlisensi jelas dan dicatat sumbernya. Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Menambahkan bagian Lisensi dan Kepatuhan menggantikan bagian Lisensi singkat.
 
 ### 2026-11-07 - v1.0.0
 

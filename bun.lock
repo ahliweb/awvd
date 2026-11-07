@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "video-terprogram",
+      "name": "awvd",
       "dependencies": {
         "playwright-core": "1.64.1",
       },
