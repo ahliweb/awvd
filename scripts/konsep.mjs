@@ -2,8 +2,8 @@
 /**
  * konsep.mjs — konsep video: pilihan jenis video dan alur produksi (tanpa dependensi).
  *
- *   bun scripts/konsep.mjs baru --jenis J --alur A --out konsep.json [--judul T] [--timpa]
- *   bun scripts/konsep.mjs daftar [jenis|alur [kunci]]
+ *   bun scripts/konsep.mjs baru --jenis J --alur A --out konsep.json [--judul T] [--audiens P[,P2]] [--timpa]
+ *   bun scripts/konsep.mjs daftar [jenis|alur|audiens [kunci]]
  *   bun scripts/konsep.mjs periksa konsep.json [--video F]
  *   bun scripts/konsep.mjs brief konsep.json [--out brief.md]
  *   bun scripts/konsep.mjs setuju konsep.json --gate G --oleh "Peran" --tanggal YYYY-MM-DD
@@ -11,7 +11,8 @@
  *   bun scripts/konsep.mjs preset konsep.json
  *   bun scripts/konsep.mjs sinkron-preset [--periksa] [--keluar F]
  *
- * Sumber kebenaran preset: data/jenis-video.json dan data/alur-produksi.json. Salinan
+ * Sumber kebenaran preset: data/jenis-video.json dan data/alur-produksi.json; profil audiens
+ * (ukuran teks, cps, kontras, kepadatan elemen) dari data/audiens.json. Salinan
  * preset untuk komposisi di browser (scripts/preset-jenis.js) dihasilkan dari data itu.
  * Keluaran deterministik: tidak memakai jam sistem, tanggal persetujuan datang dari
  * argumen. Exit 0 berhasil, 1 salinan preset basi (sinkron-preset --periksa), 2 argumen
@@ -27,6 +28,7 @@ const akar = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const BERKAS = {
   jenis: join(akar, "data", "jenis-video.json"),
   alur: join(akar, "data", "alur-produksi.json"),
+  audiens: join(akar, "data", "audiens.json"),
   presetJs: join(akar, "scripts", "preset-jenis.js"),
 };
 
@@ -57,6 +59,7 @@ export function muatData() {
     cacheData = {
       jenis: JSON.parse(readFileSync(BERKAS.jenis, "utf8")),
       alur: JSON.parse(readFileSync(BERKAS.alur, "utf8")),
+      audiens: JSON.parse(readFileSync(BERKAS.audiens, "utf8")),
     };
   }
   return cacheData;
@@ -139,6 +142,8 @@ export function periksaData(data, runtime) {
     if (!Array.isArray(n.adegan?.umum) || !n.adegan.umum.every(teksIsi)) g.push(`${p}.adegan.umum: harus daftar teks`);
   }
 
+  if (data.audiens) g.push(...periksaAudiens(data.audiens, runtime));
+
   const peran = Object.keys(da.peran ?? {});
   if (peran.length === 0) g.push("peran: kosong");
   const idGateUmum = /^[A-Z]{1,2}\d*$/;
@@ -184,6 +189,91 @@ export function periksaData(data, runtime) {
     }
   }
   return g;
+}
+
+// ------------------------------------------------------------------ audiens
+const ATURAN_ATRIBUT_ANGKA = ["terbesar", "terkecil"];
+
+/** Validasi data/audiens.json; `runtime` = window.VideoTerprogram (ukuranTeks, untuk menjaga kesamaan pengali). */
+export function periksaAudiens(da, runtime) {
+  const g = [];
+  if (da.versi !== 1) g.push("audiens.versi: harus 1");
+  for (const k of TINGKAT_JENIS) if (!teksIsi(da.legendaBukti?.[k])) g.push(`audiens.legendaBukti.${k}: kosong`);
+  if (!teksIsi(da.aturanKomposisi)) g.push("audiens.aturanKomposisi: kosong");
+  const angka = da.atributAngka ?? {};
+  const teks = da.atributTeks ?? [];
+  for (const [k, a] of Object.entries(angka)) if (!ATURAN_ATRIBUT_ANGKA.includes(a)) g.push(`audiens.atributAngka.${k}: harus ${ATURAN_ATRIBUT_ANGKA.join(" atau ")}`);
+  if (!Array.isArray(teks) || !teks.every(teksIsi)) g.push("audiens.atributTeks: harus daftar teks");
+  const semua = [...Object.keys(angka), ...(Array.isArray(teks) ? teks : [])];
+  const pengaliRuntime = runtime?.ukuranTeks?.pengaliAudiens;
+  const konteksRuntime = runtime?.ukuranTeks?.konteks;
+  const profil = da.profil ?? {};
+  if (Object.keys(profil).length === 0) g.push("audiens.profil: kosong");
+  if (pengaliRuntime && JSON.stringify(Object.keys(profil).sort()) !== JSON.stringify(Object.keys(pengaliRuntime).sort())) {
+    g.push("audiens.profil: kunci harus sama dengan runtime ukuranTeks.pengaliAudiens");
+  }
+  for (const [kp, p] of Object.entries(profil)) {
+    const pre = `audiens.profil.${kp}`;
+    for (const f of ["label", "deskripsi"]) if (!teksIsi(p[f])) g.push(`${pre}.${f}: kosong`);
+    const n = p.nilai ?? {}, b = p.bukti ?? {};
+    for (const at of semua) {
+      if (!(at in n)) g.push(`${pre}.nilai.${at}: tidak ada`);
+      const bb = b[at];
+      if (!bb) g.push(`${pre}.bukti.${at}: tidak ada`);
+      else {
+        if (!TINGKAT_JENIS.includes(bb.tingkat)) g.push(`${pre}.bukti.${at}.tingkat tidak valid: ${bb.tingkat}`);
+        if (!teksIsi(bb.rujukan)) g.push(`${pre}.bukti.${at}.rujukan: kosong`);
+      }
+    }
+    for (const at of Object.keys(n)) if (!semua.includes(at)) g.push(`${pre}.nilai.${at}: atribut tidak dikenal`);
+    for (const at of Object.keys(b)) if (!(at in n)) g.push(`${pre}.bukti.${at}: atribut tidak ada di nilai`);
+    for (const at of Object.keys(angka)) if (at in n && !angkaPositif(n[at])) g.push(`${pre}.nilai.${at}: harus angka positif`);
+    for (const at of teks) if (at in n && !teksIsi(n[at])) g.push(`${pre}.nilai.${at}: harus teks tidak kosong`);
+    if (n.cps > 20) g.push(`${pre}.nilai.cps: harus 0..20`);
+    if (!(n.kontrasTeksMin >= 4.5 && n.kontrasTeksMin <= 21)) g.push(`${pre}.nilai.kontrasTeksMin: harus 4,5..21 (WCAG 1.4.3)`);
+    if (!(n.kontrasNonTeksMin >= 3 && n.kontrasNonTeksMin <= 21)) g.push(`${pre}.nilai.kontrasNonTeksMin: harus 3..21 (WCAG 1.4.11)`);
+    if (!Number.isInteger(n.maksElemenBaru)) g.push(`${pre}.nilai.maksElemenBaru: harus bilangan bulat`);
+    if (pengaliRuntime && n.pengaliUkuranTeks !== pengaliRuntime[kp]) g.push(`${pre}.nilai.pengaliUkuranTeks ${n.pengaliUkuranTeks} tidak sama dengan runtime ukuranTeks.pengaliAudiens (${pengaliRuntime[kp]})`);
+  }
+  const peta = da.petaKonteksTonton ?? {};
+  for (const [k, v] of Object.entries(peta)) {
+    if (k === "catatan") continue;
+    if (konteksRuntime && !konteksRuntime[v]) g.push(`audiens.petaKonteksTonton.${k}: konteks "${v}" tidak ada di runtime ukuranTeks.konteks`);
+  }
+  return g;
+}
+
+/**
+ * Nilai audiens efektif dari daftar profil (yang paling ketat, lihat aturanKomposisi) digabung
+ * dengan preset jenis: { pengaliUkuranTeks, cps, pengaliTempoAdegan, kontrasTeksMin,
+ * kontrasNonTeksMin, maksElemenBaru, pengaliKecepatanNarasi }. null bila tidak ada profil sah.
+ * `presetNilai` (opsional) memuat cps dan kontrasMin preset jenis yang ikut dibandingkan.
+ */
+export function audiensEfektif(data, profil, presetNilai = null) {
+  if (!Array.isArray(profil)) return null;
+  const daftar = profil.map((k) => data.audiens.profil[k]).filter(Boolean);
+  if (daftar.length === 0) return null;
+  const hasil = {};
+  for (const [at, aturan] of Object.entries(data.audiens.atributAngka)) {
+    const v = daftar.map((p) => p.nilai[at]);
+    hasil[at] = aturan === "terbesar" ? Math.max(...v) : Math.min(...v);
+  }
+  if (presetNilai) {
+    hasil.cps = Math.min(hasil.cps, presetNilai.cps);
+    hasil.kontrasTeksMin = Math.max(hasil.kontrasTeksMin, presetNilai.kontrasMin);
+  }
+  return hasil;
+}
+
+/** Konteks ukuranTeks() (runtime) untuk isian audiens.konteksTonton; isian tak dikenal dilewati. */
+export function konteksUkuranTeks(data, konteksTonton) {
+  const peta = data.audiens.petaKonteksTonton;
+  const hasil = [];
+  for (const k of Array.isArray(konteksTonton) ? konteksTonton : []) {
+    const v = typeof k === "string" && k !== "catatan" && Object.hasOwn(peta, k) ? peta[k] : null;
+    if (v && !hasil.includes(v)) hasil.push(v);
+  }
+  return hasil;
 }
 
 // ------------------------------------------------------------------ preset efektif
@@ -312,6 +402,12 @@ export function periksaKonsep(data, k) {
   }
   if (!Array.isArray(k.tujuanBelajar)) galat.push("tujuanBelajar: harus array");
   if (!adalahObjek(k.audiens)) galat.push("audiens: harus objek");
+  else if (k.audiens.profil !== undefined) {
+    const kenal = Object.keys(data.audiens.profil);
+    if (!Array.isArray(k.audiens.profil) || !k.audiens.profil.every((x) => kenal.includes(x))) {
+      galat.push(`audiens.profil: harus daftar dari ${kenal.join(", ")}`);
+    }
+  }
   if (!adalahObjek(k.cta)) galat.push("cta: harus objek");
 
   // bentuk dan waktu
@@ -340,9 +436,16 @@ export function periksaKonsep(data, k) {
   else {
     if (typeof k.caption.burnIn !== "boolean") galat.push("caption.burnIn: harus boolean");
     if (!angkaPositif(k.caption.cps)) galat.push("caption.cps: harus angka positif");
-    else if (k.caption.cps > 20) peringatan.push(`caption.cps ${k.caption.cps} melebihi batas dewasa Netflix (20)`);
+    else if (k.caption.cps > 20) peringatan.push(`caption.cps ${k.caption.cps} melebihi batas SDH dewasa Netflix Indonesia (20; subtitle dewasa 17)`);
     if (!en.modeCaption.includes(k.caption.mode)) galat.push(`caption.mode: harus salah satu dari ${en.modeCaption.join(", ")}`);
     if (!teksIsi(k.caption.bahasa)) galat.push("caption.bahasa: wajib diisi");
+  }
+
+  // profil audiens: nilai yang lebih longgar daripada profil hanya diperingatkan (preset tidak memaksa)
+  const efAud = audiensEfektif(data, k.audiens?.profil);
+  if (efAud && nilai) {
+    if (angkaPositif(k.caption?.cps) && k.caption.cps > efAud.cps) peringatan.push(`caption.cps ${k.caption.cps} melebihi batas profil audiens (${efAud.cps})`);
+    if (nilai.kontrasMin < efAud.kontrasTeksMin) peringatan.push(`kontrasMin ${idAngka(nilai.kontrasMin)}:1 di bawah kebutuhan profil audiens (${idAngka(efAud.kontrasTeksMin)}:1); timpa lewat override beralasan`);
   }
 
   // kepatuhan
@@ -409,10 +512,11 @@ function slug(teks) {
   return String(teks).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-export function buatKonsep(data, { jenis, alur, judul = "" }) {
+export function buatKonsep(data, { jenis, alur, judul = "", audiens = [] }) {
   const j = data.jenis.jenis[jenis];
   const a = data.alur.alur[alur];
   const n = j.nilai;
+  const ef = audiensEfektif(data, audiens, n);
   return {
     versi: 1,
     id: slug(judul) || jenis,
@@ -422,7 +526,7 @@ export function buatKonsep(data, { jenis, alur, judul = "" }) {
     tahap: a.tahap[0].id,
     tujuan: "",
     tujuanBelajar: [],
-    audiens: { deskripsi: "", bahasa: "id", konteksTonton: [], tanpaSuara: n.burnIn },
+    audiens: { deskripsi: "", bahasa: "id", konteksTonton: [], tanpaSuara: n.burnIn, ...(ef ? { profil: [...audiens] } : {}) },
     pesanUtama: "",
     cta: { teks: "", tautan: null },
     nada: n.narasi,
@@ -431,7 +535,7 @@ export function buatKonsep(data, { jenis, alur, judul = "" }) {
     narasi: { mode: "tts-lokal", gaya: n.narasi, voice: null },
     musik: { tingkat: n.musik, selisihDb: n.selisihNarasiMusikDb },
     kenyaringan: n.kenyaringan,
-    caption: { burnIn: n.burnIn, cps: n.cps, mode: n.modeCaption, bahasa: "ind" },
+    caption: { burnIn: n.burnIn, cps: ef ? ef.cps : n.cps, mode: n.modeCaption, bahasa: "ind" },
     kepatuhan: { dasarHukum: [], izinPotret: "tidak-ada-potret", klaim: "tidak-ada", dataNyata: false, sensitif: false },
     persetujuan: daftarGate(a).map((g) => ({
       gate: g.id, nama: g.nama, peranDiminta: g.penyetuju, status: "menunggu", oleh: "", tanggal: null, hash: null, berkas: null, catatan: "",
@@ -502,7 +606,15 @@ export function buatBrief(data, k) {
     `- Audiens: ${isi(k.audiens?.deskripsi)}`,
     `- Bahasa: ${isi(k.audiens?.bahasa)}`,
     `- Konteks tonton: ${(k.audiens?.konteksTonton ?? []).filter(teksIsi).join(", ") || "[isi]"}`,
-    `- Ditonton tanpa suara: ${k.audiens?.tanpaSuara ? "ya (caption burn-in dianjurkan)" : "tidak"}`, "");
+    `- Ditonton tanpa suara: ${k.audiens?.tanpaSuara ? "ya (caption burn-in dianjurkan)" : "tidak"}`);
+  const efAud = audiensEfektif(data, k.audiens?.profil, n);
+  if (efAud) {
+    const konteksTeks = konteksUkuranTeks(data, k.audiens?.konteksTonton);
+    baris(`- Profil audiens: ${k.audiens.profil.map((x) => `${data.audiens.profil[x].label} (\`${x}\`)`).join("; ")}`,
+      `- Penyesuaian efektif (yang paling ketat dari preset dan profil; data/audiens.json): caption maksimal ${efAud.cps} cps; kontras teks minimal ${idAngka(efAud.kontrasTeksMin)}:1; kontras non-teks minimal ${idAngka(efAud.kontrasNonTeksMin)}:1; pengali ukuran teks ${idAngka(efAud.pengaliUkuranTeks)}; paling banyak ${efAud.maksElemenBaru} elemen informatif baru per adegan; pengali tempo adegan ${idAngka(efAud.pengaliTempoAdegan)}; pengali kecepatan narasi ${idAngka(efAud.pengaliKecepatanNarasi)}.`,
+      `- Ukuran teks minimum: \`ukuranTeks(tinggiFrame, peran, ${idAngka(efAud.pengaliUkuranTeks)}, konteks)\` di runtime${konteksTeks.length ? `; konteks dari konteks tonton: ${konteksTeks.join(", ")}` : ""}.`);
+  }
+  baris("");
 
   baris("## Pesan utama", "", isi(k.pesanUtama), "");
   baris("## Nada dan bahasa", "", `- Nada: ${isi(k.nada)}`, `- Narasi: mode ${k.narasi?.mode}, gaya ${k.narasi?.gaya ?? k.nada}`, "");
@@ -633,8 +745,8 @@ export function terapkanSetuju(data, konsep, { gate, oleh, tanggal, hash = null,
 
 // ------------------------------------------------------------------ CLI
 const PETUNJUK = `Pemakaian:
-  bun scripts/konsep.mjs baru --jenis J --alur A --out konsep.json [--judul T] [--timpa]
-  bun scripts/konsep.mjs daftar [jenis|alur [kunci]]
+  bun scripts/konsep.mjs baru --jenis J --alur A --out konsep.json [--judul T] [--audiens P[,P2]] [--timpa]
+  bun scripts/konsep.mjs daftar [jenis|alur|audiens [kunci]]
   bun scripts/konsep.mjs periksa konsep.json [--video F]
   bun scripts/konsep.mjs brief konsep.json [--out brief.md]
   bun scripts/konsep.mjs setuju konsep.json --gate G --oleh "Peran" --tanggal YYYY-MM-DD [--berkas F] [--catatan T]
@@ -673,6 +785,20 @@ function detailJenis(data, kunci) {
   }
   return L.join("\n");
 }
+function tabelAudiens(data) {
+  return tabel(["profil", "label", "ukuran teks", "cps", "kontras teks", "elemen baru", "tempo"],
+    Object.entries(data.audiens.profil).map(([k, p]) => [k, p.label, `x${idAngka(p.nilai.pengaliUkuranTeks)}`, p.nilai.cps, `${idAngka(p.nilai.kontrasTeksMin)}:1`, p.nilai.maksElemenBaru, `x${idAngka(p.nilai.pengaliTempoAdegan)}`]));
+}
+function detailAudiens(data, kunci) {
+  const p = data.audiens.profil[kunci];
+  const L = [`${kunci}: ${p.label} - ${p.deskripsi}`, ""];
+  for (const [at, v] of Object.entries(p.nilai)) {
+    L.push(`${at.padEnd(24)} [${p.bukti[at].tingkat}] ${v}`);
+    L.push(`${"".padEnd(24)} ${p.bukti[at].rujukan}`);
+  }
+  L.push("", data.audiens.aturanKomposisi);
+  return L.join("\n");
+}
 function detailAlur(data, kunci) {
   const a = data.alur.alur[kunci];
   const L = [`${kunci}: ${a.label} - ${a.deskripsi}`, `kapan dipakai: ${a.kapanDipakai}`, `ronde review ${a.rondeReview}; overhead ${a.overhead}${a.urutanKetat ? "; gate berurutan" : ""}`,
@@ -689,7 +815,7 @@ async function utama() {
     args = parseArgs({
       allowPositionals: true,
       options: {
-        jenis: { type: "string" }, alur: { type: "string" }, out: { type: "string" }, judul: { type: "string" },
+        jenis: { type: "string" }, alur: { type: "string" }, audiens: { type: "string" }, out: { type: "string" }, judul: { type: "string" },
         gate: { type: "string" }, oleh: { type: "string" }, tanggal: { type: "string" }, berkas: { type: "string" },
         catatan: { type: "string" }, video: { type: "string" }, keluar: { type: "string" },
         timpa: { type: "boolean", default: false }, periksa: { type: "boolean", default: false },
@@ -730,13 +856,20 @@ async function utama() {
       if (existsSync(o.out) && !o.timpa) keluarSalah(`${o.out} sudah ada; pakai --timpa untuk menimpa (persetujuan yang tercatat akan hilang)`);
       const j = data.jenis.jenis[o.jenis];
       if (!j.alurCocok.includes(o.alur)) console.error(`catatan: alur ${o.alur} bukan rekomendasi untuk jenis ${o.jenis} (rekomendasi: ${j.alurCocok.join(", ")})`);
-      tulis(o.out, tulisJson(buatKonsep(data, { jenis: o.jenis, alur: o.alur, judul: o.judul ?? "" })));
+      const profil = o.audiens === undefined ? [] : o.audiens.split(",").map((x) => x.trim()).filter(Boolean);
+      for (const x of profil) if (!data.audiens.profil[x]) keluarSalah(`profil audiens tidak dikenal: ${x} (pilihan: ${Object.keys(data.audiens.profil).join(", ")})`);
+      tulis(o.out, tulisJson(buatKonsep(data, { jenis: o.jenis, alur: o.alur, judul: o.judul ?? "", audiens: profil })));
       console.log(`konsep ditulis: ${o.out} (jenis ${o.jenis}, alur ${o.alur})`);
       return 0;
     }
     case "daftar": {
       const [bagian, kunci] = sisa;
-      if (bagian !== undefined && !["jenis", "alur"].includes(bagian)) keluarSalah(`daftar: pilih jenis atau alur, bukan "${bagian}"`);
+      if (bagian !== undefined && !["jenis", "alur", "audiens"].includes(bagian)) keluarSalah(`daftar: pilih jenis, alur, atau audiens, bukan "${bagian}"`);
+      if (bagian === "audiens") {
+        if (kunci !== undefined && !data.audiens.profil[kunci]) keluarSalah(`audiens tidak dikenal: ${kunci} (pilihan: ${Object.keys(data.audiens.profil).join(", ")})`);
+        console.log(kunci === undefined ? "Profil audiens (data/audiens.json):\n" + tabelAudiens(data) : detailAudiens(data, kunci));
+        return 0;
+      }
       if (kunci !== undefined) {
         const sumber = bagian === "jenis" ? data.jenis.jenis : data.alur.alur;
         if (!sumber[kunci]) keluarSalah(`${bagian} tidak dikenal: ${kunci} (pilihan: ${Object.keys(sumber).join(", ")})`);
@@ -746,7 +879,7 @@ async function utama() {
       if (bagian !== "alur") console.log("Jenis video (durasi = target/maks):\n" + tabelJenis(data));
       if (!bagian) console.log("");
       if (bagian !== "jenis") console.log("Alur produksi:\n" + tabelAlur(data));
-      console.log("\nRincian: bun run konsep -- daftar jenis <kunci> | daftar alur <kunci>");
+      console.log("\nRincian: bun run konsep -- daftar jenis <kunci> | daftar alur <kunci> | daftar audiens [kunci]");
       return 0;
     }
     case "periksa": {
@@ -798,7 +931,12 @@ async function utama() {
       const berkas = bacaBerkas();
       const r = bacaKonsepBerkas(berkas, data);
       if (r.galat.length) keluarSalah(`konsep tidak valid: ${r.galat.join("; ")}`);
-      process.stdout.write(tulisJson({ jenis: r.konsep.jenis, preset: r.efektif }));
+      const efAud = audiensEfektif(data, r.konsep.audiens?.profil, r.efektif);
+      process.stdout.write(tulisJson({
+        jenis: r.konsep.jenis,
+        preset: r.efektif,
+        ...(efAud ? { audiens: { profil: r.konsep.audiens.profil, efektif: efAud, konteksUkuranTeks: konteksUkuranTeks(data, r.konsep.audiens.konteksTonton) } } : {}),
+      }));
       return 0;
     }
     case "sinkron-preset": {

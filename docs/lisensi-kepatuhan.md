@@ -17,6 +17,7 @@ Catatan hukum di dokumen ini bukan nasihat hukum.
 
 ## Pihak ketiga
 
+- **playwright-core 1.65.0:** Apache-2.0 (Microsoft). Dependensi npm, bukan kode yang disalin ke repo; LICENSE/NOTICE-nya ikut dalam paket.
 - **playwright-core 1.64.1:** Apache-2.0 (Microsoft). Dependensi npm, bukan kode yang disalin ke repo; LICENSE/NOTICE-nya ikut dalam paket.
 - **Material Components for Android:** Apache License 2.0 (Copyright Google LLC). Hanya **nilai** yang dipakai di `scripts/transisi.js`, diambil dari dokumentasi Motion dan sumber `MaterialFadeThrough`, `FadeThroughProvider`, `MaterialSharedAxis`, `MaterialFade`, dan `MaterialContainerTransform`: ambang fade through 35 %, skala awal 0,92, durasi 450 ms, token durasi, dan kurva bezier standard dan emphasized. Tidak ada kode yang disalin dan tidak ada dependensi; atribusi ada di komentar kepala `scripts/transisi.js` dan di [transisi-animasi.md](transisi-animasi.md#sumber). Nilai numerik tunggal bukan ekspresi yang dilindungi, tetapi atribusi dicatat sebagai kehati-hatian.
 - **Chromium/Chrome:** dipakai dari instalasi lokal dan tidak didistribusikan.
