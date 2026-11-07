@@ -1,0 +1,416 @@
+{
+  "versi": 2,
+  "fps": 30,
+  "cps": 17,
+  "wpm": 140,
+  "jedaSegmen": 2,
+  "durationInFrames": 3186,
+  "identitas": {
+    "judul": "Layanan Permohonan Surat Keterangan Contoh",
+    "nomor": "SOP/CONTOH/001/2026",
+    "unit": "Dinas Contoh Kabupaten Fiktif",
+    "tanggalEfektif": "7 November 2026"
+  },
+  "pelaksana": [
+    {
+      "id": "pemohon",
+      "nama": "Pemohon"
+    },
+    {
+      "id": "petugas",
+      "nama": "Petugas Loket"
+    },
+    {
+      "id": "kasi",
+      "nama": "Kepala Seksi"
+    }
+  ],
+  "prosedur": [
+    {
+      "kode": "SOP-01",
+      "judul": "Permohonan Surat Keterangan Contoh",
+      "pelaksana": [
+        {
+          "id": "pemohon",
+          "nama": "Pemohon"
+        },
+        {
+          "id": "petugas",
+          "nama": "Petugas Loket"
+        },
+        {
+          "id": "kasi",
+          "nama": "Kepala Seksi"
+        }
+      ],
+      "langkah": [
+        {
+          "no": 1,
+          "jenis": "mulai",
+          "lajur": 0
+        },
+        {
+          "no": 2,
+          "jenis": "proses",
+          "lajur": 1
+        },
+        {
+          "no": 3,
+          "jenis": "keputusan",
+          "lajur": 1,
+          "ya": 4,
+          "tidak": 1
+        },
+        {
+          "no": 4,
+          "jenis": "proses",
+          "lajur": 1
+        },
+        {
+          "no": 5,
+          "jenis": "proses",
+          "lajur": 2
+        },
+        {
+          "no": 6,
+          "jenis": "proses",
+          "lajur": 1
+        },
+        {
+          "no": 7,
+          "jenis": "selesai",
+          "lajur": 0
+        }
+      ]
+    }
+  ],
+  "adegan": [
+    {
+      "jenis": "judul",
+      "judul": "Layanan Permohonan Surat Keterangan Contoh",
+      "nomor": "SOP/CONTOH/001/2026",
+      "unit": "Dinas Contoh Kabupaten Fiktif",
+      "tanggalEfektif": "7 November 2026",
+      "disahkanOleh": {
+        "jabatan": "Kepala Dinas Contoh Kabupaten Fiktif",
+        "nama": "Nama Pejabat Contoh"
+      },
+      "mulai": 0,
+      "durasi": 284,
+      "narasi": "Layanan Permohonan Surat Keterangan Contoh. Nomor dokumen SOP/CONTOH/001/2026, Dinas Contoh Kabupaten Fiktif. Berlaku efektif sejak 7 November 2026."
+    },
+    {
+      "jenis": "dasarHukum",
+      "butir": [
+        "Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 35 Tahun 2012 tentang Pedoman Penyusunan Standar Operasional Prosedur Administrasi Pemerintahan.",
+        "Undang-Undang Nomor 25 Tahun 2009 tentang Pelayanan Publik.",
+        "Peraturan Daerah Kabupaten Fiktif Nomor 1 Tahun 2026 tentang Layanan Contoh."
+      ],
+      "lainnya": 1,
+      "mulai": 284,
+      "durasi": 597,
+      "narasi": "Dasar hukum prosedur ini: Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 35 Tahun 2012; Undang-Undang Nomor 25 Tahun 2009; Peraturan Daerah Kabupaten Fiktif Nomor 1 Tahun 2026. Ada 1 dasar hukum lain di dokumen SOP. Pelaksananya: Pemohon, Petugas Loket, dan Kepala Seksi."
+    },
+    {
+      "jenis": "prosedur",
+      "p": 0,
+      "kode": "SOP-01",
+      "judul": "Permohonan Surat Keterangan Contoh",
+      "tujuan": "Memastikan setiap permohonan Surat Keterangan Contoh diproses lengkap, tepat waktu, dan tercatat.",
+      "jumlahLangkah": 7,
+      "mulai": 881,
+      "durasi": 293,
+      "narasi": "Prosedur 1: Permohonan Surat Keterangan Contoh. Tujuannya: memastikan setiap permohonan Surat Keterangan Contoh diproses lengkap, tepat waktu, dan tercatat."
+    },
+    {
+      "jenis": "langkah",
+      "p": 0,
+      "l": 0,
+      "no": 1,
+      "jenisLangkah": "mulai",
+      "segmen": 1,
+      "jumlahSegmen": 2,
+      "aktivitas": "Mengajukan permohonan Surat Keterangan Contoh ke loket layanan",
+      "pelaksana": "pemohon",
+      "kelengkapan": "Formulir permohonan dan salinan identitas",
+      "waktu": "10 menit",
+      "output": "Berkas permohonan",
+      "mulai": 1174,
+      "durasi": 191,
+      "narasi": "Pemohon mengajukan permohonan Surat Keterangan Contoh ke loket layanan. Hasilnya: berkas permohonan."
+    },
+    {
+      "jenis": "langkah",
+      "p": 0,
+      "l": 1,
+      "no": 2,
+      "jenisLangkah": "proses",
+      "segmen": 1,
+      "jumlahSegmen": 2,
+      "aktivitas": "Menerima berkas dan mencatat permohonan pada buku register",
+      "pelaksana": "petugas",
+      "kelengkapan": "Berkas permohonan dan buku register",
+      "waktu": "5 menit",
+      "output": "Nomor register permohonan",
+      "keterangan": "Nomor register diberikan kepada pemohon",
+      "mulai": 1365,
+      "durasi": 208,
+      "narasi": "Petugas Loket menerima berkas dan mencatat permohonan pada buku register. Hasilnya: nomor register permohonan."
+    },
+    {
+      "jenis": "langkah",
+      "p": 0,
+      "l": 2,
+      "no": 3,
+      "jenisLangkah": "keputusan",
+      "segmen": 1,
+      "jumlahSegmen": 2,
+      "aktivitas": "Apakah berkas permohonan sudah lengkap?",
+      "pelaksana": "petugas",
+      "kelengkapan": "Daftar periksa kelengkapan berkas",
+      "waktu": "5 menit",
+      "output": "Hasil pemeriksaan kelengkapan",
+      "keterangan": "Berkas yang belum lengkap dikembalikan kepada pemohon",
+      "ya": 4,
+      "tidak": 1,
+      "mulai": 1573,
+      "durasi": 283,
+      "narasi": "Petugas Loket memeriksa: Apakah berkas permohonan sudah lengkap? Jika ya, lanjut ke langkah 4; jika tidak, kembali ke langkah 1."
+    },
+    {
+      "jenis": "langkah",
+      "p": 0,
+      "l": 3,
+      "no": 4,
+      "jenisLangkah": "proses",
+      "segmen": 1,
+      "jumlahSegmen": 2,
+      "aktivitas": "Meneruskan berkas lengkap kepada Kepala Seksi",
+      "pelaksana": "petugas",
+      "kelengkapan": "Berkas permohonan lengkap",
+      "waktu": "5 menit",
+      "output": "Berkas siap diperiksa",
+      "mulai": 1856,
+      "durasi": 238,
+      "narasi": "Petugas Loket meneruskan berkas lengkap kepada Kepala Seksi. Hasilnya: berkas siap diperiksa."
+    },
+    {
+      "jenis": "langkah",
+      "p": 0,
+      "l": 4,
+      "no": 5,
+      "jenisLangkah": "proses",
+      "segmen": 2,
+      "jumlahSegmen": 2,
+      "aktivitas": "Memeriksa berkas dan menandatangani Surat Keterangan Contoh",
+      "pelaksana": "kasi",
+      "kelengkapan": "Berkas permohonan lengkap dan konsep surat",
+      "waktu": "30 menit",
+      "output": "Surat Keterangan Contoh bertanda tangan",
+      "mulai": 2094,
+      "durasi": 233,
+      "narasi": "Kepala Seksi memeriksa berkas dan menandatangani Surat Keterangan Contoh. Hasilnya: surat Keterangan Contoh bertanda tangan."
+    },
+    {
+      "jenis": "langkah",
+      "p": 0,
+      "l": 5,
+      "no": 6,
+      "jenisLangkah": "proses",
+      "segmen": 2,
+      "jumlahSegmen": 2,
+      "aktivitas": "Memberi stempel dan menyerahkan surat kepada pemohon",
+      "pelaksana": "petugas",
+      "kelengkapan": "Surat bertanda tangan dan stempel dinas",
+      "waktu": "10 menit",
+      "output": "Surat Keterangan Contoh yang telah distempel",
+      "mulai": 2327,
+      "durasi": 232,
+      "narasi": "Petugas Loket memberi stempel dan menyerahkan surat kepada pemohon. Hasilnya: surat Keterangan Contoh yang telah distempel."
+    },
+    {
+      "jenis": "langkah",
+      "p": 0,
+      "l": 6,
+      "no": 7,
+      "jenisLangkah": "selesai",
+      "segmen": 2,
+      "jumlahSegmen": 2,
+      "aktivitas": "Menerima surat dan menandatangani tanda terima",
+      "pelaksana": "pemohon",
+      "kelengkapan": "Tanda terima",
+      "waktu": "5 menit",
+      "output": "Tanda terima bertanda tangan",
+      "mulai": 2559,
+      "durasi": 182,
+      "narasi": "Pemohon menerima surat dan menandatangani tanda terima. Hasilnya: tanda terima bertanda tangan."
+    },
+    {
+      "jenis": "penutup",
+      "judul": "Layanan Permohonan Surat Keterangan Contoh",
+      "jumlahLangkah": 7,
+      "jumlahPelaksana": 3,
+      "prosedur": [
+        {
+          "kode": "SOP-01",
+          "judul": "Permohonan Surat Keterangan Contoh",
+          "jumlahLangkah": 7
+        }
+      ],
+      "peringatan": [
+        "Surat Keterangan Contoh tidak diterbitkan bila berkas permohonan belum lengkap.",
+        "Data pemohon wajib dijaga kerahasiaannya."
+      ],
+      "mulai": 2741,
+      "durasi": 445,
+      "narasi": "Demikian Layanan Permohonan Surat Keterangan Contoh. Prosedur ini mencakup 7 langkah dengan 3 pelaksana. Perhatikan: Surat Keterangan Contoh tidak diterbitkan bila berkas permohonan belum lengkap. Dokumen lengkap tersedia dalam berkas SOP."
+    }
+  ],
+  "caption": [
+    {
+      "mulai": 0,
+      "akhir": 2.533333333333333,
+      "teks": "Layanan Permohonan Surat\nKeterangan Contoh."
+    },
+    {
+      "mulai": 2.533333333333333,
+      "akhir": 6.366666666666666,
+      "teks": "Nomor dokumen SOP/CONTOH/001/2026,\nDinas Contoh Kabupaten Fiktif."
+    },
+    {
+      "mulai": 6.366666666666666,
+      "akhir": 8.966666666666667,
+      "teks": "Berlaku efektif sejak 7 November 2026."
+    },
+    {
+      "mulai": 9.466666666666667,
+      "akhir": 14,
+      "teks": "Dasar hukum prosedur ini: Peraturan\nMenteri Pendayagunaan Aparatur Negara dan"
+    },
+    {
+      "mulai": 14,
+      "akhir": 18.733333333333334,
+      "teks": "Reformasi Birokrasi Nomor 35 Tahun 2012;\nUndang-Undang Nomor 25 Tahun 2009;"
+    },
+    {
+      "mulai": 18.733333333333334,
+      "akhir": 22.166666666666668,
+      "teks": "Peraturan Daerah Kabupaten\nFiktif Nomor 1 Tahun 2026."
+    },
+    {
+      "mulai": 22.166666666666668,
+      "akhir": 25.6,
+      "teks": "Ada 1 dasar hukum lain di dokumen SOP."
+    },
+    {
+      "mulai": 25.6,
+      "akhir": 28.866666666666667,
+      "teks": "Pelaksananya: Pemohon, Petugas Loket,\ndan Kepala Seksi."
+    },
+    {
+      "mulai": 29.366666666666667,
+      "akhir": 32.13333333333333,
+      "teks": "Prosedur 1: Permohonan\nSurat Keterangan Contoh."
+    },
+    {
+      "mulai": 32.13333333333333,
+      "akhir": 36.9,
+      "teks": "Tujuannya: memastikan setiap permohonan\nSurat Keterangan Contoh diproses lengkap,"
+    },
+    {
+      "mulai": 36.9,
+      "akhir": 38.63333333333333,
+      "teks": "tepat waktu, dan tercatat."
+    },
+    {
+      "mulai": 39.13333333333333,
+      "akhir": 43.333333333333336,
+      "teks": "Pemohon mengajukan permohonan Surat\nKeterangan Contoh ke loket layanan."
+    },
+    {
+      "mulai": 43.333333333333336,
+      "akhir": 45,
+      "teks": "Hasilnya: berkas permohonan."
+    },
+    {
+      "mulai": 45.5,
+      "akhir": 49.8,
+      "teks": "Petugas Loket menerima berkas dan\nmencatat permohonan pada buku register."
+    },
+    {
+      "mulai": 49.8,
+      "akhir": 51.93333333333333,
+      "teks": "Hasilnya: nomor register permohonan."
+    },
+    {
+      "mulai": 52.43333333333333,
+      "akhir": 56.2,
+      "teks": "Petugas Loket memeriksa:\nApakah berkas permohonan sudah lengkap?"
+    },
+    {
+      "mulai": 56.2,
+      "akhir": 61.36666666666667,
+      "teks": "Jika ya, lanjut ke langkah 4;\njika tidak, kembali ke langkah 1."
+    },
+    {
+      "mulai": 61.86666666666667,
+      "akhir": 65.4,
+      "teks": "Petugas Loket meneruskan\nberkas lengkap kepada Kepala Seksi."
+    },
+    {
+      "mulai": 65.4,
+      "akhir": 67.3,
+      "teks": "Hasilnya: berkas siap diperiksa."
+    },
+    {
+      "mulai": 69.8,
+      "akhir": 74.1,
+      "teks": "Kepala Seksi memeriksa berkas dan\nmenandatangani Surat Keterangan Contoh."
+    },
+    {
+      "mulai": 74.1,
+      "akhir": 77.06666666666666,
+      "teks": "Hasilnya: surat Keterangan\nContoh bertanda tangan."
+    },
+    {
+      "mulai": 77.56666666666666,
+      "akhir": 81.53333333333333,
+      "teks": "Petugas Loket memberi stempel\ndan menyerahkan surat kepada pemohon."
+    },
+    {
+      "mulai": 81.53333333333333,
+      "akhir": 84.8,
+      "teks": "Hasilnya: surat Keterangan Contoh\nyang telah distempel."
+    },
+    {
+      "mulai": 85.3,
+      "akhir": 88.56666666666666,
+      "teks": "Pemohon menerima surat\ndan menandatangani tanda terima."
+    },
+    {
+      "mulai": 88.56666666666666,
+      "akhir": 90.86666666666666,
+      "teks": "Hasilnya: tanda terima bertanda tangan."
+    },
+    {
+      "mulai": 91.36666666666666,
+      "akhir": 94.43333333333334,
+      "teks": "Demikian Layanan Permohonan\nSurat Keterangan Contoh."
+    },
+    {
+      "mulai": 94.43333333333334,
+      "akhir": 97.86666666666666,
+      "teks": "Prosedur ini mencakup 7 langkah\ndengan 3 pelaksana."
+    },
+    {
+      "mulai": 97.86666666666666,
+      "akhir": 102.7,
+      "teks": "Perhatikan: Surat Keterangan Contoh tidak\nditerbitkan bila berkas permohonan belum"
+    },
+    {
+      "mulai": 102.7,
+      "akhir": 105.7,
+      "teks": "lengkap. Dokumen lengkap\ntersedia dalam berkas SOP."
+    }
+  ]
+}
