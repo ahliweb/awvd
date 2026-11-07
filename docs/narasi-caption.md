@@ -2,13 +2,13 @@
 
 ## Metadata
 
-- Version: `v1.2.0`
+- Version: `v1.3.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan bagian TTS lokal (sherpa-onnx): adaptor opsional tidak dibundel, suara.json (mesin dan karakter), normalisasi teks Indonesia, cache WAV beku berhash dengan loudnorm, label suara sintetis, peringatan dan penolakan konten medis; kunci jenisKonten, suara.konfigurasi, suara.cache, penutur.karakter, flag --cache dan --sintesis-ulang.`
+- Changeset: `Menambahkan bagian ASR lokal (whisper.cpp): adaptor opsional tidak dibundel; flag --selaras whisper (stempel kata ASR dipetakan ke kata naskah lewat penyelarasan teks, skor rendah jatuh ke estimasi) dan subperintah transkripsi (caption dari audio tanpa naskah, ditandai wajib ditinjau manusia); flag ASR, cache ASR, sumber waktu whisper di kata.json, blok asr di laporan.json, serta batas bukti terukur.`
 
 `bun run narasi` mengubah naskah narasi (`naskah.json`) dan berkas WAV narasinya menjadi caption yang sinkron dengan ucapan: cue WebVTT dan SRT, stempel waktu tiap kata, dan rencana audio untuk [`bun run audio`](video-tertanam-audio.md#timeline-audio). Keputusannya tercatat di [log-keputusan.md](log-keputusan.md) (KP-036 sampai KP-039 sementara; nomor tetap diberikan saat merge).
 
-Yang sudah ada: skema naskah, estimasi timing, cue dengan lint, rencana audio, mode dan posisi tampil caption di komposisi ([di bawah](#mode-dan-posisi-caption)), adaptor TTS lokal opsional lewat sherpa-onnx ([TTS lokal](#tts-lokal-sherpa-onnx): Supertonic untuk bahasa Indonesia, Kokoro untuk Inggris; tidak dibundel), dan templat contoh. Mesin suara lain dapat ditambahkan lewat registri (lihat [Mesin suara](#mesin-suara)).
+Yang sudah ada: skema naskah, estimasi timing, cue dengan lint, rencana audio, mode dan posisi tampil caption di komposisi ([di bawah](#mode-dan-posisi-caption)), adaptor TTS lokal opsional lewat sherpa-onnx ([TTS lokal](#tts-lokal-sherpa-onnx): Supertonic untuk bahasa Indonesia, Kokoro untuk Inggris; tidak dibundel), dan templat contoh. Mesin suara lain dapat ditambahkan lewat registri (lihat [Mesin suara](#mesin-suara)). ASR lokal opsional lewat whisper.cpp ([ASR lokal](#asr-lokal-whispercpp); tidak dibundel) untuk penyelarasan kata yang lebih rapat dan untuk caption dari audio tanpa naskah.
 
 ## Alur
 
@@ -38,7 +38,7 @@ bun run audio out/narasi/rencana-audio.json --fps 30 --out out/narasi/campuran.w
 
 Hasil contoh: 5 cue, 632 frame (21,07 detik) pada 30 fps. Folder `out/` dan `.cache/` diabaikan git.
 
-Kode keluar: `0` berhasil (peringatan boleh ada), `1` lint gagal atau galat proses (keluaran tetap ditulis bila memungkinkan, termasuk `laporan.json`; mesin TTS yang tidak terpasang atau gagal juga kode 1, dengan pesan, tanpa keluaran), `2` naskah atau argumen tidak valid (daftar galat dicetak sekaligus). Flag: `--out DIR` (bawaan `out/narasi`), `--cache DIR` dan `--sintesis-ulang` (hanya untuk mesin TTS; lihat [TTS lokal](#tts-lokal-sherpa-onnx)), dan `--bantuan`.
+Kode keluar: `0` berhasil (peringatan boleh ada), `1` lint gagal atau galat proses (keluaran tetap ditulis bila memungkinkan, termasuk `laporan.json`; mesin TTS yang tidak terpasang atau gagal juga kode 1, dengan pesan, tanpa keluaran), `2` naskah atau argumen tidak valid (daftar galat dicetak sekaligus). Flag: `--out DIR` (bawaan `out/narasi`), `--cache DIR` dan `--sintesis-ulang` (hanya untuk mesin TTS; lihat [TTS lokal](#tts-lokal-sherpa-onnx)), `--selaras estimasi|whisper` dan flag ASR (`--whisper-bin`, `--whisper-model`, `--cache-asr`, `--asr-ulang`, `--koreksi-asr`; lihat [ASR lokal](#asr-lokal-whispercpp)), dan `--bantuan`. Subperintah `bun run narasi transkripsi <audio>` membuat caption dari audio tanpa naskah ([bagiannya](#caption-dari-audio-tanpa-naskah)); ASR yang diminta tetapi tidak terpasang juga berkode keluar `1`.
 
 ## naskah.json
 
@@ -127,16 +127,16 @@ Semua di `--out` dan deterministik (tanpa cap waktu; angka dibulatkan ke milidet
 | Berkas | Isi |
 | --- | --- |
 | `caption.vtt`, `caption.srt` | Cue pada frame bulat (waktu dari `frame / fps`). Italik penutur sebagai `<i>`; `&` di-escape di VTT. Terbaca `parseVtt`/`parseSrt` di [runtime](api-runtime.md) |
-| `kata.json` | `{ versi, fps, sumber, durasiFrame, adegan[{id, mulaiFrame, durasiFrame}], kata[{teks, tampil, mulai, akhir, mulaiFrame, akhirFrame, adegan, kalimat, penutur, cue}] }`. Waktu absolut pada garis waktu komposisi; `cue` bernomor 1 dst. seperti di VTT; `sumber` adalah `estimasi`, `penanda-tts`, atau `campuran`. Masukan `rencanaCaption` di komposisi. Bila naskah memberi `caption.mode`/`caption.posisi`, `kata.json` memuat `caption: { mode, posisi }`; entri `adegan[]` memuat `posisi`, `zonaCaption` (diubah ke frame absolut dan dipotong di akhir adegan), dan `jangkarPenutur` hanya bila naskah memberikannya |
+| `kata.json` | `{ versi, fps, sumber, durasiFrame, adegan[{id, mulaiFrame, durasiFrame}], kata[{teks, tampil, mulai, akhir, mulaiFrame, akhirFrame, adegan, kalimat, penutur, cue}] }`. Waktu absolut pada garis waktu komposisi; `cue` bernomor 1 dst. seperti di VTT; `sumber` adalah `estimasi`, `penanda-tts`, `whisper` (hanya dengan `--selaras whisper`), atau `campuran`. Masukan `rencanaCaption` di komposisi. Bila naskah memberi `caption.mode`/`caption.posisi`, `kata.json` memuat `caption: { mode, posisi }`; entri `adegan[]` memuat `posisi`, `zonaCaption` (diubah ke frame absolut dan dipotong di akhir adegan), dan `jangkarPenutur` hanya bila naskah memberikannya |
 | `rencana-audio.json` | `{ versi, fps, durasiFrame, narasi[{id, berkas, mulai, sha256}] }`; jalur `berkas` relatif terhadap berkas rencana. Dibaca `bun run audio` tanpa perubahan (bidang `versi` dan `sha256` diabaikan) |
-| `laporan.json` | Hash naskah, batas yang dipakai, ringkasan (cue, cps maks dan median), segmen (hash WAV, durasi, sumber waktu, jangkar), `batasKalimat`, tiap cue, `gagal`, `peringatan`; dengan TTS juga blok `suara` (mesin, karakter, jenis konten) |
+| `laporan.json` | Hash naskah, batas yang dipakai, ringkasan (cue, cps maks dan median), segmen (hash WAV, durasi, sumber waktu, jangkar), `batasKalimat`, tiap cue, `gagal`, `peringatan`; dengan TTS juga blok `suara` (mesin, karakter, jenis konten); dengan `--selaras whisper` blok `asr` (mesin, model, koreksi, skor penyelarasan per segmen) |
 | `suara-kredit.json`, `kredit-suara.txt` | Hanya TTS: label dan kredit suara sintetis, lisensi dan syarat pakai mesin, hash WAV per kalimat ([Label suara sintetis](#label-suara-sintetis)) |
 
 Hash WAV dicatat agar perubahan audio terlihat di tinjauan PR. Verifikasi hash saat render belum ada (render tidak menyentuh keluaran ini).
 
 ## Mesin suara
 
-Mesin adalah objek `{ daring, butuhBerkas, sintesis(segmen, konteks) }` yang didaftarkan lewat `daftarkanMesin(nama, deskriptor)` di `scripts/narasi.mjs`. `sintesis` mengembalikan `{ berkas, penanda? }`: jalur WAV dan, bila mesin memberikannya, penanda kata `[{ teks, mulai, durasi }]` (detik, relatif ke awal berkas). Penanda dipakai sebagai sumber waktu `penanda-tts` bila jumlahnya sama dengan jumlah kata; selain itu jatuh ke estimasi dengan peringatan. Mesin `daring: true` ditolak untuk `klasifikasi: "internal"` (konten internal tidak dikirim ke layanan daring; TTS daring hanya untuk konten publik).
+Mesin adalah objek `{ daring, butuhBerkas, sintesis(segmen, konteks) }` yang didaftarkan lewat `daftarkanMesin(nama, deskriptor)` di `scripts/narasi.mjs`. `sintesis` mengembalikan `{ berkas, penanda? }`: jalur WAV dan, bila mesin memberikannya, penanda kata `[{ teks, mulai, durasi }]` (detik, relatif ke awal berkas). Penanda dipakai sebagai sumber waktu `penanda-tts` bila jumlahnya sama dengan jumlah kata; selain itu jatuh ke estimasi dengan peringatan. Urutan sumber waktu per segmen: penanda mesin TTS, lalu whisper (bila `--selaras whisper` dan skor penyelarasan lolos), lalu estimasi berjangkar jeda. Mesin `daring: true` ditolak untuk `klasifikasi: "internal"` (konten internal tidak dikirim ke layanan daring; TTS daring hanya untuk konten publik).
 
 Dua mesin terdaftar: `berkas-beku` (WAV dari rekaman atau TTS yang dibekukan; lihat [Narasi dan TTS](video-tertanam-audio.md#narasi-dan-tts)) dan `sherpa-onnx` (adaptor TTS lokal, `scripts/narasi-tts.mjs`; bagian berikut). WAV hasil TTS tidak menghasilkan byte yang sama pada dua panggilan, jadi harus dibekukan dan di-hash, tidak disintesis ulang saat render.
 
@@ -282,6 +282,98 @@ Daftar kata pemicu peringatan adalah heuristik kasar, bukan klasifikasi; penentu
 - Keluaran akhir WAV segmen terukur -16,2 LUFS dan 48 kHz mono PCM 16-bit pada uji dengan mesin sungguhan.
 - Belum diverifikasi: kewajaran suara secara subjektif, kinerja di GPU atau platform selain Linux x64, perilaku sherpa-onnx versi lain, dan teks lengkap lisensi OpenRAIL-M di luar butir yang dikutip di [lisensi-kepatuhan.md](lisensi-kepatuhan.md#model-tts-dan-openrail-m).
 
+## ASR lokal (whisper.cpp)
+
+Adaptor opsional yang memanggil CLI [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`whisper-cli`, MIT) dengan model GGML bobot Whisper (MIT; lihat [lisensi-kepatuhan.md](lisensi-kepatuhan.md#asr-lokal-whispercpp)). Dua kegunaan: **menyelaraskan** narasi per kata (`--selaras whisper`) dan **mentranskripsi** audio yang tidak punya naskah (`transkripsi`). **awvd tidak membundel biner maupun model**, dan `bun run render` tidak pernah memanggilnya; ASR hanya berjalan di `bun run narasi`, yang menulis aset beku. Keputusannya tercatat di [log-keputusan.md](log-keputusan.md) (KP-056 sampai KP-058).
+
+**ASR ini lokal.** whisper.cpp berjalan di mesin Anda tanpa jaringan; audio tidak dikirim ke layanan daring. Karena itu ia boleh dipakai untuk naskah `klasifikasi: "internal"`, berbeda dari mesin TTS atau ASR daring yang ditolak untuk naskah internal (aturan 5 AGENTS.md). `laporan.json` mencatat `asr.lokal: true`.
+
+```mermaid
+flowchart TD
+    N[naskah.json + WAV segmen] --> E[estimasi berjangkar jeda<br/>durasi dan garis waktu kata]
+    N --> C{cache ASR<br/>hash audio, model, bahasa?}
+    C -->|ada| J[JSON whisper -ojf]
+    C -->|tidak| M{whisper-cli dan<br/>model terpasang?}
+    M -->|tidak| X[galat jelas, kode 1,<br/>tanpa keluaran]
+    M -->|ya| W[whisper-cli -dtw preset -nfa] --> J
+    J --> K[token menjadi kata<br/>stempel t_dtw]
+    K --> A[Needleman-Wunsch<br/>kata ASR dan kata naskah]
+    A --> S{skor 0,6 atau lebih?}
+    S -->|tidak| F[pakai estimasi<br/>+ peringatan]
+    S -->|ya| P[kata berpasangan: stempel ASR dikurangi koreksi<br/>kata lain: garis estimasi ditarik antar-jangkar]
+    E --> P
+    P --> O[kata.json sumber whisper]
+    F --> O
+```
+
+### Memasang
+
+Bangun whisper.cpp dari repositori resminya (cmake; tidak ada biner rilis untuk Linux di README-nya pada riset awvd) dan unduh model GGML dari repositori model whisper.cpp. Versi yang diuji awvd (2026-11-07, Linux x64, CPU): whisper.cpp commit `727d3e7` (2026-11-06) dan model `ggml-base-q5_1.bin` serta `ggml-small-q5_1.bin`.
+
+```bash
+export AWVD_WHISPER_BIN=$HOME/awvd-asr/whisper.cpp/build/bin/whisper-cli
+export AWVD_WHISPER_MODEL=$HOME/awvd-asr/models/ggml-small-q5_1.bin
+bun run narasi naskah.json --selaras whisper --out out/narasi
+bun run narasi transkripsi rekaman.wav --out out/transkripsi
+```
+
+- Biner dicari berurutan: `--whisper-bin`, `AWVD_WHISPER_BIN`, lalu `whisper-cli` di `PATH`. Model: `--whisper-model` atau `AWVD_WHISPER_MODEL`; tidak ada bawaan. Folder biner (dan `../lib`) dimasukkan ke `LD_LIBRARY_PATH` agar pustaka bersama ditemukan.
+- Mesin dijalankan sebagai proses anak dengan larik argumen (tanpa shell): `whisper-cli -m MODEL -f AUDIO -l BAHASA -ojf -of TEMP -np -t 4 -dtw PRESET -nfa`. `-ojf` (`--output-json-full`) memberi JSON per token; `-dtw` dengan `-nfa` (tanpa flash attention) menghitung stempel DTW per token (`t_dtw`, sentidetik). Bahasa mengikuti `bahasa` naskah (atau `--bahasa` pada transkripsi).
+- Preset DTW diturunkan dari nama berkas model (`ggml-small-q5_1.bin` menjadi `small`; `tiny`, `base`, `small`, `medium` dengan atau tanpa `.en`, `large.v1` sampai `large.v3`, `large.v3.turbo`). Nama yang tak dikenal tidak memakai DTW dan diperingatkan (stempel token biasa jauh kurang presisi, lihat [batas bukti](#batas-bukti-asr)); `AWVD_WHISPER_DTW=<preset>` memaksa preset, `AWVD_WHISPER_DTW=tidak` mematikannya.
+- File audio `.wav`, `.mp3`, `.ogg`, dan `.flac` dibaca langsung oleh whisper.cpp; format lain dikonversi `ffmpeg` ke WAV 16 kHz mono lebih dulu.
+- Pesan bila belum terpasang menyebut apa yang kurang (biner, berkas model) dan menunjuk bagian ini. Proses gagal dengan kode `1` dan tanpa keluaran, bukan crash.
+- Keluaran JSON dicache di `--cache-asr` (bawaan `.cache/awvd/asr`) berkunci SHA-256 dari audio, model (nama dan ukuran), bahasa, dan preset DTW; `--asr-ulang` mengabaikannya. Cache hanya turunan (whisper.cpp deterministik pada riset awvd: JSON identik antar dua jalan dan pada jumlah thread berbeda) dan boleh dihapus; ia tetap membutuhkan berkas model yang sama untuk dikenali.
+
+### Penyelarasan narasi
+
+`bun run narasi naskah.json --selaras whisper` menjalankan whisper.cpp pada WAV tiap segmen lalu memetakan stempel kata ASR ke kata naskah (`scripts/narasi-asr.mjs`):
+
+1. **Token menjadi kata.** Token berawalan spasi memulai kata; token khusus (`[_BEG_]`, `[_TT_*]`) dibuang; tanda baca menempel ke kata sebelumnya. Waktu mulai kata = `t_dtw` token pertamanya (tanpa DTW: awal token).
+2. **Penyelarasan teks.** Needleman-Wunsch pada kata ternormalisasi (huruf kecil, tanpa tanda baca dan diakritik). Dua kata dianggap sama bila kemiripannya (1 dikurangi jarak Levenshtein per panjang) minimal 0,6, sehingga salah eja ASR ("sukupnya" menjadi "secukupnya") tetap berpasangan; kata ASR berupa angka murni ("20") dieja dulu (`terbilang`) dan hasilnya berbagi rentang waktunya. Kata tambahan di ASR dan kata naskah yang hilang tidak merusak urutan.
+3. **Skor.** `skor` = jumlah kemiripan pasangan dibagi jumlah kata naskah. Bila `skor` di bawah 0,6, hasil ASR **tidak dipakai**: segmen itu memakai estimasi berjangkar jeda dan `bun run narasi` memberi peringatan (kode keluar tetap tidak berubah). `laporan.json` (`asr.segmen[]`) mencatat skor, jumlah kata berpasangan, dan alasan.
+4. **Stempel.** Kata berpasangan memakai stempel ASR dikurangi **koreksi** `--koreksi-asr` (bawaan 0,23 detik, hanya untuk stempel DTW; lihat batas bukti). Kata naskah yang tak berpasangan diisi dengan menarik garis waktu estimasi secara linear di antara dua jangkar ASR terdekat (di tepi digeser mengikuti jangkar), jadi tidak melompat dan tetap monoton. Akhir kata = yang lebih kecil antara awal kata berikut dan awal ditambah durasi estimasinya.
+5. **Hasil.** `kata.json` bersumber `whisper` (atau `campuran` bila sebagian segmen jatuh ke estimasi) dan dipakai `rencanaCaption` seperti biasa: mode `sorot-kata` dan `paint-on` mengikuti stempel hasil ASR ([Mode](#mode)). Cue, lint, VTT/SRT, dan rencana audio dibangun dari stempel yang sama.
+
+Teks caption tetap teks naskah, bukan teks ASR: ASR hanya memberi **waktu**. Penanda kata mesin TTS yang jumlahnya cocok tetap didahulukan atas whisper (waktunya berasal dari sintesis yang sama dengan audionya).
+
+### Caption dari audio tanpa naskah
+
+```bash
+bun run narasi transkripsi rekaman.wav --out out/transkripsi [--bahasa id] [--fps 30] [--audiens umum]
+```
+
+whisper.cpp mentranskripsi `rekaman.wav` (atau `.mp3`, `.ogg`, `.flac`, dan format lain lewat ffmpeg); kata ASR dikelompokkan menjadi cue dengan aturan yang sama dengan [cue dan lint](#cue-dan-lint) (batas cps profil `--audiens`), dan stempel kata memakai koreksi yang sama. Keluaran di `--out` (bawaan `out/transkripsi`): `caption.vtt`, `caption.srt`, `kata.json` (satu adegan `transkripsi`, tiap kata membawa `keyakinan` = rata-rata probabilitas token ASR), `laporan.json`, dan `PERLU-TINJAUAN.txt`.
+
+**Semua keluaran ditandai "hasil ASR, wajib ditinjau manusia"**, dan bukan caption siap tayang:
+
+- `caption.vtt` memuat blok `NOTE` dengan kalimat itu tepat di bawah header (SRT tidak punya komentar, jadi tandanya ada di berkas pendamping);
+- `kata.json` dan `laporan.json` memuat `tinjauan: { status: "belum-ditinjau", pesan: "hasil ASR, wajib ditinjau manusia" }`; `sumber` adalah `whisper`;
+- `PERLU-TINJAUAN.txt` menjelaskan risikonya (salah dengar, kata hilang, kata karangan pada derau atau musik, nama diri, istilah, dan angka paling rawan);
+- CLI mencetak `PERHATIAN: hasil ASR, wajib ditinjau manusia` di stderr; `laporan.json` mendaftar kata berkeyakinan di bawah 0,5 (`ragu`) sebagai titik awal tinjauan.
+
+Lint cps pada transkripsi bersifat **saran**: temuan yang pada narasi berstatus `gagal` hanya dilaporkan sebagai peringatan (tidak ada naskah yang dapat dipersingkat, dan ucapan nyata tidak dipercepat atau diperlambat), sehingga kode keluar `0`. Audio senyap dan ASR yang tidak menemukan kata ditolak (kode `1`, tanpa keluaran). Alur peninjauan manusia (menyunting teks cue dan menghapus `PERLU-TINJAUAN.txt` hanya setelah selesai) adalah tanggung jawab proyek; awvd belum memeriksanya.
+
+### Batas bukti ASR
+
+Ukuran akurasi berikut dari riset awvd 2026-11-07 dan dihitung ulang dengan implementasi ini pada **data yang sama dengan [riset estimasi](#batas-bukti)**: 276 kata dari lima klip TTS bersih (dua suara, dua naskah fiktif, satu klip cepat), model `ggml-base-q5_1` dan `ggml-small-q5_1` dengan `-dtw`, kebenaran dasar = penanda layanan TTS (terkuantisasi 12,5 ms). Galat absolut rata-rata waktu mulai kata:
+
+| Metode | MAE | median | p90 | maks | kata berpasangan (eksak) |
+| --- | --- | --- | --- | --- | --- |
+| Estimasi berjangkar jeda, kalibrasi bawaan | 78 ms | 60 | 178 | 291 | (semua) |
+| whisper small + DTW, tanpa koreksi | 228 ms | 210 | 317 | 517 | 263 dari 276 (256) |
+| whisper small + DTW, koreksi 0,23 s (bawaan) | 50 ms | 40 | 100 | 287 | sama |
+| whisper base + DTW, tanpa koreksi | 237 ms | 220 | 335 | 725 | 251 dari 276 (236) |
+| whisper base + DTW, koreksi 0,23 s (bawaan) | 61 ms | 46 | 120 | 495 | sama |
+
+Galat waktu akhir kata (small, koreksi bawaan): MAE 62 ms, p90 131 ms. Skor penyelarasan terendah 0,77 (base) dan 0,82 (small); sisa 5 sampai 9 persen kata naskah tak berpasangan dan diisi interpolasi estimasi.
+
+- **Koreksi 0,23 s disetel pada data yang sama (in-sample).** Stempel DTW mentah terbaca konsisten sekitar 0,23 s terlambat pada kedua model dan kelima klip; angka itu belum diuji pada suara manusia, model lain, atau versi whisper.cpp lain. Ukur ulang dan atur `--koreksi-asr` untuk sumber audio Anda; tanpa itu hasil mentah (MAE sekitar 230 ms) lebih buruk daripada estimasi.
+- Stempel token biasa tanpa DTW (`-ml 1`) tidak layak untuk caption (MAE sekitar 500 ms pada riset); koreksi tidak diterapkan padanya.
+- Whisper adalah pengenalan ucapan, bukan *forced alignment*: pada audio TTS bersih 5 sampai 9 persen kata naskah tidak berpasangan. Pada ucapan manusia, derau, musik latar, atau logat kuat, angka itu belum diukur dan bisa jauh lebih buruk; skor di bawah 0,6 jatuh ke estimasi dengan peringatan.
+- Belum diuji: suara manusia, model selain base dan small q5_1, GPU, platform selain Linux x64, bahasa selain Indonesia, dan akurasi kata hasil transkripsi (WER). Riset awvd mengukur WER terhadap naskah pada audio TTS bersih sebesar 13 sampai 19 persen (base) dan 7 sampai 19 persen (small); ini bukan angka untuk ucapan manusia.
+- Waktu proses (riset awvd, 20 inti CPU): base 3,6 sampai 7,7 detik dan small 10,6 sampai 15,4 detik untuk audio 25 sampai 33 detik; proses ulang dari cache hampir seketika.
+- Uji repo (`bun run uji:narasi`) memakai whisper palsu (skrip yang mengeluarkan JSON `-ojf` contoh). Uji integrasi dengan whisper.cpp sungguhan hanya jalan bila `AWVD_WHISPER_BIN`, `AWVD_WHISPER_MODEL`, dan `AWVD_UJI_ASR_AUDIO` (audio ucapan) diset; selain itu dilewati.
+
 ## Mode dan posisi caption
 
 Cue VTT/SRT dan `kata.json` dari `bun run narasi` ditampilkan di komposisi (burn-in) oleh tiga helper runtime ([api-runtime.md](api-runtime.md)): `rencanaCaption` menyusun rencana sekali, `keadaanCaption(rencana, frame)` menghitung apa yang terlihat pada satu frame, dan `captionHtml(keadaan)` menghasilkan HTML tanpa animasi CSS. Semuanya murni dari nomor frame, jadi deterministik; `render` tetap tidak memanggil alat eksternal.
@@ -362,19 +454,25 @@ Uji: `bun run uji:caption` ([scripts/uji-caption.mjs](../scripts/uji-caption.mjs
 
 ## Batasan
 
-- Mesin suara: WAV yang sudah ada (`berkas-beku`) atau TTS lokal opsional (`sherpa-onnx`, tidak dibundel); tidak ada ASR atau penyelaras eksternal dan tidak ada mesin TTS daring bawaan. Timing kata TTS tetap estimasi (CLI tidak memberi penanda kata).
+- Mesin suara: WAV yang sudah ada (`berkas-beku`) atau TTS lokal opsional (`sherpa-onnx`, tidak dibundel); tidak ada mesin TTS daring bawaan. Timing kata TTS tetap estimasi (CLI tidak memberi penanda kata) kecuali `--selaras whisper`. ASR hanya whisper.cpp lokal opsional (tidak dibundel); tidak ada ASR daring dan tidak ada penyelaras paksa lain (WhisperX, MFA).
+- ASR: koreksi stempel DTW (0,23 s) disetel pada TTS bersih dan belum diuji pada suara manusia; hasil transkripsi selalu butuh tinjauan manusia; satu bahasa per berkas; tidak ada deteksi penutur (transkripsi memakai satu penutur `narator`); whisper dapat mengarang kata pada senyap, derau, atau musik.
 - Satu bahasa per naskah untuk caption dan estimasi; bobot suku kata dibuat untuk bahasa Indonesia. Tanpa TTS, angka dan singkatan harus dieja di `bacaan` atau `teks`; dengan TTS, hanya yang tercakup [normalisasi](#normalisasi-teks-indonesia) yang otomatis.
 - TTS: keluaran tidak deterministik (WAV beku di cache, bukan dibuat ulang), tidak ada kontrol pitch, emosi, atau jeda bawaan, kata di luar leksikon Kokoro digagalkan, dan label suara sintetis serta pembatasan konten medis bergantung pada kepatuhan proyek.
 - Satu penutur per kalimat; tidak ada caption dua penutur dalam satu cue dan tidak ada deteksi penutur.
 - Mode dan posisi caption tidak mengubah cue, lint, atau VTT/SRT; keduanya hanya diteruskan ke `kata.json` untuk komposisi. `caption.mode` dan `caption.posisi` di naskah hanya bawaan: komposisi yang memanggil `rencanaCaption` yang memakainya.
 - Lebar baris ditaksir (0,6 em per karakter), bukan diukur: font atau huruf yang jauh lebih lebar dari kalimat biasa memerlukan `lebarKarakter` lebih besar, kalau tidak baris bisa melewati kotak dan area aman. Uji DOM memeriksa font bawaan templat saja.
 - Zona dan jangkar ditentukan penulis; awvd tidak mendeteksi teks, wajah, atau penutur di dalam gambar. Satu jangkar per adegan di naskah; array berentang waktu atau per penutur hanya tersedia lewat `rencanaCaption`.
-- Sorot kata dan paint-on hanya sepresisi stempel kata; dengan estimasi berjangkar jeda galatnya sekitar 78 sampai 110 ms pada TTS bersih (belum diuji pada suara manusia).
+- Sorot kata dan paint-on hanya sepresisi stempel kata; dengan estimasi berjangkar jeda galatnya sekitar 78 sampai 110 ms pada TTS bersih (belum diuji pada suara manusia), dan dengan `--selaras whisper` sekitar 50 sampai 60 ms setelah koreksi in-sample ([batas bukti ASR](#batas-bukti-asr)).
 - Warna per penutur dan ikon penanda bunyi belum ada.
 - Lint cue memakai `maksKarakter` naskah; menampilkan VTT 16:9 pada bingkai 9:16 memecah ulang baris (`maksKarakter` 28) dan dapat melebihi `maksBaris` (peringatan di rencana). Untuk potret, jalankan `bun run narasi` dengan `ukuran` potret agar cue dibentuk untuk 28 karakter.
-- Penanda mesin dan estimasi tidak dibandingkan satu sama lain untuk mendeteksi deviasi (riset awvd menyarankan peringatan bila rata-rata melebihi sekitar 100 ms); belum diimplementasi.
+- Penanda mesin, whisper, dan estimasi tidak dibandingkan satu sama lain untuk mendeteksi deviasi (riset awvd menyarankan peringatan bila rata-rata melebihi sekitar 100 ms); belum diimplementasi. Satu-satunya pelindung terhadap ASR yang meleset adalah skor penyelarasan teks.
 
 ## Changelog
+
+### 2026-11-07 - v1.3.0
+
+- Bagian ASR lokal (whisper.cpp): adaptor opsional yang tidak dibundel; `--selaras whisper` (stempel kata ASR dipetakan ke kata naskah lewat Needleman-Wunsch, interpolasi dari estimasi untuk kata tak berpasangan, skor di bawah 0,6 jatuh ke estimasi dengan peringatan) dan subperintah `transkripsi` (caption dari audio tanpa naskah, ditandai wajib ditinjau manusia); flag `--whisper-bin`, `--whisper-model`, `--cache-asr`, `--asr-ulang`, `--koreksi-asr`; cache ASR; sumber waktu `whisper` di `kata.json` dan blok `asr` di `laporan.json`; batas bukti terukur (in-sample).
+- Batasan dan batas bukti diperbarui (ASR opsional ada; tidak ada ASR daring).
 
 ### 2026-11-07 - v1.2.0
 

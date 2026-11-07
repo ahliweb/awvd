@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.6.0`
+- Version: `v1.6.1`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan penunjuk batasan deteksi ketukan. Sebelumnya: penunjuk batasan narasi memuat TTS lokal opsional.`
+- Changeset: `Penunjuk batasan narasi memuat ASR lokal opsional. Sebelumnya: menambahkan penunjuk batasan deteksi ketukan.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -31,11 +31,15 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | SOP | [sop.md](sop.md#keputusan-desain-bukan-aturan-regulasi) |
 | Visual dan audiens (ukuran teks, palet buta warna, profil, efek) | [visual-audiens.md](visual-audiens.md#kesenjangan) |
 | Aset (gambar, logo, ikon, SVG, font, audio) | [aset.md](aset.md#batasan) |
-| Narasi dan caption sinkron (estimasi timing, mesin suara, TTS lokal opsional) | [narasi-caption.md](narasi-caption.md#batasan) |
+| Narasi dan caption sinkron (estimasi timing, mesin suara, TTS dan ASR lokal opsional) | [narasi-caption.md](narasi-caption.md#batasan) |
 | Deteksi ketukan musik (hanya sinyal sintetis yang diuji, tempo tetap) | [ketukan.md](ketukan.md#batasan) |
 | Mempelajari gaya video dan kutipan wajar | [pelajari-reaction.md](pelajari-reaction.md#batasan) |
 
 ## Changelog
+
+### 2026-11-07 - v1.6.1
+
+- Penunjuk batasan narasi memuat ASR lokal opsional (koreksi in-sample, belum diuji suara manusia, hasil transkripsi wajib ditinjau).
 
 ### 2026-11-07 - v1.6.0
 
