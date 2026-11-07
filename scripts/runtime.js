@@ -715,6 +715,8 @@
     var y = jepit(d0.y + (d1.y - d0.y) * p);
     var f = function (v, n) { return v.toFixed(n).replace(/^-(0\.0+)$/, "$1"); };
     return "translate(" + f((0.5 - x) * s * 100, 4) + "%, " + f((0.5 - y) * s * 100, 4) + "%) scale(" + f(s, 6) + ")";
+  }
+
   // ------------------------------------------------------------ preset jenis
   // Preset jenis video untuk komposisi. Runtime berjalan di browser tanpa fetch berkas
   // data, jadi datanya dimuat lewat <script src=".../preset-jenis.js"> (dihasilkan dari
