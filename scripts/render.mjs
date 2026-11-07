@@ -213,7 +213,7 @@ function bangunFfmpeg({ fps, dari, w, h, filterKenyaringan }) {
   if (idxSub >= 0) a.push("-map", `${idxSub}:s:0`);
   // Crop dulu: dimensi ganjil dipotong 1 px ke genap (yuv420p mewajibkan genap).
   // Lalu RGB penuh (PNG sRGB dari browser) -> YUV BT.709 rentang TV, eksplisit.
-  a.push("-vf", "crop=trunc(iw/2)*2:trunc(ih/2)*2,scale=in_range=full:out_range=tv:out_color_matrix=bt709,format=yuv420p");
+  a.push("-vf", "crop=trunc(iw/2)*2:trunc(ih/2)*2,scale=in_range=full:out_range=tv:out_color_matrix=bt709,format=yuv420p,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709");
   // Profil sesuai YouTube Help "Recommended upload encoding settings": H.264 High,
   // 4:2:0, progresif, B-frame 2, GOP tertutup = setengah fps, SDR BT.709.
   a.push(
