@@ -18,9 +18,9 @@
  * berkas tak ditemukan, JSON rusak); 1 galat tak terduga. Galat dikumpulkan sekaligus dengan
  * lokasi berupa JSON pointer (RFC 6901) ke bidang bermasalah.
  *
- * Belum ada di versi ini (issue lain): render (#32), rencana audio (#34), `--gabung`.
- * Rumus pemetaan waktu klip di bawah (`petaWaktu`) dihitung di sini dengan permil; issue #33
- * menyediakan versi runtime dengan rumus yang sama.
+ * Belum ada di versi ini (issue lain): keyframe properti (#35), render (#32), rencana audio (#34),
+ * `--gabung`. Pemetaan waktu klip (R08) memakai helper runtime.js (`petaWaktuKlip`, `frameSumber`,
+ * #33) sebagai sumber tunggal; uji kesetaraannya ada di `scripts/uji-timeline.mjs` (m).
  * Karya asli repo ini (rumus waktu dari riset #30).
  */
 import { parseArgs } from "node:util";
@@ -225,70 +225,32 @@ export function validasiSkema(t, skema = muatSkema()) {
 }
 
 // =====================================================================================
-// Pemetaan waktu klip (permil). Versi runtime menyusul di #33.
+// Pemetaan waktu klip. Sumber tunggal: runtime.js (petaWaktuKlip, frameSumber, kecepatanPermil;
+// docs/api-runtime.md §Pemetaan waktu klip, KP-052). Bidang `waktu` di skema dan objek `waktu`
+// runtime bermakna sama, jadi validator tidak punya rumus sendiri.
 // =====================================================================================
 
-const permil = (x) => Math.round(x * 1000);
-/** lantai(a / b) untuk bilangan bulat nonnegatif, tanpa pembagian floating-point. */
-const bagiBulat = (a, b) => (a - (a % b)) / b;
-
-/** Fungsi easing runtime dari spesifikasi skema: nama atau bezier [x1, y1, x2, y2]. */
-function fungsiEasing(spec) {
-  if (spec === undefined) return RT.easing.linear;
-  if (Array.isArray(spec)) return RT.easing.bezier(...spec);
-  const f = RT.easing[spec];
-  if (typeof f !== "function") throw new Error(`easing "${spec}" tidak dikenal`);
-  return f;
-}
-
-function kecepatanPada(j, kf) {
-  if (j <= kf[0].pada) return permil(kf[0].nilai);
-  const akhir = kf[kf.length - 1];
-  if (j >= akhir.pada) return permil(akhir.nilai);
-  let i = 0;
-  while (kf[i + 1].pada <= j) i++;
-  const a = kf[i], b = kf[i + 1];
-  const t = (j - a.pada) / (b.pada - a.pada);
-  return Math.round(permil(a.nilai) + (permil(b.nilai) - permil(a.nilai)) * fungsiEasing(a.easing)(t));
+/**
+ * Offset frame sumber (0 = titik masuk `dari`) untuk tiap frame lokal 0..durasi-1; membungkus
+ * `RT.petaWaktuKlip`. Melempar Error untuk masukan yang tak sah (bekukan + balik, kecepatan di
+ * luar (0, 1000] atau lebih dari 3 desimal, ramp dengan kecepatan <= 0 di suatu frame).
+ */
+export function petaWaktu({ durasi, kecepatan = 1, balik = false, bekukan = false }) {
+  return RT.petaWaktuKlip({ kecepatan, balik, bekukan }, durasi);
 }
 
 /**
- * Offset frame sumber (0 = titik masuk `dari`) untuk tiap frame lokal 0..durasi-1.
- * Konstan: lantai(f x S / 1000), S = permil(kecepatan). Ramp: posisi(f+1) = posisi(f) + v(f),
- * offset = lantai(posisi / 1000). Balik: deret maju dibalik. Beku: 0.
- * Melempar Error untuk masukan yang tak sah (bekukan + balik, kecepatan <= 0).
+ * Offset terbesar yang dibaca butir. Offset maju tidak pernah turun dan reverse hanya membalik
+ * deretnya, jadi maksimum = offset frame terakhir deret maju. Konstan: satu perhitungan
+ * (`RT.frameSumber`); ramp: tabel `RT.petaWaktuKlip` (tanpa Math.max(...tabel), tabel bisa jutaan
+ * anggota), supaya kecepatan <= 0 di frame mana pun tetap ditolak seperti di runtime.
  */
-export function petaWaktu({ durasi, kecepatan = 1, balik = false, bekukan = false }) {
-  if (!Number.isInteger(durasi) || durasi < 1) throw new Error("durasi harus bilangan bulat >= 1");
-  if (bekukan) {
-    if (balik) throw new Error("bekukan dan balik tidak dapat digabung");
-    return new Array(durasi).fill(0);
-  }
-  const maju = new Array(durasi);
-  if (Array.isArray(kecepatan)) {
-    let pos = 0;
-    for (let f = 0; f < durasi; f++) {
-      maju[f] = bagiBulat(pos, 1000);
-      const v = kecepatanPada(f, kecepatan);
-      if (!(v > 0)) throw new Error(`kecepatan harus > 0 di setiap frame (frame ${f}: ${v / 1000})`);
-      pos += v;
-    }
-  } else {
-    const S = permil(kecepatan);
-    if (!(S > 0)) throw new Error("kecepatan harus > 0");
-    for (let f = 0; f < durasi; f++) maju[f] = bagiBulat(f * S, 1000);
-  }
-  return balik ? maju.slice().reverse() : maju;
-}
-
-/** Offset terbesar yang dibaca butir; tanpa membangun tabel bila bentuk tertutupnya diketahui. */
-function offsetMaks(durasi, w) {
+export function offsetMaks(durasi, w) {
   if (w.bekukan) return 0;
-  const kec = w.kecepatan ?? 1;
-  if (!Array.isArray(kec)) return bagiBulat((durasi - 1) * permil(kec), 1000);
-  let maks = 0; // tanpa Math.max(...tabel): tabel bisa jutaan anggota
-  for (const v of petaWaktu({ durasi, kecepatan: kec })) if (v > maks) maks = v;
-  return maks;
+  const maju = { kecepatan: w.kecepatan ?? 1 };
+  if (!Array.isArray(maju.kecepatan)) return RT.frameSumber(maju, durasi - 1, { durasi });
+  const tabel = RT.petaWaktuKlip(maju, durasi);
+  return tabel[tabel.length - 1];
 }
 
 // =====================================================================================
@@ -583,9 +545,12 @@ export function periksaAturan(t, konteks, { draf = false } = {}) {
     const w = b.waktu ?? {};
     if (w.bekukan && w.balik) G("R08", `${lok}/waktu`, "bekukan dan balik tidak dapat digabung");
     const kecs = Array.isArray(w.kecepatan) ? w.kecepatan.map((q) => q.nilai) : w.kecepatan !== undefined ? [w.kecepatan] : [];
-    for (const v of kecs) if (permil(v) / 1000 !== v) G("R08", `${lok}/waktu/kecepatan`, `kecepatan ${v}: maksimal 3 desimal (aritmetika permil)`);
+    let kecepatanSah = true; // aturan kecepatan milik runtime (RT.kecepatanPermil): 3 desimal, > 0
+    for (const v of kecs) {
+      try { RT.kecepatanPermil(v); } catch { kecepatanSah = false; G("R08", `${lok}/waktu/kecepatan`, `kecepatan ${v}: maksimal 3 desimal, > 0 dan <= 1000 (aritmetika permil, lihat RT.kecepatanPermil)`); }
+    }
     const identitas = !w.bekukan && !w.balik && (w.kecepatan === undefined || w.kecepatan === 1);
-    if (k && !(w.bekukan && w.balik) && !rusakKf.has(b.id) && b.durasi <= total) {
+    if (k && !(w.bekukan && w.balik) && (kecepatanSah || w.bekukan) && !rusakKf.has(b.id) && b.durasi <= total) {
       if (k.jumlah === null) {
         W("W08", lok, `jumlah frame klip "${b.klip}" tidak diketahui; batas pembacaan tidak diperiksa (beri --klip-props)`);
       } else {

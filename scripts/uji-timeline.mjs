@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 /**
  * uji-timeline.mjs — uji validator timeline (timeline.mjs): skema, aturan R01-R17, peringatan,
- * rujukan ke manifest nyata, kode keluar CLI, pemetaan waktu permil, dan kebijakan kutipan.
+ * rujukan ke manifest nyata, kode keluar CLI, pemetaan waktu permil (termasuk kesetaraan dengan
+ * runtime.js), dan kebijakan kutipan.
  * Fixture: templat templates/timeline-contoh (aset buatan sendiri) disalin ke folder sementara;
  * tidak ada aset pihak ketiga dan tidak memerlukan Chromium. Exit 0 bila semua lolos, 1 bila gagal.
  *
@@ -12,7 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { muatKonteks, muatSkema, periksaAturan, periksaTimeline, petaWaktu, validasiSkema } from "./timeline.mjs";
+import { muatKonteks, muatSkema, offsetMaks, periksaAturan, periksaTimeline, petaWaktu, validasiSkema } from "./timeline.mjs";
 
 const akar = join(dirname(fileURLToPath(import.meta.url)), "..");
 const timelineMjs = join(akar, "scripts", "timeline.mjs");
@@ -659,6 +660,111 @@ daftar("(l) masukan jahat: id berprototipe, simlink manifest, batas ukuran dan w
   const w1 = performance.now();
   const r3 = periksaAturan(melewati, kon);
   tegas(kodeAda(r3, "R03") && performance.now() - w1 < 2000, `butir melewati durasi: ${ringkas(r3)}`);
+});
+
+// =============================================================== (m) kesetaraan dengan runtime
+daftar("(m) pemetaan waktu klip: validator identik dengan runtime.js (petaWaktuKlip, frameSumber) untuk konstan, ramp, balik, bekukan, dan masukan tak sah", async () => {
+  const rnd = RT.acak(3101);
+  const pilih = (a) => a[Math.floor(rnd() * a.length)];
+  const nilai = () => Math.round((0.1 + rnd() * 9.9) * 1000) / 1000; // 0,1..10, 3 desimal (rentang skema)
+  const easingSkema = ["linear", "masukQuad", "keluarQuad", "masukKeluarQuad", "masukCubic", "keluarCubic", "masukKeluarCubic",
+    "masukBack", "keluarBack", "keluarElastis", "standar", "percepat", "perlambat", "ditekankanMasuk", "ditekankanKeluar"];
+  const daftarEasing = [undefined, ...easingSkema, [0.4, 0, 0.2, 1], [0, 0, 1, 1], [0.7, -0.2, 0.3, 1.2]];
+  const durasiUji = [1, 2, 3, 7, 30, 61, 101, 250];
+  const kasus = []; // { waktu, durasi }
+  for (const kec of [0.1, 0.29, 0.5, 0.75, 1, 1.001, 1.5, 1.75, 2, 3.333, 5, 9.999, 10]) {
+    for (const d of durasiUji) {
+      kasus.push({ waktu: { kecepatan: kec }, durasi: d }, { waktu: { kecepatan: kec, balik: true }, durasi: d });
+    }
+  }
+  kasus.push({ waktu: {}, durasi: 40 }, { waktu: { balik: true }, durasi: 40 });
+  for (const d of durasiUji) kasus.push({ waktu: { bekukan: true }, durasi: d }, { waktu: { bekukan: true, kecepatan: 2 }, durasi: d });
+  // ramp: dua sampai empat keyframe, easing per segmen dari daftar skema dan bezier, balik acak
+  for (let i = 0; i < 600; i++) {
+    const d = 2 + Math.floor(rnd() * 119);
+    const n = Math.min(2 + Math.floor(rnd() * 3), d);
+    const titik = new Set([0]);
+    while (titik.size < n) titik.add(1 + Math.floor(rnd() * (d - 1)));
+    const pada = [...titik].sort((a, b) => a - b);
+    const kf = pada.map((p, k) => {
+      const o = { pada: p, nilai: nilai() };
+      const e = pilih(daftarEasing);
+      if (k < pada.length - 1 && e !== undefined) o.easing = e;
+      return o;
+    });
+    kasus.push({ waktu: { kecepatan: kf, ...(rnd() < 0.3 ? { balik: true } : {}) }, durasi: d });
+  }
+  // ramp yang sengaja memotong (nilai sama, selisih satu permil, selisih besar) di batas pembulatan
+  for (const [a, b] of [[1, 1.001], [1.001, 1], [0.1, 10], [10, 0.1], [1.5, 1.5], [0.999, 1.001]]) {
+    for (const d of [3, 4, 31, 97]) kasus.push({ waktu: { kecepatan: [{ pada: 0, nilai: a }, { pada: d - 1, nilai: b }] }, durasi: d });
+  }
+
+  let sah = 0, tolak = 0;
+  for (const { waktu, durasi } of kasus) {
+    const nama = JSON.stringify({ waktu, durasi });
+    let rt, galatRt;
+    try { rt = RT.petaWaktuKlip(waktu, durasi); } catch (e) { galatRt = e; }
+    let v, galatV;
+    try { v = petaWaktu({ durasi, ...waktu }); } catch (e) { galatV = e; }
+    tegas(!galatRt === !galatV, `melempar tidak sama (runtime: ${galatRt?.message}; validator: ${galatV?.message}) ${nama}`);
+    if (galatRt) { tolak++; continue; }
+    sah++;
+    samaIsi(v, rt, `petaWaktu vs petaWaktuKlip ${nama}`);
+    // frameSumber (satu frame, dengan dari) harus sama dengan tabel di setiap frame
+    for (const dari of [0, 37]) {
+      for (let f = 0; f < durasi; f++) {
+        const fs = RT.frameSumber(waktu, f, { durasi, dari });
+        tegas(fs === dari + v[f], `frameSumber(${f}, dari ${dari}) = ${fs}, tabel validator ${dari + v[f]} ${nama}`);
+      }
+    }
+    // offset terbesar yang dipakai aturan R08 = maksimum tabel runtime
+    let maks = 0;
+    for (const x of rt) if (x > maks) maks = x;
+    samaIsi(offsetMaks(durasi, waktu), maks, `offsetMaks ${nama}`);
+  }
+
+  // masukan tak sah: keduanya menolak (kecepatan di luar rentang, > 3 desimal, bekukan + balik, ramp <= 0)
+  const buruk = [
+    [{ bekukan: true, balik: true }, 5], [{ kecepatan: 1.2345 }, 5], [{ kecepatan: 0 }, 5], [{ kecepatan: -1 }, 5], [{ kecepatan: 1001 }, 5],
+    [{ kecepatan: [{ pada: 0, nilai: 3, easing: "keluarBack" }, { pada: 10, nilai: 0.1 }] }, 40],
+    [{ kecepatan: [{ pada: 0, nilai: 1 }, { pada: 0, nilai: 2 }] }, 5], [{ kecepatan: [{ pada: 0, nilai: 1 }] }, 5],
+    [{ kecepatan: [{ pada: 0, nilai: 1, easing: "nama-ngawur" }, { pada: 3, nilai: 2 }] }, 5], [{}, 0], [{}, 2.5],
+  ];
+  for (const [waktu, durasi] of buruk) {
+    const nama = JSON.stringify({ waktu, durasi });
+    let a = false, b = false;
+    try { RT.petaWaktuKlip(waktu, durasi); } catch { a = true; }
+    try { petaWaktu({ durasi, ...waktu }); } catch { b = true; }
+    tegas(a && b, `masukan tak sah harus ditolak keduanya (runtime ${a}, validator ${b}) ${nama}`);
+    tolak++;
+  }
+
+  // end-to-end: batas R08 pada timeline memakai offset runtime (jumlah = maks + 1 lolos, jumlah = maks ditolak)
+  const kon = await konteksDasar();
+  const denganJumlah = (n) => ({ ...kon, ring: { ...kon.ring, klip: { ...kon.ring.klip, k2: { ...kon.ring.klip.k2, jumlah: n, jumlahPerkiraan: false } } } });
+  let e2e = 0;
+  for (const { waktu, durasi } of kasus) {
+    if (durasi > 120 || e2e >= 90 || (e2e > 0 && rnd() < 0.8)) continue;
+    if (Array.isArray(waktu.kecepatan) && waktu.kecepatan.some((q) => q.pada >= durasi)) continue;
+    let rt;
+    try { rt = RT.petaWaktuKlip(waktu, durasi); } catch { continue; }
+    const dari = Math.floor(rnd() * 41);
+    let maks = 0;
+    for (const x of rt) if (x > maks) maks = x;
+    const terbesar = dari + maks;
+    if (terbesar < 1) continue;
+    const ubah = (habis) => (t) => { const b = t.track[0].butir[1]; b.durasi = durasi; b.dari = dari; b.waktu = { ...waktu, ...(habis ? { habis } : {}) }; };
+    const nama = JSON.stringify({ waktu, durasi, dari, terbesar });
+    const pas = await aturanDengan(ubah(), { konteks: denganJumlah(terbesar + 1) });
+    tegas(!kodeAda(pas, "R08", "/track/0/butir/1"), `jumlah ${terbesar + 1} cukup, R08 tak boleh muncul: ${ringkas(pas)} ${nama}`);
+    const kurang = await aturanDengan(ubah(), { konteks: denganJumlah(terbesar) });
+    tegas(kodeAda(kurang, "R08", "/track/0/butir/1"), `jumlah ${terbesar} kurang, R08 wajib muncul: ${ringkas(kurang)} ${nama}`);
+    const tahan = await aturanDengan(ubah("tahan"), { konteks: denganJumlah(terbesar) });
+    tegas(!kodeAda(tahan, "R08", "/track/0/butir/1/waktu"), `habis tahan: ${ringkas(tahan)} ${nama}`);
+    e2e++;
+  }
+  tegas(e2e >= 30, `terlalu sedikit kasus end-to-end: ${e2e}`);
+  console.log(`       kesetaraan: ${sah} kasus sah + ${tolak} kasus ditolak (fungsi), ${e2e} kasus end-to-end R08`);
 });
 
 // ----------------------------------------------------------------- jalankan

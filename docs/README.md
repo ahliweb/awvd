@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.15.0`
+- Version: `v1.15.1`
 - Last updated: `2026-11-07`
-- Changeset: `Mendaftarkan timeline.md dan memperbarui versi dokumen yang berubah (cli, batasan, roadmap, log-keputusan). Sebelumnya: versi dokumen untuk ASR lokal opsional.`
+- Changeset: `Versi timeline.md di indeks menjadi v1.0.1.`
 
 Pintu masuk ke seluruh dokumentasi rinci awvd. Ringkasan proyek, mulai cepat, dan perintah utama ada di [README akar](../README.md); aturan kerja kontributor dan AI agent ada di [AGENTS.md](../AGENTS.md); riwayat perubahan software ada di [CHANGELOG.md](../CHANGELOG.md).
 
@@ -34,8 +34,8 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | [log-keputusan.md](log-keputusan.md) | Log keputusan awvd (KP-001 dst.) beserta alasan dan rujukan PR | `v1.16.0` |
 | [narasi-caption.md](narasi-caption.md) | `bun run narasi`: skema `naskah.json`, estimasi timing berjangkar jeda, cue VTT/SRT dengan lint cps profil audiens, rencana audio, mode dan posisi caption, mesin suara pluggable, TTS dan ASR lokal opsional | `v1.3.0` |
 | [ketukan.md](ketukan.md) | `bun run ketukan`: onset fluks spektral, tempo autokorelasi, ketukan berselaras grid, skema `ketukan.json`, helper `window.Ketukan`, batas bukti | `v1.0.0` |
-| [timeline.md](timeline.md) | `timeline.json` (skema 1): track, butir, transisi tumpang tindih, pemetaan waktu klip; validator `bun run timeline periksa`, aturan R01-R17 dan W01-W09, kebijakan kutipan turunan; render dan audio menyusul | `v1.0.0` |
-| [README.md](README.md) | Indeks ini | `v1.15.0` |
+| [timeline.md](timeline.md) | `timeline.json` (skema 1): track, butir, transisi tumpang tindih, pemetaan waktu klip; validator `bun run timeline periksa`, aturan R01-R17 dan W01-W09, kebijakan kutipan turunan; render dan audio menyusul | `v1.0.1` |
+| [README.md](README.md) | Indeks ini | `v1.15.1` |
 
 ## Peta dokumen
 
@@ -92,6 +92,10 @@ flowchart TD
 - Dokumen berbahasa Indonesia dan tidak menyebut nama, path, atau tautan repo internal AhliWeb yang privat.
 
 ## Changelog
+
+### 2026-11-07 - v1.15.1
+
+- Versi `timeline.md` di indeks menjadi v1.0.1.
 
 ### 2026-11-07 - v1.15.0
 

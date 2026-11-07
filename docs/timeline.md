@@ -2,13 +2,13 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.0.1`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru: format timeline.json (skema 1), validator bun run timeline periksa (lapis skema dan aturan R01-R17, W01-W09), pemetaan waktu klip permil, kebijakan kutipan turunan, contoh templates/timeline-contoh, dan empat keputusan pemilik. Render dan audio ditandai menyusul.`
+- Changeset: `Pemetaan waktu klip validator kini memakai helper runtime.js (petaWaktuKlip, frameSumber, issue #33) sebagai sumber tunggal, dengan uji kesetaraan; klaim bahwa helper runtime menyusul dikoreksi (keyframe #35, render #32, dan rencana audio #34 masih menyusul).`
 
 `timeline.json` adalah rencana video yang bisa ditinjau sebagai data: daftar track berisi butir (klip video, gambar, warna, teks, kredit, audio) dengan posisi absolut dalam frame. Dokumen ini menjelaskan format dan validatornya, `bun run timeline periksa`, yang menolak timeline yang salah **sebelum Chromium diluncurkan**, dengan pola yang sama seperti `aset.json` dan `sumber.json`.
 
-> **Status.** Yang ada: skema, validator, dan contoh (issue #31). **Menyusul:** templat render generik yang membaca timeline (#32), pemetaan waktu klip dan keyframe di `runtime.js` (#33 dan #35), rencana audio turunan `bun run timeline audio` (#34), dan dokumen penutup F2 (#36). Selama itu timeline hanya divalidasi, belum dirender.
+> **Status.** Yang ada: skema, validator, dan contoh (issue #31), serta helper pemetaan waktu klip di `runtime.js` (#33) yang dipakai validator. **Menyusul:** templat render generik yang membaca timeline (#32), keyframe properti di `runtime.js` (#35), rencana audio turunan `bun run timeline audio` (#34), dan dokumen penutup F2 (#36). Selama itu timeline hanya divalidasi, belum dirender.
 
 ## Alur
 
@@ -152,7 +152,7 @@ Butir `video` punya `dari` (frame klip tempat mulai membaca, bawaan 0) dan `dura
 - Reverse (`balik`): deret maju dibalik, jadi himpunan frame sama dan hanya urutannya berbalik.
 - Freeze (`bekukan`): `offset(f) = 0` selama seluruh durasi; tidak digabung dengan `balik`.
 
-Frame klip yang dibaca adalah `dari + offset(f)` dan harus kurang dari jumlah frame klip, kecuali `waktu.habis` adalah `tahan` atau `ulang`. Tabel ramp dihitung per butir dari frame 0 tanpa keadaan antar-frame, sehingga render rentang (`--dari`) atau paralel kelak memberi indeks yang sama. Fungsi ini dihitung di `scripts/timeline.mjs` (`petaWaktu`); versi di `runtime.js` untuk templat render menyusul di #33 dengan rumus yang sama.
+Frame klip yang dibaca adalah `dari + offset(f)` dan harus kurang dari jumlah frame klip, kecuali `waktu.habis` adalah `tahan` atau `ulang`. Tabel ramp dihitung per butir dari frame 0 tanpa keadaan antar-frame, sehingga render rentang (`--dari`) atau paralel kelak memberi indeks yang sama. Validator tidak punya rumus sendiri: `petaWaktu` dan batas R08 di `scripts/timeline.mjs` memanggil `petaWaktuKlip` dan `frameSumber` dari `scripts/runtime.js` ([api-runtime.md](api-runtime.md#pemetaan-waktu-klip), KP-052), sehingga bidang `waktu` di skema dan objek `waktu` runtime bermakna sama dan templat render kelak dapat meneruskan `waktu` dari `timeline.json` apa adanya. Perbedaannya hanya penyaringan: skema membatasi `kecepatan` ke 0,1 sampai 10 (runtime menerima sampai 1000), memakai easing bernama dan bezier (runtime juga menerima fungsi), dan R07 menolak keyframe `pada >= durasi` butir (runtime membiarkannya). `scripts/uji-timeline.mjs` (m) menjaga kesetaraan hasilnya.
 
 ### Kebijakan kutipan dihitung dari timeline
 
@@ -185,7 +185,7 @@ Dua pilihan implementasi yang menyertainya: validator ditulis tangan tanpa depen
 
 ## Batasan
 
-- Belum dirender: templat render generik (#32), helper waktu klip dan keyframe di `runtime.js` (#33, #35), rencana audio dari timeline (#34).
+- Belum dirender: templat render generik (#32), keyframe properti di `runtime.js` (#35), rencana audio dari timeline (#34). Helper waktu klip di `runtime.js` (#33) sudah ada dan dipakai validator.
 - fps pecahan, `efek` tingkat butir, rantai transisi, komposisi bersarang, audio `efek`, ducking dan fade per butir, serta transisi bersamaan adalah kandidat skema 2.
 - `profil` `lansia` dan `anak` ditolak karena menskalakan durasi transisi.
 - Musik: satu butir, mulai di frame 0 (`audio.mjs` belum mendukung offset musik).
@@ -194,6 +194,10 @@ Dua pilihan implementasi yang menyertainya: validator ditulis tangan tanpa depen
 - Validator memeriksa kelengkapan catatan dan kepatuhan aturan teknis; ia tidak menjamin pemakaian yang sah secara hukum, dan kebijakan kutipan bukan nasihat hukum.
 
 ## Changelog
+
+### 2026-11-07 - v1.0.1
+
+- Pemetaan waktu klip validator memakai `petaWaktuKlip` dan `frameSumber` dari `runtime.js` (issue #33) sebagai sumber tunggal, dengan uji kesetaraan di `scripts/uji-timeline.mjs`; status, bagian Pemetaan waktu klip, dan Batasan tidak lagi menyebut helper runtime sebagai "menyusul".
 
 ### 2026-11-07 - v1.0.0
 
