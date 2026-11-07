@@ -2,11 +2,22 @@
 
 ## Metadata
 
-- Version: `v1.2.0`
+- Version: `v1.3.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan bagian Kontribusi dan dokumentasi, mendokumentasikan opsi --simpan pada bun run uji, dan mencantumkan ASET.md serta template PR di struktur repo.`
+- Changeset: `Menambahkan bagian Klasifikasi repo dan Rilis, mencantumkan subagent di struktur repo, serta menghapus rujukan ke repo pedoman internal yang privat.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
+
+## Klasifikasi repo
+
+| Atribut | Nilai |
+| --- | --- |
+| Status | `active` |
+| Kelas repo | `internal` (usulan, menunggu konfirmasi pemilik) |
+| Domain operasional | `internal-ops` (usulan, menunggu konfirmasi pemilik) |
+| Source of truth | `primary` untuk kode renderer awvd |
+| Owner operasional | AhliWeb (akun GitHub `ahliweb`) |
+| Risiko dan batasan | Tidak menyentuh production dan tidak di-deploy. Repo publik: tanpa secret, data nyata, aset tanpa lisensi jelas, atau rujukan ke repo internal yang privat. |
 
 ## Alur render
 
@@ -139,7 +150,8 @@ scripts/uji.mjs        uji otomatis (bun run uji)
 templates/<nama>/      komposisi contoh + ASET.md (catatan aset pihak ketiga)
 .github/workflows/     CI uji
 .github/pull_request_template.md   checklist uji dan dokumentasi PR
-AGENTS.md              aturan kerja AI agent
+.claude/agents/        subagent pelaksana (kompleks, sederhana) untuk orchestrator
+AGENTS.md              aturan kerja AI agent (orchestrator, git, rilis, dokumentasi)
 CHANGELOG.md           riwayat perubahan software
 ```
 
@@ -147,14 +159,18 @@ Perintah: `bun run render <komposisi> --out ...` dan `bun run uji` (delapan uji:
 
 ## Kontribusi dan dokumentasi
 
-Setiap perubahan lewat branch dan pull request, dan merge hanya setelah CI `uji` lolos. Perubahan konsep atau fitur wajib membawa pembaruan dokumen di PR yang sama. Peta "perubahan apa memperbarui dokumen mana" ada di [AGENTS.md §Dokumentasi](AGENTS.md#dokumentasi), mengikuti pedoman `standar-dokumen-repo` dan DL-035 di `ahliweb/personal-coding`.
+Setiap perubahan lewat branch dan pull request (`<jenis>/<ringkas>`), dan merge hanya setelah semua check (`uji`, GitGuardian) berstatus SUCCESS. Perubahan konsep atau fitur wajib membawa pembaruan dokumen di PR yang sama. Aturan lengkapnya ada di [AGENTS.md](AGENTS.md): §Git dan PR untuk alur git, dan §Dokumentasi untuk peta "perubahan apa memperbarui dokumen mana".
 
-Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata README dan AGENTS.md) menandai revisi dokumen. Versi software ada di `package.json` dan `CHANGELOG.md`. README `v1.2.0` tidak berarti awvd `1.2.0`.
+Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata README dan AGENTS.md) menandai revisi dokumen. Versi software ada di `package.json` dan `CHANGELOG.md`. README `v1.3.0` tidak berarti awvd `1.3.0`.
 
-## Hubungan dengan repo lain
+## Rilis
 
-- Prosedur pemakaian oleh AI agent: skill `video-terprogram` di [`ahliweb/personal-coding`](https://github.com/ahliweb/personal-coding).
-- Panduan video formal untuk pemerintah dan swasta mengikuti standar dokumen formal DL-037 (`docs/standar-dokumen-formal-panduan-sop-video.md` di `ahliweb/personal-coding`); awvd menjadi alat render videonya.
+Belum ada rilis bertag. Versi paket `0.1.0`, dan semua perubahan dicatat di [CHANGELOG.md](CHANGELOG.md) bagian `[Unreleased]`. awvd tidak di-deploy ke server mana pun; ia dipakai lokal dan di CI. Prosedur rilis bila kelak diputuskan pemilik ada di AGENTS.md §Rilis dan Deployment.
+
+## Pemakaian di AhliWeb
+
+- AI agent AhliWeb memakai awvd lewat skill internal `video-terprogram`, yang berisi prosedur membuat dan merevisi video.
+- Panduan video formal untuk pemerintah dan swasta mengikuti standar dokumen formal internal AhliWeb; awvd menjadi alat render videonya.
 
 ## Lisensi dan Kepatuhan
 
@@ -175,6 +191,12 @@ Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata READ
 Font, musik (`--audio`), gambar, footage, dan suara TTS wajib berlisensi jelas dan dicatat sumbernya. Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.3.0
+
+- Menambahkan bagian Klasifikasi repo (kelas dan domain masih usulan) dan Rilis.
+- Struktur repo mencantumkan `.claude/agents/`.
+- Mengganti "Hubungan dengan repo lain" menjadi "Pemakaian di AhliWeb" dan menghapus nama, path, serta tautan repo pedoman internal yang privat.
 
 ### 2026-11-07 - v1.2.0
 
