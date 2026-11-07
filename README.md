@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.12.0`
+- Version: `v2.13.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan adaptor TTS lokal opsional di bun run narasi (sherpa-onnx; tidak dibundel), data/suara.json, normalisasi teks Indonesia, dan versi dokumen yang berubah di perintah utama, indeks dokumentasi, dan struktur repo.`
+- Changeset: `Menambahkan ASR lokal opsional di bun run narasi (whisper.cpp; tidak dibundel): --selaras whisper dan subperintah transkripsi, serta narasi-asr.mjs di struktur repo dan versi dokumen yang berubah di indeks dokumentasi. Sebelumnya: adaptor TTS lokal opsional.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -65,7 +65,7 @@ Server statis apa pun juga bisa dipakai. Satu frame saja: `?frame=60`. Props pra
 - Mode dan posisi caption di komposisi: helper runtime `rencanaCaption`, `keadaanCaption`, dan `captionHtml` menampilkan cue VTT/SRT dan `kata.json` dengan mode `pop-on`, `roll-up`, `paint-on`, `sorot-kata`, `satu-kata` dan posisi `bawah`, `atas`, `auto` (menghindari zona penting), `dekat-penutur`, di dalam area aman 16:9 dan 9:16 dengan kontras terjaga; demo di `templates/narasi-contoh/` ([docs/narasi-caption.md](docs/narasi-caption.md#mode-dan-posisi-caption), [docs/api-runtime.md](docs/api-runtime.md)).
 - `bun run uji`: uji unit runtime, uji periksa, uji SOP, uji klip, uji konsep, uji visual (helper warna dan ukuran teks, data audiens), uji transisi, uji aset (`bun run uji:aset`), uji pelajari (statistik gaya, kebijakan kutipan, templat reaction), uji narasi (`bun run uji:narasi`: skema naskah, estimasi berjangkar jeda, cue, templat narasi-contoh), uji caption (`bun run uji:caption`: lima mode, posisi dan zona, area aman 16:9 dan 9:16, kontras, DOM di Chromium), lalu sepuluh uji renderer (properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran, determinisme `--skala` 0.5 dan 0.75); sekitar tiga menit. `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
 - `bun run uji`: uji unit runtime, uji periksa, uji SOP, uji klip, uji konsep, uji visual (helper warna dan ukuran teks, data audiens), uji transisi, uji aset (`bun run uji:aset`), uji pelajari (statistik gaya, kebijakan kutipan, templat reaction), lalu sepuluh uji renderer (properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran, determinisme `--skala` 0.5 dan 0.75); sekitar tiga menit. `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
-- `bun run narasi <naskah.json> --out DIR`: naskah narasi dan WAV beku menjadi cue caption VTT/SRT yang sinkron (estimasi berjangkar jeda, lint cps profil audiens), stempel kata, dan `rencana-audio.json` untuk `bun run audio`; mesin suara opsional `sherpa-onnx` (TTS lokal: Supertonic untuk Indonesia, Kokoro untuk Inggris; tidak dibundel, WAV dibekukan di cache berhash, label suara sintetis wajib, konten medis diperingatkan atau ditolak) ([docs/narasi-caption.md](docs/narasi-caption.md#tts-lokal-sherpa-onnx)).
+- `bun run narasi <naskah.json> --out DIR`: naskah narasi dan WAV beku menjadi cue caption VTT/SRT yang sinkron (estimasi berjangkar jeda, lint cps profil audiens), stempel kata, dan `rencana-audio.json` untuk `bun run audio`; mesin suara opsional `sherpa-onnx` (TTS lokal: Supertonic untuk Indonesia, Kokoro untuk Inggris; tidak dibundel, WAV dibekukan di cache berhash, label suara sintetis wajib, konten medis diperingatkan atau ditolak) ([docs/narasi-caption.md](docs/narasi-caption.md#tts-lokal-sherpa-onnx)). ASR lokal opsional (whisper.cpp; tidak dibundel, jalan lokal sehingga boleh untuk naskah internal): `--selaras whisper` memakai stempel kata hasil ASR untuk sorot kata (skor penyelarasan rendah jatuh ke estimasi), dan `bun run narasi transkripsi <audio> --out DIR` membuat caption dari audio tanpa naskah yang ditandai "hasil ASR, wajib ditinjau manusia" ([docs/narasi-caption.md](docs/narasi-caption.md#asr-lokal-whispercpp)).
 - `bun run uji`: uji unit runtime, uji periksa, uji SOP, uji klip, uji konsep, uji visual (helper warna dan ukuran teks, data audiens), uji transisi, uji aset (`bun run uji:aset`), uji pelajari (statistik gaya, kebijakan kutipan, templat reaction), uji narasi (`bun run uji:narasi`: skema naskah, estimasi berjangkar jeda, cue, templat narasi-contoh), lalu sembilan uji renderer (properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran); sekitar tiga menit. `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
 
 ## Dokumentasi
@@ -74,10 +74,10 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.11.0` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.12.0` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.1.1` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.4.0` |
-| [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.3.1` |
+| [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.4.0` |
 | [docs/aset.md](docs/aset.md) | `bun run aset`: manifest `aset.json`, matriks lisensi, SVG, resolusi, sRGB, atribusi, helper runtime | `v1.1.0` |
 | [docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md) | `bun run periksa`: pemeriksaan, ambang, kilatan | `v1.0.1` |
 | [docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md) | `bun run konsep`: 13 jenis video, 5 alur, tingkat bukti, profil audiens | `v1.2.0` |
@@ -87,13 +87,13 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/pelajari-reaction.md](docs/pelajari-reaction.md) | `bun run pelajari`, kebijakan kutipan wajar, gerbang hukum GH, templat reaction | `v1.0.0` |
 | [docs/visual-audiens.md](docs/visual-audiens.md) | Profil audiens, ukuran teks, buta warna, ketajaman, efek dekoratif | `v1.0.0` |
 | [docs/transisi-animasi.md](docs/transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, `kurangiGerak`, biaya kompresi | `v1.1.0` |
-| [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.6.0` |
-| [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.5.1` |
-| [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab aset, matriks lisensi aset, video pihak ketiga | `v1.4.0` |
+| [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.7.0` |
+| [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.5.2` |
+| [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab aset, matriks lisensi aset, video pihak ketiga | `v1.5.0` |
 | [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.1.0` |
-| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.6.0` |
-| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.12.0` |
-| [docs/narasi-caption.md](docs/narasi-caption.md) | `bun run narasi`: `naskah.json`, estimasi berjangkar jeda, cue VTT/SRT dengan lint cps, rencana audio, mode dan posisi caption | `v1.2.0` |
+| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.7.0` |
+| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.13.0` |
+| [docs/narasi-caption.md](docs/narasi-caption.md) | `bun run narasi`: `naskah.json`, estimasi berjangkar jeda, cue VTT/SRT dengan lint cps, rencana audio, mode dan posisi caption | `v1.3.0` |
 | [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.9.0` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
 
@@ -115,6 +115,7 @@ scripts/narasi.mjs      naskah.json -> cue caption VTT/SRT, stempel kata, rencan
                         estimasi timing berjangkar jeda, narasi-cue.mjs: pengelompokan cue, lint, VTT/SRT,
                         narasi-caption.mjs: skema mode, posisi, zona, dan jangkar penutur
                         narasi-tts.mjs: adaptor TTS lokal opsional (sherpa-onnx, cache berhash, label sintetis),
+                        narasi-asr.mjs: ASR lokal opsional (whisper.cpp): penyelarasan kata dan transkripsi,
                         normalisasi-id.mjs: normalisasi teks Indonesia untuk TTS
 scripts/preset-jenis.js salinan preset untuk browser (DIHASILKAN dari data/jenis-video.json)
 data/                   jenis-video.json (13 jenis), alur-produksi.json (5 alur), audiens.json (5 profil audiens),
@@ -150,6 +151,10 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 **Peringatan hukum: video pihak ketiga.** awvd tidak menyediakan dan tidak akan menyediakan pengunduh atau perekam video platform (YouTube, TikTok, Facebook, Instagram, X, dan sejenisnya); fitur sumber hanya menerima berkas yang sah Anda miliki, dengan manifest dan atribusi. Kutipan untuk video reaction dan ulasan diperiksa terhadap kebijakan internal yang terukur dan gerbang tinjauan hukum, bukan jaminan kutipan sah. Dokumentasi ini bukan nasihat hukum; rincian di [docs/pelajari-reaction.md](docs/pelajari-reaction.md).
 
 ## Changelog
+
+### 2026-11-07 - v2.13.0
+
+- §Perintah utama: `bun run narasi` memuat `--selaras whisper` dan subperintah `transkripsi` (ASR whisper.cpp lokal opsional, tidak dibundel). §Struktur repo: `narasi-asr.mjs`. Indeks dokumentasi memperbarui versi `docs/README.md`, `narasi-caption.md`, `lisensi-kepatuhan.md`, `aksesibilitas.md`, `batasan.md`, `cli.md`, `roadmap.md`, dan `log-keputusan.md`.
 
 ### 2026-11-07 - v2.12.0
 

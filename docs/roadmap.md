@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.6.0`
+- Version: `v1.7.0`
 - Last updated: `2026-11-07`
-- Changeset: `Paritas: text-to-speech berstatus ada sebagai adaptor opsional yang tidak dibundel (sherpa-onnx; Supertonic untuk Indonesia, Kokoro untuk Inggris). Sebelumnya: caption sinkron voice over berstatus sebagian.`
+- Changeset: `Paritas: caption otomatis dari audio (ASR) berstatus ada sebagai adaptor opsional yang tidak dibundel (whisper.cpp; F5/01). Sebelumnya: text-to-speech berstatus ada sebagai adaptor opsional yang tidak dibundel (sherpa-onnx; Supertonic untuk Indonesia, Kokoro untuk Inggris); sebelum itu: caption sinkron voice over berstatus sebagian.`
 
 ## Visi
 
@@ -90,7 +90,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Stabilisasi | ada ([olah-klip.md](olah-klip.md); `stabil`: vidstab, cadangan deshake) | F3/03 (selesai) |
 | Peredam bising, pengubah suara | ada ([video-tertanam-audio.md](video-tertanam-audio.md#olah-suara-per-trek)); `arnndn` butuh model milik pengguna | F3/04 (selesai) |
 | Render cepat untuk footage panjang | belum (serial) | F4 |
-| Caption otomatis dari audio (ASR) | belum | F5/01 |
+| Caption otomatis dari audio (ASR) | ada sebagai adaptor opsional yang tidak dibundel ([narasi-caption.md](narasi-caption.md#asr-lokal-whispercpp)): whisper.cpp lokal untuk caption dari audio tanpa naskah (wajib ditinjau manusia) dan stempel kata narasi; belum diuji pada suara manusia | F5/01 (selesai) |
 | Sinkron ketukan musik | belum | F5/02 |
 | Reframe 16:9 ke 9:16 | belum | F5/03 |
 | Hapus latar tanpa layar hijau | belum | F5/04 |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-07 - v1.7.0
+
+- Paritas "Caption otomatis dari audio (ASR)" diubah menjadi ada (adaptor whisper.cpp lokal opsional, F5/01).
 
 ### 2026-11-07 - v1.6.0
 

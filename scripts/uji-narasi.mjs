@@ -5,7 +5,9 @@
  * lavfi lewat templat narasi-contoh; tanpa jaringan, tanpa aset pihak ketiga. Adaptor TTS
  * (sherpa-onnx) diuji dengan mesin palsu (skrip bun yang menulis nada); uji integrasi dengan
  * sherpa-onnx sungguhan hanya jalan bila AWVD_SHERPA_BIN dan AWVD_MODEL_SUPERTONIC3 diset,
- * selain itu dilewati.
+ * selain itu dilewati. ASR (whisper.cpp) diuji dengan whisper palsu (skrip yang mengeluarkan JSON
+ * `-ojf` contoh); uji integrasi dengan whisper.cpp sungguhan hanya jalan bila AWVD_WHISPER_BIN,
+ * AWVD_WHISPER_MODEL, dan AWVD_UJI_ASR_AUDIO (audio ucapan) diset, selain itu dilewati.
  * Exit 0 bila semua lolos, 1 bila ada yang gagal.
  *
  *   bun scripts/uji-narasi.mjs
@@ -20,6 +22,7 @@ import { keSrt, keVtt, periksaCue, susunCue } from "./narasi-cue.mjs";
 import { buatNarasi, daftarkanMesin, hapusMesin, validasiNaskah } from "./narasi.mjs";
 import { isiPlaceholder, kanonik, kunciKalimat, muatSuara, periksaOov, validasiSuara } from "./narasi-tts.mjs";
 import { normalisasiId, terbilang } from "./normalisasi-id.mjs";
+import { AMBANG_SKOR_BAWAAN, GalatAsr, KOREKSI_DTW_BAWAAN, kataDariWhisper, kemiripan, normalKata, pastikanWhisper, presetDtw, selaraskanTeks, selarasWhisper } from "./narasi-asr.mjs";
 
 const akar = join(dirname(fileURLToPath(import.meta.url)), "..");
 const narasiMjs = join(akar, "scripts", "narasi.mjs");
@@ -36,7 +39,7 @@ function muatRuntime() {
     if (sebelum === undefined) delete globalThis.window; else globalThis.window = sebelum;
   }
 }
-const { parseVtt, parseSrt, captionAktif } = muatRuntime();
+const { parseVtt, parseSrt, captionAktif, rencanaCaption, keadaanCaption } = muatRuntime();
 
 // ----------------------------------------------------------------- utilitas
 function tegas(kondisi, pesan) {
@@ -602,7 +605,7 @@ const naskahTts = (kalimat, ekstra = {}, penutur) => ({
 const tulisNaskah = (nama, o) => { writeFileSync(j("tts", nama), JSON.stringify(o)); return j("tts", nama); };
 const jalankanEnv = async (cmd, env) => {
   // lingkungan bersih dari penunjuk mesin milik pemakai agar uji tidak bergantung pada mesin ini
-  const dasar = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^AWVD_(BIN_|MODEL_|SHERPA_BIN)/.test(k)));
+  const dasar = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^AWVD_(BIN_|MODEL_|SHERPA_BIN|WHISPER)/.test(k)));
   const p = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe", env: { ...dasar, ...env } });
   const [out, err, kode] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
   return { out, err, kode };
@@ -816,6 +819,281 @@ tes("TTS sungguhan (sherpa-onnx + Supertonic): dilewati bila AWVD_SHERPA_BIN dan
   samaDengan(r2.kode, 0, "proses kedua");
   memuat(r2.out, "0 disintesis baru", "cache dipakai ulang pada mesin sungguhan");
   samaDengan(bacaJson(j("tts-nyata", "out2", "rencana-audio.json")).narasi[0].sha256, rencana.narasi[0].sha256, "WAV beku identik");
+});
+
+
+// ------------------------------------------------------------------ ASR whisper.cpp (whisper palsu)
+/**
+ * JSON `-ojf` whisper.cpp contoh. `kata`: [[teks, detikAwal, p?]]; tiap kata dipecah dua token (uji
+ * penggabungan), tanda baca akhir menjadi token sendiri. `t_dtw` = (awal + bias) dalam sentidetik
+ * (meniru bias DTW whisper.cpp); `dtw` false = t_dtw -1 (tanpa DTW).
+ */
+function jsonWhisper(kata, { dtw = true, bias = KOREKSI_DTW_BAWAAN } = {}) {
+  const tokens = [{ text: "[_BEG_]", timestamps: {}, offsets: { from: 0, to: 0 }, id: 1, p: 0.95, t_dtw: -1 }];
+  for (const [teks, t, p = 0.9] of kata) {
+    const m = /^(.*?)([,.!?]*)$/.exec(teks);
+    const inti = m[1], tp = m[2];
+    const potong = Math.max(1, Math.floor(inti.length / 2));
+    const bagian = [` ${inti.slice(0, potong)}`, inti.slice(potong)].filter((x) => x.trim() !== "");
+    bagian.forEach((x, i) => tokens.push({ text: x, offsets: { from: Math.round(t * 1000) + i * 40, to: Math.round(t * 1000) + i * 40 + 200 }, id: 100, p, t_dtw: dtw ? Math.round((t + bias) * 100) + i : -1 }));
+    if (tp) tokens.push({ text: tp, offsets: { from: Math.round(t * 1000) + 300, to: Math.round(t * 1000) + 300 }, id: 13, p: 0.9, t_dtw: dtw ? Math.round((t + bias) * 100) + 5 : -1 });
+  }
+  tokens.push({ text: "[_TT_300]", offsets: { from: 0, to: 0 }, id: 2, p: 0.1, t_dtw: -1 });
+  return { systeminfo: "palsu", model: { type: "small" }, params: { language: "id" }, result: { language: "id" }, transcription: [{ offsets: { from: 0, to: 1000 }, text: kata.map((k) => k[0]).join(" "), tokens }] };
+}
+
+// kalimat uji dan stempel "ASR" yang sengaja tidak seragam (jeda besar sebelum "selamat" dan "kita")
+const KATA_ASR = [["Halo", 0.05], ["semua,", 0.5], ["selamat", 1.3], ["datang.", 1.75], ["Kita", 2.6], ["mulai", 3.0], ["hari", 3.4], ["ini", 3.7], ["dengan", 3.95], ["tenang.", 4.3]];
+const wavAsr = () => buatWav(j("asr", "narasi.wav"), [["b", 0.9], ["s", 0.3], ["b", 1.2], ["s", 0.7], ["b", 2.2]]);
+const dirAsr = j("asr");
+const logAsr = j("asr", "panggilan.log");
+const modelAsr = j("asr", "ggml-small-q5_1.bin");
+function siapkanAsr() {
+  mkdirSync(dirAsr, { recursive: true });
+  writeFileSync(modelAsr, "palsu");
+  const stub = j("asr", "stub-whisper.mjs");
+  writeFileSync(stub, `#!/usr/bin/env bun
+import { appendFileSync, copyFileSync } from "node:fs";
+const a = process.argv.slice(2);
+const n = (k) => a[a.indexOf(k) + 1];
+appendFileSync(process.env.STUB_LOG, a.join(" ") + "\\n");
+if (process.env.STUB_GAGAL) { console.error("stub: sengaja gagal"); process.exit(3); }
+copyFileSync(process.env.STUB_ASR_JSON, n("-of") + ".json");
+`);
+  chmodSync(stub, 0o755);
+  return stub;
+}
+const envAsr = (json, ekstra = {}) => ({ AWVD_WHISPER_BIN: j("asr", "stub-whisper.mjs"), AWVD_WHISPER_MODEL: modelAsr, STUB_LOG: logAsr, STUB_ASR_JSON: json, ...ekstra });
+const tulisJsonAsr = (nama, obj) => { const p = j("asr", nama); writeFileSync(p, JSON.stringify(obj)); return p; };
+const hitungAsr = () => (existsSync(logAsr) ? readFileSync(logAsr, "utf8").split("\n").filter(Boolean).length : 0);
+const naskahAsr = (ekstra = {}) => ({ versi: 1, fps: 30, klasifikasi: "publik", adegan: [{ id: "a1", berkas: "narasi.wav", kalimat: ["Halo semua, selamat datang.", "Kita mulai hari ini dengan tenang."] }], ...ekstra });
+
+tes("ASR: kataDariWhisper menggabungkan token, membuang token khusus, menempelkan tanda baca, memakai t_dtw atau jatuh ke stempel token", () => {
+  const { kata, presisi } = kataDariWhisper(jsonWhisper([["Halo", 0.05], ["semua,", 0.5, 0.8], ["selamat", 1.3], ["datang.", 1.75]]));
+  samaDengan(kata.map((k) => k.teks), ["Halo", "semua", "selamat", "datang"], "kata digabung dari token");
+  samaDengan(kata.map((k) => k.tampil), ["Halo", "semua,", "selamat", "datang."], "tanda baca menempel ke kata sebelumnya");
+  samaDengan(presisi, "dtw", "presisi dtw");
+  dekat(kata[1].mulai, 0.5 + KOREKSI_DTW_BAWAAN, 0.011, "mulai = t_dtw token pertama (sentidetik)");
+  dekat(kata[1].keyakinan, 0.8, 0.001, "keyakinan = rata-rata p token kata (tanda baca tak dihitung)");
+  const tanpa = kataDariWhisper(jsonWhisper([["Halo", 0.05], ["semua", 0.5]], { dtw: false }));
+  samaDengan(tanpa.presisi, "token", "tanpa t_dtw: stempel token");
+  dekat(tanpa.kata[1].mulai, 0.5, 0.001, "awal token dipakai bila t_dtw tak ada");
+  samaDengan(kataDariWhisper({}).kata, [], "JSON tanpa transkripsi menghasilkan nol kata");
+  samaDengan(kataDariWhisper({ transcription: [{ tokens: [{ text: "[_BEG_]", offsets: { from: 0, to: 0 }, t_dtw: -1 }] }] }).presisi, "kosong", "hanya token khusus");
+});
+
+tes("ASR: preset DTW dari nama model, penunjuk mesin, dan pesan bila tidak terpasang", () => {
+  for (const [nama, harapan] of [["ggml-base-q5_1.bin", "base"], ["ggml-small.en.bin", "small.en"], ["ggml-tiny.bin", "tiny"], ["ggml-medium-q8_0.bin", "medium"], ["ggml-large-v3.bin", "large.v3"],
+    ["ggml-large-v3-turbo-q5_0.bin", "large.v3.turbo"], ["ggml-large-v2-q5_0.bin", "large.v2"], ["model-aneh.bin", null]]) samaDengan(presetDtw(`/x/${nama}`), harapan, `preset ${nama}`);
+  let galat = null;
+  try { pastikanWhisper({}, { PATH: tmp }); } catch (e) { galat = e; }
+  tegas(galat instanceof GalatAsr, "GalatAsr bila tidak ada biner dan model");
+  for (const potongan of ["whisper-cli", "AWVD_WHISPER_BIN", "AWVD_WHISPER_MODEL", "tidak membundel", "docs/narasi-caption.md"]) memuat(galat.message, potongan, "pesan tidak terpasang");
+  siapkanAsr();
+  const m = pastikanWhisper({ bin: j("asr", "stub-whisper.mjs"), model: modelAsr }, { PATH: tmp });
+  samaDengan([m.biner, m.model, m.dtw], [j("asr", "stub-whisper.mjs"), modelAsr, "small"], "biner, model, dtw dari flag");
+  samaDengan(pastikanWhisper({ bin: j("asr", "stub-whisper.mjs"), model: modelAsr }, { PATH: tmp, AWVD_WHISPER_DTW: "tidak" }).dtw, null, "AWVD_WHISPER_DTW=tidak mematikan DTW");
+  galat = null;
+  try { pastikanWhisper({ bin: j("asr", "tidak-ada"), model: modelAsr }, {}); } catch (e) { galat = e; }
+  memuat(galat?.message ?? "", "biner tidak ditemukan", "jalur biner salah disebut");
+});
+
+tes("ASR: penyelarasan teks (Needleman-Wunsch): salah eja ditoleransi, kata tambahan dan hilang tak merusak urutan", () => {
+  tegas(kemiripan("sukupnya", "sejukupnya") >= 0.6 && kemiripan("kata", "kaca") >= 0.5 && kemiripan("halo", "meja") < 0.6, "kemiripan kata");
+  samaDengan(normalKata("Sela-sela, “jari”!"), "selasela" + "jari", "normalisasi");
+  const a = ["halo", "semua", "selamat", "datang"];
+  samaDengan(selaraskanTeks(a, ["halo", "semua", "selamat", "datang"]).pasangan.map((p) => [p[0], p[1]]), [[0, 0], [1, 1], [2, 2], [3, 3]], "identik");
+  samaDengan(selaraskanTeks(a, ["eh", "halo", "semu", "datang", "ya"]).pasangan.map((p) => [p[0], p[1]]), [[0, 1], [1, 2], [3, 3]], "kata tambahan, salah eja, kata hilang");
+  samaDengan(selaraskanTeks(a, ["meja", "kursi"]).pasangan, [], "tak ada yang mirip");
+  samaDengan(selaraskanTeks([], ["a"]).pasangan, [], "kosong");
+});
+
+tes("ASR: selarasWhisper: jangkar ASR dipakai (dikurangi koreksi), kata tak berpasangan diinterpolasi dari estimasi, angka ASR dieja, skor rendah ditolak", () => {
+  const tok = ["halo", "semua", "selamat", "datang", "kita", "mulai"].map((teks) => ({ teks, tp: "" }));
+  tok[5].tp = "titik";
+  const est = { kata: tok.map((t, i) => ({ ...t, mulai: i * 0.4, akhir: i * 0.4 + 0.3 })) };
+  const asr = (daftar) => kataDariWhisper(jsonWhisper(daftar)).kata;
+  // semua berpasangan: stempel = ASR
+  let h = selarasWhisper(tok, asr([["halo", 0.1], ["semua", 0.7], ["selamat", 1.2], ["datang", 1.5], ["kita", 2.4], ["mulai", 2.9]]), est, { durasi: 10 });
+  tegas(h.ok && h.interpolasi === 0 && h.eksak === 6 && h.skor === 1, `semua cocok: ${JSON.stringify({ ...h, kata: null })}`);
+  samaDengan(h.kata.map((k) => Math.round(k.mulai * 100) / 100), [0.1, 0.7, 1.2, 1.5, 2.4, 2.9], "stempel dari ASR setelah koreksi");
+  tegas(h.kata.every((k, i) => k.akhir >= k.mulai && (i === 0 || k.mulai >= h.kata[i - 1].mulai) && (i === 5 || k.akhir <= h.kata[i + 1].mulai + 1e-9)), "monoton, akhir tidak melewati awal berikutnya");
+  // "selamat" tak dikenali ASR: diinterpolasi di antara "semua" dan "datang"
+  h = selarasWhisper(tok, asr([["halo", 0.1], ["semua", 0.7], ["datang", 1.9], ["kita", 2.4], ["mulai", 2.9]]), est, { durasi: 10 });
+  tegas(h.ok && h.interpolasi === 1 && h.cocok === 5, `satu interpolasi: ${JSON.stringify({ ...h, kata: null })}`);
+  tegas(h.kata[2].mulai > h.kata[1].mulai && h.kata[2].mulai < h.kata[3].mulai, "kata interpolasi berada di antara jangkarnya");
+  // angka ASR dieja ("20" -> dua puluh)
+  const tok2 = ["selama", "dua", "puluh", "detik"].map((teks) => ({ teks, tp: "" }));
+  const est2 = { kata: tok2.map((t, i) => ({ ...t, mulai: i * 0.4, akhir: i * 0.4 + 0.3 })) };
+  h = selarasWhisper(tok2, [{ teks: "selama", tampil: "selama", mulai: 0.3 }, { teks: "20", tampil: "20", mulai: 0.8 }, { teks: "detik", tampil: "detik", mulai: 1.6 }], est2, { koreksi: 0, durasi: 10 });
+  tegas(h.ok && h.eksak === 4, `angka dieja: ${JSON.stringify({ ...h, kata: null })}`);
+  tegas(h.kata[1].mulai === 0.8 && h.kata[2].mulai > 0.8 && h.kata[2].mulai < 1.6, "kata hasil eja berbagi rentang angka");
+  // skor rendah ditolak; ASR kosong ditolak; presisi token tidak dikoreksi
+  h = selarasWhisper(tok, asr([["meja", 0.1], ["kursi", 0.7], ["lemari", 1.2]]), est, { durasi: 10 });
+  tegas(!h.ok && h.kata === null && h.alasan.includes("skor penyelarasan") && h.skor < AMBANG_SKOR_BAWAAN, `skor rendah: ${JSON.stringify(h)}`);
+  tegas(!selarasWhisper(tok, [], est).ok, "ASR kosong ditolak");
+  h = selarasWhisper(tok, asr([["halo", 0.1], ["semua", 0.7], ["selamat", 1.2], ["datang", 1.5], ["kita", 2.4], ["mulai", 2.9]]), est, { durasi: 10, presisi: "token", koreksi: 0.23 });
+  dekat(h.kata[0].mulai, 0.1 + KOREKSI_DTW_BAWAAN, 0.011, "presisi token: koreksi tidak dikurangkan");
+});
+
+tes("ASR: tanpa whisper.cpp, --selaras whisper dan transkripsi gagal dengan pesan jelas (kode 1, tanpa keluaran); argumen salah kode 2", async () => {
+  wavAsr();
+  const naskah = tulisNaskah2("n-tanpa.json", naskahAsr());
+  const kosong = j("asr", "path-kosong");
+  mkdirSync(kosong, { recursive: true });
+  const env = { PATH: kosong };
+  const r = await jalankanEnv([process.execPath, narasiMjs, naskah, "--selaras", "whisper", "--out", j("asr", "o-tanpa")], env);
+  samaDengan(r.kode, 1, `selaras tanpa whisper (${r.err})`);
+  for (const potongan of ["ASR whisper.cpp belum terpasang", "AWVD_WHISPER_BIN", "AWVD_WHISPER_MODEL"]) memuat(r.err, potongan, "pesan selaras");
+  tegas(!existsSync(j("asr", "o-tanpa", "kata.json")), "tidak ada keluaran bila ASR hilang");
+  const t = await jalankanEnv([process.execPath, narasiMjs, "transkripsi", j("asr", "narasi.wav"), "--out", j("asr", "t-tanpa")], env);
+  samaDengan(t.kode, 1, `transkripsi tanpa whisper (${t.err})`);
+  memuat(t.err, "ASR whisper.cpp belum terpasang", "pesan transkripsi");
+  tegas(!existsSync(j("asr", "t-tanpa")), "transkripsi tidak menulis folder keluaran");
+  let k = await jalankanEnv([process.execPath, narasiMjs, naskah, "--selaras", "kata"], env);
+  samaDengan(k.kode, 2, "--selaras tak dikenal");
+  k = await jalankanEnv([process.execPath, narasiMjs, "transkripsi", j("asr", "tidak-ada.wav")], env);
+  samaDengan(k.kode, 2, "audio tidak ada");
+  k = await jalankanEnv([process.execPath, narasiMjs, "transkripsi", j("asr", "narasi.wav"), "--koreksi-asr", "9"], env);
+  samaDengan(k.kode, 2, "koreksi di luar rentang");
+});
+const tulisNaskah2 = (nama, o) => { mkdirSync(dirAsr, { recursive: true }); writeFileSync(j("asr", nama), JSON.stringify(o)); return j("asr", nama); };
+
+tes("ASR: --selaras whisper memakai stempel ASR (kata.json), sorot-kata di rencanaCaption mengikutinya; cache, internal diizinkan, laporan.asr", async () => {
+  siapkanAsr();
+  wavAsr();
+  const asrJson = tulisJsonAsr("asr-ok.json", jsonWhisper(KATA_ASR));
+  const naskah = tulisNaskah2("n-ok.json", naskahAsr({ klasifikasi: "internal", caption: { mode: "sorot-kata" } }));
+  const sebelum = hitungAsr();
+  const r = await jalankanEnv([process.execPath, narasiMjs, naskah, "--selaras", "whisper", "--out", j("asr", "o-ok"), "--cache-asr", j("asr", "cache")], envAsr(asrJson));
+  samaDengan(r.kode, 0, `selaras whisper (${r.err}${r.out})`);
+  samaDengan(hitungAsr(), sebelum + 1, "whisper dipanggil sekali (satu segmen)");
+  const panggilan = readFileSync(logAsr, "utf8").trim().split("\n").at(-1);
+  for (const potongan of ["-ojf", "-l id", "-dtw small", "-nfa", `-m ${modelAsr}`]) memuat(panggilan, potongan, "argumen whisper");
+  const kata = bacaJson(j("asr", "o-ok", "kata.json"));
+  samaDengan(kata.sumber, "whisper", "sumber waktu kata.json");
+  samaDengan(kata.kata.length, KATA_ASR.length, "jumlah kata");
+  // stempel = ASR (detik) + jedaAwal 0,3; bukan estimasi
+  KATA_ASR.forEach(([, t], i) => dekat(kata.kata[i].mulai, 0.3 + t, 0.002, `mulai kata ${i} dari ASR`));
+  const est = await buatNarasi(validasiNaskah(naskahAsr(), dirAsr).naskah, { dirKeluaran: j("asr", "o-est") });
+  samaDengan(est.kata.sumber, "estimasi", "tanpa --selaras tetap estimasi");
+  const beda = est.kata.kata.filter((k, i) => Math.abs(k.mulai - kata.kata[i].mulai) > 0.1).length;
+  tegas(beda >= 3, `stempel ASR berbeda dari estimasi pada beberapa kata (${beda})`);
+  const lap = bacaJson(j("asr", "o-ok", "laporan.json"));
+  samaDengan([lap.asr.mesin, lap.asr.lokal, lap.asr.daring, lap.asr.dtw, lap.asr.koreksiDtw], ["whisper.cpp", true, false, "small", KOREKSI_DTW_BAWAAN], "laporan.asr");
+  samaDengan(lap.segmen[0].sumber, "whisper", "sumber segmen di laporan");
+  tegas(lap.asr.segmen[0].dipakai === true && lap.asr.segmen[0].skor === 1, `skor segmen: ${JSON.stringify(lap.asr.segmen)}`);
+  tegas(lap.peringatan.every((p) => !p.includes("whisper")), "tanpa peringatan whisper");
+  // AC: mode sorot-kata memakai timing ASR (kata.json dari whisper palsu dipakai rencanaCaption)
+  const rencana = rencanaCaption({ cues: parseVtt(readFileSync(j("asr", "o-ok", "caption.vtt"), "utf8")), kata: kata.kata, lebar: 1280, tinggi: 720, fps: 30, mode: kata.caption.mode });
+  let diuji = 0;
+  for (const c of rencana.cue) {
+    c.kata.forEach((kk, i) => {
+      const kt = kata.kata.find((x) => x.tampil === kk.teks && x.mulaiFrame === kk.mulaiFrame);
+      tegas(kt, `kata rencana ${kk.teks} berasal dari kata.json`);
+      tegas(kk.mulaiFrame === kt.mulaiFrame && kk.akhirFrame === kt.akhirFrame, "rencana memakai frame kata.json apa adanya");
+      const f = kt.mulaiFrame;
+      if (f < c.mulaiFrame || f >= c.akhirFrame) return;
+      samaDengan(c.sumberKata, "kata", "rencana memakai stempel kata nyata, bukan pembagian proporsional");
+      samaDengan(keadaanCaption(rencana, f).aktifKata, i, `sorot jatuh pada kata ${kk.teks} di frame ${f} (stempel ASR)`);
+      if (i > 0 && f - 1 >= c.mulaiFrame) samaDengan(keadaanCaption(rencana, f - 1).aktifKata, i - 1, `sebelum frame ${f} kata sebelumnya masih disorot`);
+      diuji++;
+    });
+  }
+  tegas(diuji >= 8, `cukup kata diuji pada sorot-kata (${diuji})`);
+  // kedua: dari cache; whisper tidak dipanggil dan keluaran identik
+  const r2 = await jalankanEnv([process.execPath, narasiMjs, naskah, "--selaras", "whisper", "--out", j("asr", "o-ok2"), "--cache-asr", j("asr", "cache")], envAsr(asrJson));
+  samaDengan(r2.kode, 0, `cache (${r2.err})`);
+  samaDengan(hitungAsr(), sebelum + 1, "proses kedua memakai cache ASR");
+  samaDengan(readFileSync(j("asr", "o-ok2", "kata.json"), "utf8"), readFileSync(j("asr", "o-ok", "kata.json"), "utf8"), "kata.json identik dari cache");
+  const r3 = await jalankanEnv([process.execPath, narasiMjs, naskah, "--selaras", "whisper", "--out", j("asr", "o-ok3"), "--cache-asr", j("asr", "cache"), "--asr-ulang"], envAsr(asrJson));
+  samaDengan(r3.kode, 0, "--asr-ulang");
+  samaDengan(hitungAsr(), sebelum + 2, "--asr-ulang menjalankan whisper lagi");
+});
+
+tes("ASR: skor rendah jatuh ke estimasi dengan peringatan; whisper yang gagal jalan menggagalkan dengan pesan", async () => {
+  siapkanAsr();
+  wavAsr();
+  const sampah = tulisJsonAsr("asr-sampah.json", jsonWhisper([["meja", 0.1], ["kursi", 0.9], ["lemari", 1.9], ["pintu", 2.5]]));
+  const naskah = tulisNaskah2("n-rendah.json", naskahAsr());
+  const r = await jalankanEnv([process.execPath, narasiMjs, naskah, "--selaras", "whisper", "--out", j("asr", "o-rendah"), "--cache-asr", j("asr", "cache-rendah")], envAsr(sampah));
+  samaDengan(r.kode, 0, `skor rendah tetap berhasil (${r.err})`);
+  memuat(r.err, "penyelarasan whisper tidak dipakai", "peringatan skor rendah");
+  memuat(r.err, "memakai estimasi", "peringatan menyebut estimasi");
+  samaDengan(bacaJson(j("asr", "o-rendah", "kata.json")).sumber, "estimasi", "sumber kembali ke estimasi");
+  const lap = bacaJson(j("asr", "o-rendah", "laporan.json"));
+  samaDengan(lap.asr.segmen[0].dipakai, false, "laporan mencatat segmen tidak dipakai");
+  // whisper gagal jalan
+  const g = await jalankanEnv([process.execPath, narasiMjs, naskah, "--selaras", "whisper", "--out", j("asr", "o-gagal"), "--cache-asr", j("asr", "cache-gagal")], envAsr(sampah, { STUB_GAGAL: "1" }));
+  samaDengan(g.kode, 1, "whisper gagal jalan");
+  memuat(g.err, "whisper.cpp gagal (kode 3)", "pesan whisper gagal");
+  tegas(!g.err.includes("at "), "tanpa jejak tumpukan");
+  // tanpa --selaras, flag ASR diabaikan dengan peringatan dan whisper tidak dipanggil
+  const sebelum = hitungAsr();
+  const d = await jalankanEnv([process.execPath, narasiMjs, naskah, "--whisper-model", modelAsr, "--out", j("asr", "o-diam")], envAsr(sampah));
+  samaDengan(d.kode, 0, "tanpa --selaras tetap estimasi");
+  memuat(d.err, "flag ASR diabaikan", "peringatan flag ASR");
+  samaDengan(hitungAsr(), sebelum, "whisper tidak dipanggil");
+});
+
+tes("ASR: transkripsi audio tanpa naskah menghasilkan VTT/SRT/kata.json yang ditandai wajib ditinjau, dan kata.json dapat dipakai sorot-kata", async () => {
+  siapkanAsr();
+  wavAsr();
+  const asrJson = tulisJsonAsr("asr-tr.json", jsonWhisper([...KATA_ASR.slice(0, 9), ["tenang.", 4.3, 0.3]]));
+  const r = await jalankanEnv([process.execPath, narasiMjs, "transkripsi", j("asr", "narasi.wav"), "--out", j("asr", "o-tr"), "--cache-asr", j("asr", "cache-tr")], envAsr(asrJson));
+  samaDengan(r.kode, 0, `transkripsi (${r.err})`);
+  memuat(r.err, "hasil ASR, wajib ditinjau manusia", "peringatan di CLI");
+  for (const f of ["caption.vtt", "caption.srt", "kata.json", "laporan.json", "PERLU-TINJAUAN.txt"]) tegas(existsSync(j("asr", "o-tr", f)), `berkas ${f}`);
+  const vtt = readFileSync(j("asr", "o-tr", "caption.vtt"), "utf8");
+  memuat(vtt, "NOTE\nhasil ASR, wajib ditinjau manusia", "VTT bertanda");
+  const cues = parseVtt(vtt);
+  tegas(cues.length >= 2 && cues[0].teks.startsWith("Halo semua,"), `VTT terbaca parseVtt: ${JSON.stringify(cues.slice(0, 2))}`);
+  samaDengan(parseSrt(readFileSync(j("asr", "o-tr", "caption.srt"), "utf8")).length, cues.length, "SRT dan VTT sama banyak");
+  const kata = bacaJson(j("asr", "o-tr", "kata.json"));
+  samaDengan([kata.sumber, kata.tinjauan.status, kata.tinjauan.pesan], ["whisper", "belum-ditinjau", "hasil ASR, wajib ditinjau manusia"], "kata.json bertanda");
+  samaDengan(kata.kata.length, 10, "jumlah kata");
+  dekat(kata.kata[2].mulai, 1.3, 0.002, "stempel kata dari ASR (setelah koreksi)");
+  samaDengan(kata.kata[9].keyakinan, 0.3, "keyakinan per kata");
+  tegas(kata.kata.every((k) => k.cue >= 1), "tiap kata masuk satu cue");
+  const lap = bacaJson(j("asr", "o-tr", "laporan.json"));
+  samaDengan([lap.jenis, lap.tinjauan.status, lap.asr.lokal, lap.audio.berkas], ["transkripsi", "belum-ditinjau", true, "narasi.wav"], "laporan bertanda dan lokal");
+  samaDengan(lap.ragu.map((x) => x.kata), ["tenang"], "kata berkeyakinan rendah dilaporkan");
+  memuat(readFileSync(j("asr", "o-tr", "PERLU-TINJAUAN.txt"), "utf8"), "HASIL ASR, WAJIB DITINJAU MANUSIA", "berkas catatan");
+  // sorot-kata memakai stempel ASR
+  const rencana = rencanaCaption({ cues: cues, kata: kata.kata, lebar: 1280, tinggi: 720, fps: 30, mode: "sorot-kata" });
+  const k3 = kata.kata[2];
+  const c = rencana.cue.find((x) => x.kata.some((kk) => kk.mulaiFrame === k3.mulaiFrame && kk.teks === k3.tampil));
+  tegas(c, "kata 'selamat' ada di rencana");
+  const idx = c.kata.findIndex((kk) => kk.mulaiFrame === k3.mulaiFrame && kk.teks === k3.tampil);
+  samaDengan(keadaanCaption(rencana, Math.max(c.mulaiFrame, k3.mulaiFrame)).aktifKata, idx, "sorot pada kata 'selamat' di frame stempel ASR");
+  // deterministik: dua kali jalan (cache) sama persis
+  const r2 = await jalankanEnv([process.execPath, narasiMjs, "transkripsi", j("asr", "narasi.wav"), "--out", j("asr", "o-tr2"), "--cache-asr", j("asr", "cache-tr")], envAsr(asrJson));
+  samaDengan(r2.kode, 0, "transkripsi kedua");
+  for (const f of ["caption.vtt", "caption.srt", "kata.json", "laporan.json"]) samaDengan(readFileSync(j("asr", "o-tr2", f), "utf8"), readFileSync(j("asr", "o-tr", f), "utf8"), `${f} identik antara jalan pertama dan dari cache`);
+  memuat(r2.out, "dipakai dari cache", "info cache di CLI");
+  // audio senyap dan ASR tanpa kata ditolak
+  buatWav(j("asr", "senyap.wav"), [["s", 3]]);
+  const s = await jalankanEnv([process.execPath, narasiMjs, "transkripsi", j("asr", "senyap.wav"), "--out", j("asr", "o-senyap"), "--cache-asr", j("asr", "cache-tr")], envAsr(asrJson));
+  samaDengan(s.kode, 1, "audio senyap ditolak");
+  memuat(s.err, "audio senyap", "pesan senyap");
+  const kosong = tulisJsonAsr("asr-kosong.json", jsonWhisper([]));
+  const k = await jalankanEnv([process.execPath, narasiMjs, "transkripsi", j("asr", "narasi.wav"), "--out", j("asr", "o-kosong"), "--cache-asr", j("asr", "cache-kosong")], envAsr(kosong));
+  samaDengan(k.kode, 1, "ASR tanpa kata ditolak");
+  memuat(k.err, "tidak mengenali ucapan", "pesan ASR kosong");
+  tegas(!existsSync(j("asr", "o-kosong")), "tanpa keluaran bila ASR kosong");
+});
+
+tes("ASR sungguhan (whisper.cpp): dilewati bila AWVD_WHISPER_BIN, AWVD_WHISPER_MODEL, dan AWVD_UJI_ASR_AUDIO tidak diset", async () => {
+  const bin = process.env.AWVD_WHISPER_BIN, model = process.env.AWVD_WHISPER_MODEL, audio = process.env.AWVD_UJI_ASR_AUDIO;
+  if (!bin || !model || !audio || !existsSync(bin) || !existsSync(model) || !existsSync(audio)) throw new Lewati("whisper.cpp tidak terpasang di mesin ini (opsional; set AWVD_WHISPER_BIN, AWVD_WHISPER_MODEL, dan AWVD_UJI_ASR_AUDIO=<audio ucapan> untuk menjalankannya)");
+  const r = await bun(narasiMjs, "transkripsi", audio, "--out", j("asr-nyata", "out"), "--cache-asr", j("asr-nyata", "cache"));
+  samaDengan(r.kode, 0, `transkripsi sungguhan (${r.err})`);
+  const kata = bacaJson(j("asr-nyata", "out", "kata.json"));
+  tegas(kata.kata.length > 0 && kata.tinjauan.status === "belum-ditinjau", "kata dan tanda tinjauan");
+  tegas(kata.kata.every((k, i) => i === 0 || k.mulaiFrame >= kata.kata[i - 1].mulaiFrame), "stempel monoton");
+  const r2 = await bun(narasiMjs, "transkripsi", audio, "--out", j("asr-nyata", "out2"), "--cache-asr", j("asr-nyata", "cache"), "--asr-ulang");
+  samaDengan(r2.kode, 0, "proses ulang");
+  samaDengan(readFileSync(j("asr-nyata", "out2", "kata.json"), "utf8"), readFileSync(j("asr-nyata", "out", "kata.json"), "utf8"), "keluaran whisper.cpp deterministik antar-jalan");
 });
 
 // ------------------------------------------------------------------ jalankan
