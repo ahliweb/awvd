@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: flag render.mjs, kode keluar, encode BT.709, normalisasi kenyaringan, dan daftar perintah bun run lain.`
+- Changeset: `Daftar perintah lain memuat bun run pelajari dan bun run kutipan, dan flag klip --draf; render.mjs tidak berubah.`
 
 Referensi CLI `scripts/render.mjs` (`bun run render`). Alur di balik perintah ini ada di [arsitektur.md](arsitektur.md).
 
@@ -47,12 +47,18 @@ Kode keluar `0` bila berhasil, `2` untuk argumen tidak valid, `1` untuk galat sa
 | --- | --- | --- |
 | `bun run periksa <video.mp4>` | Pemeriksaan mutu pasca-render | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) |
 | `bun run sop <sop.json> --out DIR` | SOP menjadi dokumen cetak dan bahan video | [sop.md](sop.md) |
-| `bun run klip <sumber.json> --fps N` | Validasi sumber dan ekstraksi frame klip | [video-tertanam-audio.md](video-tertanam-audio.md) |
+| `bun run klip <sumber.json> --fps N [--draf]` | Validasi sumber (termasuk kebijakan kutipan dan gerbang GH) dan ekstraksi frame klip | [video-tertanam-audio.md](video-tertanam-audio.md) |
 | `bun run audio <rencana.json> --fps N --out F` | Perakit timeline audio | [video-tertanam-audio.md](video-tertanam-audio.md) |
+| `bun run pelajari <video-lokal> --sumber-sah CARA` | Statistik gaya dari video lokal yang sah dimiliki (ritme potongan, palet, kenyaringan, pola); laporan JSON/Markdown | [pelajari-reaction.md](pelajari-reaction.md) |
+| `bun run kutipan -- periksa\|hash <sumber.json>` | Periksa kebijakan kutipan wajar; hitung hash gerbang hukum GH | [pelajari-reaction.md](pelajari-reaction.md#bun-run-kutipan) |
 | `bun run konsep -- <subperintah>` | Konsep video: jenis, alur, brief, persetujuan | [konsep-jenis-alur.md](konsep-jenis-alur.md) |
 | `bun run uji` | Seluruh uji otomatis | [README](../README.md#perintah-utama) |
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Tabel Perintah lain: `bun run pelajari`, `bun run kutipan`, dan flag `--draf` pada `bun run klip`.
 
 ### 2026-11-07 - v1.0.0
 

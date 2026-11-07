@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: batasan renderer (kinerja, platform, format keluaran, SDR, kenyaringan); ditambah penunjuk ke batasan fitur lain.`
+- Changeset: `Tabel Batasan di dokumen lain memuat batasan pelajari dan kebijakan kutipan wajar.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -26,8 +26,13 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | Pemeriksaan mutu | [pemeriksaan-mutu.md](pemeriksaan-mutu.md#batasan) |
 | Kilatan fotosensitif | [pemeriksaan-mutu.md](pemeriksaan-mutu.md#kilatan-fotosensitif) |
 | SOP | [sop.md](sop.md#keputusan-desain-bukan-aturan-regulasi) |
+| Mempelajari gaya video dan kutipan wajar | [pelajari-reaction.md](pelajari-reaction.md#batasan) |
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Tabel Batasan di dokumen lain: pelajari dan kebijakan kutipan wajar.
 
 ### 2026-11-07 - v1.0.0
 

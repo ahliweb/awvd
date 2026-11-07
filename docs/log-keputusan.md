@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Log keputusan baseline KP-001 sampai KP-018, dirangkum dari CHANGELOG.md, AGENTS.md, dan dokumen awvd, dengan rujukan nomor PR GitHub awvd (#1 sampai #12).`
+- Changeset: `Menambahkan KP-029 sampai KP-031: angka kebijakan kutipan wajar yang disetujui pemilik 2026-11-07, larangan pengunduh platform dan pemintas DRM, dan gerbang hukum GH berhash dengan tanda draf.`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -17,6 +17,9 @@ flowchart TD
     KP13[KP-013 audio pemegang suara] -->|narasi beku<br/>jadi masukan| KP14[KP-014 narasi WAV beku]
     KP6[KP-006 awvd hanya upstream] -->|versi dikunci| KP7[KP-007 kunci SHA]
     KP6 -->|SOP nyata di<br/>repo proyek| KP10[KP-010 SOP format PermenPAN-RB]
+    KP11 -->|sumber KUTIPAN-WAJAR<br/>bukan lisensi| KP29[KP-029 angka kutipan wajar]
+    KP30[KP-030 tanpa pengunduh<br/>platform] -->|hanya berkas sah| KP29
+    KP29 -->|belum disetujui<br/>= ditolak atau draf| KP31[KP-031 gerbang hukum GH]
     KP15[KP-015 preset bertingkat bukti] -->|konflik lint caption| KP16[KP-016 preset sosial 20 cps]
 ```
 
@@ -40,8 +43,15 @@ flowchart TD
 | KP-016 | Preset `sosial` memakai batas 20 cps (batas dewasa Netflix), bukan angka TikTok "5-10 kata per detik"; teks hook TikTok diperlakukan sebagai judul pendek, bukan caption ucapan. | 2026-11-07 | Menunggu konfirmasi pemilik | Lint caption (Netflix Timed Text Style Guide) bertentangan dengan anjuran TikTok for Business; angka optimum bahasa Indonesia belum diverifikasi. Rumusan batas cps terbaru ada di [pedoman-produksi.md](pedoman-produksi.md). | #12 |
 | KP-017 | Dokumentasi rinci dipindah dari README ke folder `docs/`; README menjadi ringkas dan memuat indeks. Setiap dokumen di `docs/` memuat Metadata, Changelog, dan terdaftar di [README.md](README.md) (indeks docs) serta indeks README akar. | 2026-11-07 | Berlaku | README yang panjang menjadi sumber konflik merge di setiap PR; dokumen terpisah per topik mengurangi tumpang tindih perubahan dan memudahkan peta pemicu di AGENTS.md. | #13 |
 | KP-018 | Repo ini tidak memakai Release Changeset (`.changeset/`); perubahan software dicatat di `CHANGELOG.md` bagian `[Unreleased]`, versi dokumen dipisah dari versi software, dan rilis bertag belum ada (keputusan di tangan pemilik). | 2026-11-07 | Berlaku | awvd adalah alat CLI internal tanpa deployment; Document Changeset, Release Changeset, dan Changelog adalah tiga hal berbeda dan tidak dicampur. | #2, #3 |
+| KP-029 | Kebijakan kutipan wajar untuk video reaction dan ulasan memakai angka bawaan: tiap klip kutipan maksimum 15 detik; total kutipan per sumber maksimum 45 detik atau 15% durasi sumber (yang lebih kecil); total kutipan maksimum 25% durasi video baru; komentar atau narasi asli aktif minimum 90% dari durasi kutipan; audio musik sumber dibisukan secara bawaan (musik dibahas maksimum 10 detik). Proyek boleh memperketat dan tidak boleh melonggarkan tanpa catatan izin tertulis. Diperiksa `klip.mjs` dan `audio.mjs` sebelum ekstraksi dan Chromium. | 2026-11-07 | Berlaku | Disetujui pemilik 2026-11-07. Hukum tidak menetapkan angka (UU 28/2014 Pasal 44, 17 U.S.C. §107, Konvensi Bern Pasal 10 hanya menyebut tujuan dan kewajaran), jadi angka adalah pagar konservatif yang dapat diperiksa mesin; ia bukan jaminan bahwa kutipan sah dan bukan nasihat hukum. Komentar yang menyasar karya dan dominan menjadi inti penimbangan putusan acuan. | PR ini |
+| KP-030 | awvd tidak menyediakan pengunduh dari platform mana pun, perekam layar atau penangkap stream, pemintas DRM, penghapus watermark, pengelak pencocokan otomatis, atau alat yang menyalin naskah, karakter, atau musik. Bahan hanya berkas lokal yang sah dimiliki dan dicatat di `sumber.json`; `bun run pelajari` hanya menghasilkan angka agregat dari berkas lokal dan menolak `--sumber-sah` `unduh-platform`, `rekam-layar-platform`, `rip-stream`, dan URL. | 2026-11-07 | Berlaku | Ketentuan layanan platform umumnya melarang pengunduhan dan akses otomatis di luar fitur resmi, dan UU 28/2014 Pasal 52 dan Pasal 7 ayat 3 melarang pemintasan sarana kontrol teknologi dan penghapusan informasi manajemen hak cipta. awvd tidak dapat memverifikasi asal berkas, sehingga hanya mencatat pernyataan pengguna dan menolak nilai yang jelas melanggar; ada uji yang menjaga agar tidak ada pengunduh di `scripts/`. | PR ini |
+| KP-031 | Gerbang tinjauan hukum `GH` berada di manifest (`proyek.gerbangHukum` dengan status, peninjau, tanggal, memo, dan hash SHA-256 gabungan manifest dan memo), bukan di `data/alur-produksi.json`. Sumber `KUTIPAN-WAJAR` tanpa GH disetujui ditolak sebelum render final (kode keluar 2) atau diberi tanda draf dengan `klip.mjs --draf` (`props.draf`, pita DRAF di komposisi). Perubahan manifest atau memo membatalkan persetujuan. | 2026-11-07 | Berlaku | Gerbang harus bekerja untuk repo proyek yang tidak memakai alur produksi konsep, dan penegakannya harus terjadi sebelum Chromium tanpa mengubah `render.mjs`. Hash mengikat persetujuan pada isi yang ditinjau. GH hanya mencatat bahwa peninjauan terjadi; ia tidak menilai isi memo. | PR ini |
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Menambahkan KP-029 (angka kebijakan kutipan wajar, disetujui pemilik 2026-11-07), KP-030 (tanpa pengunduh platform dan pemintas DRM), dan KP-031 (gerbang hukum GH berhash dengan tanda draf).
 
 ### 2026-11-07 - v1.0.0
 

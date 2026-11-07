@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: klip tertanam (aturan lisensi sumber, manifest sumber.json, klip.mjs, cache, warna, templat) dan timeline audio (audio.mjs: bergantian, campur, bisu; narasi dan TTS).`
+- Changeset: `Menambahkan lisensi KUTIPAN-WAJAR di tabel aturan sumber, flag --draf, kunci kutipan dan draf di klip-props.json, serta aturan audio musik sumber kutipan (wajib bisu) di audio.mjs; rinciannya di pelajari-reaction.md.`
 
-Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md).
+Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md).
 
 ## Video di dalam video
 
@@ -35,6 +35,7 @@ Hanya sumber yang lisensinya mengizinkan penggunaan dengan menyebut sumber. Vali
 | `CC-BY-NC-x.y`, `CC-BY-NC-SA-x.y` | Hanya bila `proyek.tujuan` adalah `nonkomersial` (NC-SA juga butuh `lisensiKeluaran` `CC-BY-NC-SA-x.y`). Campuran BY-SA dan BY-NC-SA ditolak (tak ada satu lisensi keluaran yang memenuhi keduanya). |
 | `CC0-1.0`, `PDM-1.0` | Diizinkan; atribusi tetap dicatat. |
 | `STOK:<penyedia>` | Diizinkan bila `bukti` (berkas atau URL lisensi tertulis dari penyedia) diisi. |
+| `KUTIPAN-WAJAR` | Bukan lisensi, melainkan klaim pengecualian hak cipta (kritik, ulasan, pendidikan, penelitian, berita aktual). Wajib blok `kutipan` di sumber, lolos kebijakan kutipan (batas durasi, proporsi, komentar aktif), dan gerbang hukum `GH` disetujui; tanpa GH render final ditolak (atau bertanda draf dengan `--draf`). Rincian: [pelajari-reaction.md](pelajari-reaction.md#kebijakan-kutipan-wajar). |
 | `...-ND-...` | Selalu ditolak: ND tidak mengizinkan adaptasi, dan frame klip dibuat ulang (di-resample, dipotong, ditimpa elemen komposisi). |
 | kosong atau tak dikenal | Ditolak. |
 
@@ -72,7 +73,7 @@ Jalur `berkas` dan `bukti` relatif terhadap folder manifest. Contoh lengkap: [`t
 ### `scripts/klip.mjs`
 
 ```text
-bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung props.json] [--paksa]
+bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung props.json] [--paksa] [--draf]
 ```
 
 | Flag | Keterangan |
@@ -81,8 +82,9 @@ bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung pr
 | `--out DIR` | Folder cache dan keluaran (bawaan `.cache/awvd/klip`, diabaikan git). |
 | `--gabung F` | Berkas props dasar (objek JSON tanpa kunci `klip`); hasil digabung dengan daftar klip ke `props-gabungan.json` untuk `--props-file`. |
 | `--paksa` | Ekstrak ulang walau cache ada. |
+| `--draf` | Hanya untuk sumber `KUTIPAN-WAJAR` yang gerbang hukum GH-nya belum disetujui: lolos dengan peringatan, `klip-props.json` dan `props-gabungan.json` memuat `"draf": true`, dan `atribusi.txt` diberi baris DRAF. Komposisi wajib menampilkan tanda draf; hasilnya tidak boleh dipublikasikan. Pelanggaran angka kutipan tidak dapat dilewati dengan flag ini. |
 
-Keluaran di `--out`: `<kunci>/` (frame `000000.jpg`..., `audio.wav` bila sumber beraudio, `meta.json` berisi hash seluruh frame), `klip-props.json` (daftar `klip[]`: `id`, `akar` URL `file://` folder cache, `folder`, `ekstensi`, `digit`, `jumlah`, `fps`, `lebar`, `tinggi`, `audio`, `atribusi`), `atribusi.txt` (format TASL siap tempel di deskripsi), dan `props-gabungan.json` bila `--gabung`. Kode keluar: `0` berhasil, `2` manifest atau argumen tidak valid (tidak ada ekstraksi), `1` galat ffmpeg.
+Keluaran di `--out`: `<kunci>/` (frame `000000.jpg`..., `audio.wav` bila sumber beraudio, `meta.json` berisi hash seluruh frame), `klip-props.json` (daftar `klip[]`: `id`, `akar` URL `file://` folder cache, `folder`, `ekstensi`, `digit`, `jumlah`, `fps`, `lebar`, `tinggi`, `audio`, `atribusi`), `atribusi.txt` (format TASL siap tempel di deskripsi), dan `props-gabungan.json` bila `--gabung`. Untuk sumber dalam cakupan kebijakan kutipan, tiap klip di `klip-props.json` memuat `kutipan: { isiAudio, musikDibahas }` (dipakai `audio.mjs`). Kode keluar: `0` berhasil, `2` manifest atau argumen tidak valid (tidak ada ekstraksi), `1` galat ffmpeg.
 
 **Cache.** Kunci = sha256 dari {hash berkas sumber, fps, lebar, tinggi, dari, panjang, matriks warna, rentang, format, kualitas, versi ffmpeg}. Cache hit tidak menjalankan ffmpeg. Ekstraksi dua kali menghasilkan frame identik byte demi byte (diuji lewat `framesSha256`). Cache tidak dibersihkan otomatis; hapus `.cache/awvd/klip` bila perlu. Ekstraksi memakai `-flags +bitexact` agar JPEG tidak memuat tag versi ffmpeg.
 
@@ -189,6 +191,8 @@ Jalur berkas relatif terhadap folder rencana. Rentang frame setengah terbuka: `a
 | `campur` | Semua terdengar. Audio induk (narasi dan musik) tetap dominan pada level normal; audio klip diturunkan `turunDb` selama narasi aktif. Narasi yang tumpang tindih memberi peringatan (dua aliran ucapan); `--ketat-campur` menjadikannya gagal. |
 | `bisu` | Audio klip tidak dimasukkan; boleh tumpang tindih dengan apa pun. |
 
+Klip dari sumber kutipan (`klip-props.json` memuat `kutipan`) punya aturan tambahan: audio bermusik (`isiAudio` `musik`, bawaan) wajib mode `bisu`, kecuali `musikDibahas` `true` dengan rentang paling lama 10 detik; audio ucapan memakai mode bergantian atau campur seperti biasa. Aturan ini hanya berlaku bila `audio.mjs` diberi `--klip-props`. Lihat [pelajari-reaction.md](pelajari-reaction.md#audio).
+
 Gagal juga bila: dua klip bersuara (bergantian atau campur) tumpang tindih; dua narasi tumpang tindih; `turunDb` di luar 8..20 atau `fadeMs` di luar 100..300; klip bermode bersuara tanpa berkas audio (gunakan `bisu`); berkas tidak ditemukan; rentang tidak valid. Contoh pesan: `narasi "n1" (frame 0..179) tumpang tindih audio klip "k" mode bergantian (frame 150..239) pada frame 150..179`. Setelah validasi, `audio.mjs` mencetak tabel pemegang suara per rentang frame (narasi, klip, campur, musik bebas, senyap).
 
 ### Gain dan perakitan
@@ -207,6 +211,10 @@ Dasar dan batas bukti. Ucapan simultan saling mengganggu (Salamé & Baddeley 198
 awvd tidak membundel mesin TTS. Antarmuka narasi adalah **berkas WAV beku**: hasil rekaman atau TTS dibekukan sebagai berkas, dihash, dicatat (mesin, versi, model, lisensi) di repo proyek, dan hanya berkas itu yang dipakai saat render (TTS saraf bisa tidak deterministik antar-run). Per 2026-11-07 riset tidak menemukan model TTS bahasa Indonesia berlisensi permisif dengan asal data yang jelas: Piper MIT sudah diarsipkan dan penerusnya GPL-3.0; suara `id_ID-news_tts-medium` berlisensi MIT tetapi asal data pelatihannya tidak jelas; MMS-TTS berlisensi CC BY-NC. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Lisensi `KUTIPAN-WAJAR`, flag `klip.mjs --draf`, kunci `kutipan` dan `draf` di `klip-props.json`, dan aturan audio musik sumber kutipan di `audio.mjs`; templat `reaction` dirujuk dari [pelajari-reaction.md](pelajari-reaction.md).
 
 ### 2026-11-07 - v1.0.0
 

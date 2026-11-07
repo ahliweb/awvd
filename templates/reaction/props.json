@@ -1,0 +1,22 @@
+{
+  "judul": "Ulasan: dua karya fiktif",
+  "subjudul": "Contoh video reaction awvd: komentar mendominasi, kutipan singkat dan beratribusi",
+  "warnaAksen": "#f59f00",
+  "jadwal": {
+    "klip": [
+      { "id": "k1", "mulai": 120, "akhir": 240, "mode": "campur" },
+      { "id": "k2", "mulai": 420, "akhir": 540, "mode": "bisu" },
+      { "id": "k3", "mulai": 780, "akhir": 870, "mode": "bergantian" }
+    ],
+    "kredit": { "mulai": 1320 }
+  },
+  "komentar": [
+    { "mulai": 0, "akhir": 3.5, "teks": "Ulasan ini membahas dua karya fiktif buatan proyek awvd. Komentar ada di layar sepanjang video, kutipan hanya sebentar." },
+    { "mulai": 4, "akhir": 8, "teks": "Kutipan pertama: kotak oranye bergerak ke kanan, lalu latar berganti dari gelap ke terang. Di sinilah satu adegan berakhir." },
+    { "mulai": 8.5, "akhir": 13, "teks": "Pergantian adegan memberi ritme. Karya pertama memakai adegan panjang, belasan detik, sehingga terasa tenang." },
+    { "mulai": 14, "akhir": 18, "teks": "Kutipan kedua dari karya lain. Audionya dibisukan: musik tidak dikutip, hanya gambarnya yang dibahas." },
+    { "mulai": 18.5, "akhir": 25.5, "teks": "Karya kedua berganti latar di tengah, dengan kotak merah yang turun perlahan. Geraknya vertikal dan lebih lambat daripada karya pertama." },
+    { "mulai": 26, "akhir": 29, "teks": "Kutipan ketiga kembali ke karya pertama. Anotasi ini menyorot kotak oranye yang berjalan ke kanan di atas latar terang.", "jenis": "anotasi" },
+    { "mulai": 29.5, "akhir": 43.5, "teks": "Kesimpulan: dua karya, dua ritme. Yang satu bergerak mendatar dengan adegan panjang, yang lain bergerak menurun dengan pergantian lebih jarang. Pembaca dianjurkan menonton karya aslinya; tautannya ada di kredit." }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "durasiFrame": 1440,
+  "narasi": [
+    { "id": "n1", "berkas": "../../.cache/awvd/reaction/narasi-1.wav", "mulai": 0 },
+    { "id": "n2", "berkas": "../../.cache/awvd/reaction/narasi-2.wav", "mulai": 120 },
+    { "id": "n3", "berkas": "../../.cache/awvd/reaction/narasi-3.wav", "mulai": 255 },
+    { "id": "n4", "berkas": "../../.cache/awvd/reaction/narasi-4.wav", "mulai": 420 },
+    { "id": "n5", "berkas": "../../.cache/awvd/reaction/narasi-5.wav", "mulai": 555 },
+    { "id": "n6", "berkas": "../../.cache/awvd/reaction/narasi-6.wav", "mulai": 885 }
+  ],
+  "musik": { "berkas": "../../.cache/awvd/reaction/musik.wav", "levelDb": -12, "bebasDb": -6 },
+  "klip": [
+    { "id": "k1", "mulai": 120, "akhir": 240, "mode": "campur", "turunDb": 12 },
+    { "id": "k2", "mulai": 420, "akhir": 540, "mode": "bisu" },
+    { "id": "k3", "mulai": 780, "akhir": 870, "mode": "bergantian" }
+  ]
+}

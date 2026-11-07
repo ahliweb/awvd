@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: lisensi MIT awvd, asal kode, pihak ketiga, dan tanggung jawab pengguna atas aset; ditambah ringkasan aturan lisensi dan aset dari AGENTS.md.`
+- Changeset: `Menambahkan bagian Video pihak ketiga dan kutipan wajar: awvd tidak menyediakan pengunduh platform, hanya berkas sah dengan manifest, KUTIPAN-WAJAR sebagai klaim pengecualian (bukan lisensi) dengan gerbang hukum GH, dan peringatan bukan nasihat hukum.`
 
 Catatan hukum di dokumen ini bukan nasihat hukum.
 
@@ -28,6 +28,12 @@ Font, musik (`--audio`), gambar, footage, klip tertanam, dan suara TTS wajib ber
 
 Syarat lisensi sumber klip tertanam (CC BY, BY-SA, BY-NC, CC0, PDM, stok) dan lisensi keluaran ada di [video-tertanam-audio.md](video-tertanam-audio.md#aturan-sumber).
 
+## Video pihak ketiga dan kutipan wajar
+
+**Peringatan hukum.** awvd tidak menyediakan dan tidak akan menyediakan pengunduh atau perekam video platform (YouTube, TikTok, Facebook, Instagram, X, dan sejenisnya). Ketentuan layanan platform umumnya melarang pengunduhan dan akses otomatis di luar fitur resmi. Fitur sumber hanya menerima berkas yang sah dimiliki: milik sendiri, izin tertulis, lisensi terbuka (CC BY, CC BY-SA, CC0), stok berlisensi, atau arsip publik, dengan manifest `sumber.json` dan atribusi otomatis.
+
+`KUTIPAN-WAJAR` (kritik, ulasan, pendidikan, penelitian, berita aktual) adalah klaim pengecualian hak cipta (UU 28/2014 Pasal 44; di yurisdiksi lain fair use atau fair dealing), **bukan lisensi**. awvd hanya memeriksa syarat terukur yang merupakan kebijakan internal (bukan batas hukum) dan mensyaratkan persetujuan peninjau hukum tercatat (gerbang `GH`). `bun run pelajari` mengekstrak statistik gaya dari berkas lokal yang sah dan tidak menyimpan frame, audio, atau teks sumber; menyalin naskah, karakter, musik, gaya grafis khas, atau merek tetap dilarang. Dokumentasi ini bukan nasihat hukum; konsultasikan ahli hukum sebelum menayangkan, terutama untuk penggunaan komersial, orang yang dapat dikenali, dan musik. Rincian: [pelajari-reaction.md](pelajari-reaction.md).
+
 ## Aturan bagi kontributor
 
 Ringkasan dari [AGENTS.md](../AGENTS.md) §Lisensi dan Aset:
@@ -38,6 +44,10 @@ Ringkasan dari [AGENTS.md](../AGENTS.md) §Lisensi dan Aset:
 - Atribusi mulberry32 di `scripts/runtime.js` dipertahankan.
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Bagian baru Video pihak ketiga dan kutipan wajar (tanpa pengunduh platform, `KUTIPAN-WAJAR` bukan lisensi, gerbang GH, bukan nasihat hukum).
 
 ### 2026-11-07 - v1.0.0
 

@@ -19,12 +19,15 @@
  *   - Fade 200 ms (100..300) di batas klip dan di setiap perubahan pemegang suara.
  *   - Tiap sumber diukur (EBU R 128, ebur128) dan disamakan ke ucapanLufs (bawaan -16)
  *     sebelum dicampur, supaya pergantian narasi-klip tidak melonjak.
+ *   - Klip dari sumber kutipan (klip-props memuat `kutipan`): audio musik wajib "bisu"
+ *     (kebijakan kutipan wajar, scripts/kutipan.mjs); ucapan boleh bergantian atau campur.
  *   - Perakitan ffmpeg deterministik: volume eval=frame, adelay, amix normalize=0.
  * Kode keluar 0 berhasil, 2 rencana/argumen tidak valid, 1 galat ffmpeg. Karya asli repo ini.
  */
 import { parseArgs } from "node:util";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, dirname, extname, isAbsolute, resolve } from "node:path";
+import { periksaAudioKutipan } from "./kutipan.mjs";
 
 export const SR = 48000;
 const MODE = ["bergantian", "campur", "bisu"];
@@ -241,6 +244,13 @@ export async function validasiRencana(r, dir, { fps, klipProps, ketatCampur = fa
       }
     }
     klip.push(e);
+  }
+
+  // kebijakan kutipan: musik sumber kutipan dibisukan (scripts/kutipan.mjs)
+  if (klipProps) {
+    const ak = periksaAudioKutipan(klip, klipProps.dok.klip, fps);
+    galat.push(...ak.galat);
+    peringatan.push(...ak.peringatan);
   }
 
   // aturan pemegang suara
