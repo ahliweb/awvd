@@ -43,12 +43,29 @@ async function framemd5(file) {
   return r.out.split("\n").filter((l) => l && !l.startsWith("#")).map((l) => l.split(",").slice(-1)[0].trim()).join("\n");
 }
 
+// kenyaringan hasil (EBU R 128, true peak) lewat ffmpeg ebur128
+async function ukurKenyaringan(file) {
+  const r = await jalankan(["ffmpeg", "-hide_banner", "-nostats", "-i", file, "-vn", "-af", "ebur128=peak=true:framelog=quiet", "-f", "null", "-"]);
+  tegas(r.kode === 0, `ebur128 gagal: ${r.err}`);
+  const ringkas = r.err.slice(r.err.lastIndexOf("Summary:"));
+  const m = ringkas.match(/I:\s+(-?[\d.]+)\s+LUFS/);
+  tegas(m, `ringkasan ebur128 tidak terbaca: ${ringkas}`);
+  return Number(m[1]);
+}
+// sinyal uji 3 s (lebih pendek dari video 6 s: sekaligus menguji apad)
+async function buatNada() {
+  const wav = join(tmp, "nada.wav");
+  const g = await jalankan(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=3", wav]);
+  tegas(g.kode === 0, `ffmpeg sine gagal: ${g.err}`);
+  return wav;
+}
+
 const uji = [];
 function daftar(nama, fn) { uji.push([nama, fn]); }
 
 const utama = join(tmp, "utama.mp4");
 
-daftar("(a) properti video: h264 1280x720 30fps 180 frame yuv420p 6 s", async () => {
+daftar("(a) properti video: h264 High 1280x720 30fps 180 frame yuv420p bt709 tv 6 s", async () => {
   const r = await renderKe([contoh, "--out", utama]);
   tegas(r.kode === 0, `render exit ${r.kode}: ${r.err}`);
   const v = video(await probe(utama));
@@ -57,6 +74,12 @@ daftar("(a) properti video: h264 1280x720 30fps 180 frame yuv420p 6 s", async ()
   tegas(v.r_frame_rate === "30/1", `fps ${v.r_frame_rate}`);
   tegas(v.nb_read_frames === "180", `frame ${v.nb_read_frames}`);
   tegas(v.pix_fmt === "yuv420p", `pix_fmt ${v.pix_fmt}`);
+  tegas(v.profile === "High", `profil ${v.profile}`);
+  tegas(
+    v.color_space === "bt709" && v.color_primaries === "bt709" && v.color_transfer === "bt709",
+    `warna ${v.color_space}/${v.color_primaries}/${v.color_transfer}`,
+  );
+  tegas(v.color_range === "tv", `rentang warna ${v.color_range}`);
   const dur = Number((await probe(utama)).format.duration);
   tegas(Math.abs(dur - 6) < 0.05, `durasi ${dur}`);
 });
@@ -89,10 +112,8 @@ daftar("(d) --dari 30 --sampai 59 -> 30 frame", async () => {
   tegas(video(await probe(f)).nb_read_frames === "30", "bukan 30 frame");
 });
 
-daftar("(e) --audio -> ada aac, durasi ~6 s", async () => {
-  const wav = join(tmp, "nada.wav");
-  const g = await jalankan(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=3", wav]);
-  tegas(g.kode === 0, `ffmpeg sine gagal: ${g.err}`);
+daftar("(e) --audio -> aac 48 kHz, durasi ~6 s, kenyaringan -16 LUFS +-1", async () => {
+  const wav = await buatNada();
   const f = join(tmp, "audio.mp4");
   const r = await renderKe([contoh, "--out", f, "--audio", wav]);
   tegas(r.kode === 0, `render exit ${r.kode}: ${r.err}`);
@@ -101,6 +122,10 @@ daftar("(e) --audio -> ada aac, durasi ~6 s", async () => {
   tegas(a && a.codec_name === "aac", "tidak ada aac");
   const dur = Number(j.format.duration);
   tegas(Math.abs(dur - 6) < 0.15, `durasi ${dur}`);
+  tegas(a.sample_rate === "48000", `sample rate ${a.sample_rate}`);
+  tegas(a.channels === 2, `kanal ${a.channels}`);
+  const lufs = await ukurKenyaringan(f);
+  tegas(Math.abs(lufs - -16) <= 1, `kenyaringan ${lufs} LUFS, target -16 +-1`);
 });
 
 daftar("(f) --subtitle .vtt -> mov_text", async () => {
@@ -128,6 +153,17 @@ daftar("(h) halaman tanpa window.video -> exit != 0", async () => {
   const r = await renderKe([html, "--out", join(tmp, "kosong.mp4")]);
   tegas(r.kode !== 0, "seharusnya gagal");
   tegas(/window\.video/.test(r.err), `pesan galat tidak menyebut window.video: ${r.err}`);
+});
+
+daftar("(i) --kenyaringan siaran -> -23 LUFS +-1; nilai tidak valid -> exit 2", async () => {
+  const wav = await buatNada();
+  const f = join(tmp, "siaran.mp4");
+  const r = await renderKe([contoh, "--out", f, "--audio", wav, "--kenyaringan", "siaran", "--sampai", "89"]);
+  tegas(r.kode === 0, `render exit ${r.kode}: ${r.err}`);
+  const lufs = await ukurKenyaringan(f);
+  tegas(Math.abs(lufs - -23) <= 1, `kenyaringan ${lufs} LUFS, target -23 +-1`);
+  const x = await renderKe([contoh, "--out", join(tmp, "salah.mp4"), "--audio", wav, "--kenyaringan", "keras"]);
+  tegas(x.kode === 2, `nilai tidak valid harus exit 2, dapat ${x.kode}`);
 });
 
 const t0 = Date.now();

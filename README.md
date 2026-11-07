@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.4.1`
+- Version: `v1.5.0`
 - Last updated: `2026-11-07`
-- Changeset: `Flag --out: folder tujuan kini dibuat otomatis bila belum ada.`
+- Changeset: `Flag --kenyaringan (normalisasi loudnorm dua-pass dan laporan kenyaringan); encode BT.709, H.264 High, GOP tertutup, AAC 48 kHz 384k.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -88,7 +88,7 @@ flowchart LR
     C --> P[Screenshot PNG<br/>per frame]
     P --> F[ffmpeg<br/>stdin pipe]
     A[Audio / subtitle<br/>opsional] --> F
-    F --> M[MP4 H.264<br/>yuv420p]
+    F --> M[MP4 H.264 High<br/>yuv420p, BT.709]
 ```
 
 Tidak ada berkas sementara per frame: PNG dialirkan langsung ke stdin ffmpeg.
@@ -168,12 +168,17 @@ bun scripts/render.mjs <komposisi.html|URL> --out hasil.mp4 [opsi]
 | `--dari N` / `--sampai M` | `0` / frame terakhir | Rentang frame (inklusif). Audio dan subtitle diselaraskan ke frame awal. |
 | `--skala X` | `1` | Faktor skala keluaran (min 0,1); layout tetap, raster dibuat ulang tajam. Dimensi ganjil dipotong 1 px ke genap. |
 | `--crf N` | `18` | Kualitas x264, `0..51`. |
-| `--audio F` | - | Trek audio, di-encode AAC 192k; yang pendek diberi senyap, yang panjang dipotong sesuai durasi video. |
+| `--audio F` | - | Trek audio, di-encode AAC-LC 48 kHz stereo 384 kbps; yang pendek diberi senyap (setelah normalisasi), yang panjang dipotong sesuai durasi video. |
+| `--kenyaringan M` | `web` | Normalisasi kenyaringan audio dengan `loudnorm` dua-pass (mode `linear`); hanya berlaku bersama `--audio`, diabaikan (dengan peringatan) tanpa `--audio`. `web`: -16 LUFS, true peak -1,5 dBTP, LRA 11. `siaran`: -23 LUFS, -1 dBTP, LRA 11 (EBU R 128; toleransi R 128 ±1 LU). `mati`: tanpa normalisasi. Nilai lain: kode keluar `2`. Pass 1 mengukur segmen audio yang sama dengan yang dipakai video (offset `--dari`, dipotong sepanjang video); audio senyap total dilewati dengan peringatan. |
 | `--subtitle F` | - | `.vtt` atau `.srt`, disematkan sebagai trek lunak `mov_text`. |
 | `--bahasa KODE` | `ind` | Kode bahasa trek subtitle. |
 | `--still N` | - | Render satu frame N sebagai PNG, bukan video. |
 | `--browser PATH` | otomatis | Jalur Chromium. Tanpa ini: `PLAYWRIGHT_BROWSERS_PATH` atau `~/.cache/ms-playwright`, lalu `google-chrome`/`chromium` sistem. |
 | `-h`, `--help` | - | Tampilkan petunjuk. |
+
+Setelah encode berhasil dan ada audio, renderer mengukur hasil akhir dan mencetak `kenyaringan: I=.. LUFS, TP=.. dBTP (target ..)`. Ini hanya laporan; kegagalan pengukuran tidak menggagalkan render.
+
+**Encode video.** Piksel PNG sRGB rentang penuh dari browser dikonversi eksplisit ke YUV 4:2:0 matriks BT.709 rentang TV (`scale=in_range=full:out_range=tv:out_color_matrix=bt709`) dan ditandai SDR BT.709 (primaries, transfer, matriks, rentang `tv`), sehingga warna sama di semua pemutar. Profil H.264 High, progresif, B-frame 2, GOP tertutup sepanjang setengah fps, `faststart`. Audio AAC-LC 48 kHz stereo 384 kbps. Parameter ini mengikuti YouTube Help "Recommended upload encoding settings" (support.google.com/youtube/answer/1722171). Target kenyaringan mengikuti EBU R 128 (-23 LUFS, true peak maks -1 dBTP) untuk siaran dan AES TD1004/TD1008 (streaming -14 sampai -20 LUFS, dipilih -16) untuk web.
 
 Kode keluar `0` bila berhasil, `2` untuk argumen tidak valid, `1` untuk galat saat render (termasuk halaman tanpa `window.video` setelah 15 detik).
 
@@ -200,6 +205,7 @@ Dua render dari komposisi dan props yang sama harus menghasilkan frame identik (
 - Hanya Linux yang diuji.
 - Elemen `<video>` di DOM tidak di-seek per frame; gunakan gambar atau `<canvas>` yang digambar dari nomor frame.
 - Keluaran hanya H.264 (MP4) dan PNG (still). Tidak ada WebM/ProRes/GIF.
+- Hanya SDR BT.709; tidak ada HDR atau ruang warna lain. Normalisasi kenyaringan memakai `loudnorm` linear; bila mode linear tidak dapat dicapai tanpa melewati batas true peak, ffmpeg beralih ke mode dinamis, dan hasil ukur bisa menyimpang dari target (periksa laporan `kenyaringan:`). Hasil dikodekan AAC setelah normalisasi, jadi true peak akhir dapat berbeda sedikit.
 - Resolusi dasar diambil dari `width`/`height` komposisi; ubah ukuran akhir dengan `--skala`.
 
 ## Struktur repo
@@ -216,7 +222,7 @@ AGENTS.md              aturan kerja AI agent (orchestrator, git, rilis, dokument
 CHANGELOG.md           riwayat perubahan software
 ```
 
-Perintah: `bun run render <komposisi> --out ...` dan `bun run uji` (delapan uji: properti video, determinisme, still, rentang, audio, subtitle, skala, galat; sekitar satu menit). `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
+Perintah: `bun run render <komposisi> --out ...` dan `bun run uji` (sembilan uji: properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran; sekitar satu setengah menit). `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
 
 ## Kontribusi dan dokumentasi
 
@@ -253,6 +259,11 @@ Belum ada rilis bertag. Versi paket `0.1.0`, dan semua perubahan dicatat di [CHA
 Font, musik (`--audio`), gambar, footage, dan suara TTS wajib berlisensi jelas dan dicatat sumbernya. Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.5.0
+
+- §Flag CLI: menambahkan `--kenyaringan web|siaran|mati` dan laporan kenyaringan; `--audio` kini AAC-LC 48 kHz 384k; catatan encode BT.709, H.264 High, GOP tertutup beserta rujukan YouTube Help, EBU R 128, dan AES.
+- §Alur render, §Batasan yang diketahui, dan §Struktur repo (sembilan uji) disesuaikan.
 
 ### 2026-11-07 - v1.4.1
 

@@ -15,12 +15,15 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/). Ve
 - Template PR `.github/pull_request_template.md` dan `templates/contoh-dasar/ASET.md`.
 - Pedoman orchestrator di AGENTS.md beserta subagent `.claude/agents/pelaksana-kompleks.md` dan `pelaksana-sederhana.md`; bagian Skill, Git dan PR, serta Rilis dan Deployment.
 - README: bagian Klasifikasi repo dan Rilis.
+- Renderer: flag `--kenyaringan <web|siaran|mati>` (bawaan `web` bila ada `--audio`): normalisasi `loudnorm` dua-pass linear, web -16 LUFS / -1,5 dBTP, siaran -23 LUFS / -1 dBTP (EBU R 128). Setelah encode, kenyaringan hasil dilaporkan (`kenyaringan: I=.. LUFS, TP=.. dBTP`). Uji (i) dan penegasan baru di (a) dan (e).
 
 ### Diubah
 
 - Dokumentasi tidak lagi menyebut nama, path, atau tautan repo pedoman internal AhliWeb yang privat.
 - Klasifikasi repo ditetapkan dan pengaturan GitHub (proteksi `main`, check wajib, merge commit saja) didokumentasikan.
 - awvd ditetapkan hanya sebagai upstream (renderer, runtime, template contoh generik, uji), bukan repo proyek video. Pemakaian di repo proyek (dependensi git terkunci SHA, struktur repo proyek, naik versi, lisensi) didokumentasikan di README §Peran repo: upstream, dengan aturan 11 di AGENTS.md dan checklist baru di template PR. Tidak ada perubahan kode.
+
+- Renderer: encode video kini mengonversi RGB ke YUV 4:2:0 BT.709 rentang TV secara eksplisit dan menandai metadata warna SDR BT.709; profil H.264 High, B-frame 2, GOP tertutup sepanjang setengah fps. Audio `--audio` kini AAC-LC 48 kHz stereo 384 kbps (sebelumnya 192k) dan dinormalisasi secara bawaan. Mengikuti YouTube Help "Recommended upload encoding settings", EBU R 128, dan AES TD1004/TD1008. Memengaruhi repo proyek: warna dan audio hasil render berubah (render ulang video yang terdampak; level audio bawaan kini -16 LUFS, gunakan `--kenyaringan mati` untuk perilaku lama).
 
 ### Diperbaiki
 
