@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.7.0`
+- Version: `v2.8.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan bun run narasi (naskah.json ke caption sinkron voice over), templat narasi-contoh, uji:narasi, dan docs/narasi-caption.md di perintah utama, indeks dokumentasi, dan struktur repo.`
+- Changeset: `Indeks dokumentasi memperbarui versi konsep-jenis-alur (v1.2.0), transisi-animasi (v1.1.0), aksesibilitas (v1.4.1), dan log-keputusan (v1.8.0); konsep dan transisi terhubung (preset transisi di brief, kurangiGerak lewat props).`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -53,7 +53,7 @@ Server statis apa pun juga bisa dipakai. Satu frame saja: `?frame=60`. Props pra
 - `bun run periksa <video.mp4>`: pemeriksaan mutu ([docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md)).
 - `bun run sop <sop.json> --out DIR`: SOP menjadi dokumen dan bahan video ([docs/sop.md](docs/sop.md)).
 - `bun run klip <sumber.json> --fps N` dan `bun run audio <rencana.json> --fps N --out ...`: video di dalam video dan timeline audio ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md)). Klip dapat diberi LUT `.cube` dan koreksi warna saat ekstraksi lewat `klip[].efek` ([docs/olah-klip.md](docs/olah-klip.md)).
-- `bun run konsep -- <subperintah>`: konsep video, pilihan jenis video dan alur produksi ([docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md)).
+- `bun run konsep -- <subperintah>`: konsep video, pilihan jenis video dan alur produksi, termasuk preset transisi di brief dan profil gerak `kurangiGerak` dari `konsep.json` lewat props ([docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md)).
 - `bun run aset tambah|impor|periksa`: aset (gambar, logo, ikon, SVG, font, audio) dengan manifest `aset.json`, validasi lisensi, pembersih SVG, dan atribusi ([docs/aset.md](docs/aset.md)); komposisi memakai aset lewat helper runtime `logo`, `ikon`, `asetGambar`, `kreditAset`, dan `pasangFont` ([docs/api-runtime.md](docs/api-runtime.md)). Render memblokir semua permintaan jaringan non-lokal (kode keluar 3; [docs/cli.md](docs/cli.md#jaringan-dan-font)).
 - Transisi dan animasi elemen: muat `scripts/transisi.js` setelah `runtime.js` (`window.Transisi`); galeri semua jenis di `templates/transisi-galeri/` ([docs/transisi-animasi.md](docs/transisi-animasi.md)).
 - `bun run pelajari <video-lokal> --sumber-sah CARA` dan `bun run kutipan -- periksa|hash <sumber.json>`: statistik gaya dari video lokal yang sah dimiliki, dan kebijakan kutipan wajar untuk video reaction ([docs/pelajari-reaction.md](docs/pelajari-reaction.md)).
@@ -67,25 +67,25 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.7.0` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.8.0` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.1.1` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.3.0` |
 | [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.3.0` |
 | [docs/aset.md](docs/aset.md) | `bun run aset`: manifest `aset.json`, matriks lisensi, SVG, resolusi, sRGB, atribusi, helper runtime | `v1.1.0` |
 | [docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md) | `bun run periksa`: pemeriksaan, ambang, kilatan | `v1.0.1` |
-| [docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md) | `bun run konsep`: 13 jenis video, 5 alur, tingkat bukti, profil audiens | `v1.1.0` |
+| [docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md) | `bun run konsep`: 13 jenis video, 5 alur, tingkat bukti, profil audiens | `v1.2.0` |
 | [docs/sop.md](docs/sop.md) | SOP sebagai dokumen cetak dan bahan video | `v1.0.0` |
 | [docs/video-tertanam-audio.md](docs/video-tertanam-audio.md) | Klip tertanam dan timeline audio | `v1.3.0` |
 | [docs/olah-klip.md](docs/olah-klip.md) | Efek klip saat ekstraksi: LUT `.cube`, warna, keseimbangan, kunci cache | `v1.0.0` |
 | [docs/pelajari-reaction.md](docs/pelajari-reaction.md) | `bun run pelajari`, kebijakan kutipan wajar, gerbang hukum GH, templat reaction | `v1.0.0` |
 | [docs/visual-audiens.md](docs/visual-audiens.md) | Profil audiens, ukuran teks, buta warna, ketajaman, efek dekoratif | `v1.0.0` |
-| [docs/transisi-animasi.md](docs/transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, `kurangiGerak`, biaya kompresi | `v1.0.1` |
-| [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.4.0` |
+| [docs/transisi-animasi.md](docs/transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, `kurangiGerak`, biaya kompresi | `v1.1.0` |
+| [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.4.1` |
 | [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.5.0` |
 | [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, tanggung jawab aset, matriks lisensi aset, video pihak ketiga | `v1.3.1` |
 | [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.1.0` |
 | [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.2.0` |
-| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.7.0` |
+| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.8.0` |
 | [docs/narasi-caption.md](docs/narasi-caption.md) | `bun run narasi`: `naskah.json`, estimasi berjangkar jeda, cue VTT/SRT dengan lint cps, rencana audio | `v1.0.0` |
 | [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.9.0` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
@@ -138,6 +138,10 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 **Peringatan hukum: video pihak ketiga.** awvd tidak menyediakan dan tidak akan menyediakan pengunduh atau perekam video platform (YouTube, TikTok, Facebook, Instagram, X, dan sejenisnya); fitur sumber hanya menerima berkas yang sah Anda miliki, dengan manifest dan atribusi. Kutipan untuk video reaction dan ulasan diperiksa terhadap kebijakan internal yang terukur dan gerbang tinjauan hukum, bukan jaminan kutipan sah. Dokumentasi ini bukan nasihat hukum; rincian di [docs/pelajari-reaction.md](docs/pelajari-reaction.md).
 
 ## Changelog
+
+### 2026-11-07 - v2.8.0
+
+- §Dokumentasi: kolom Versi indeks diperbarui (`konsep-jenis-alur.md`, `transisi-animasi.md`, `aksesibilitas.md`, `log-keputusan.md`, `docs/README.md`). Ringkasan `bun run konsep` dan transisi menyebut preset transisi di brief dan `kurangiGerak` dari konsep.
 
 ### 2026-11-07 - v2.7.0
 
