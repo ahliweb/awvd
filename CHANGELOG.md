@@ -34,6 +34,7 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/). Ve
 
 - Dependensi `playwright-core` naik 1.64.1 -> 1.65.0 (minor, dipin eksak). Bun 1.4.4 dan aksi CI sudah terbaru.
 - Dokumentasi tidak lagi menyebut nama, path, atau tautan repo pedoman internal AhliWeb yang privat.
+- Struktur dokumentasi: isi rinci README dipindah ke folder `docs/` (arsitektur, API runtime, CLI, pemeriksaan mutu, konsep, SOP, video tertanam dan audio, aksesibilitas, batasan, lisensi, pedoman produksi, log keputusan, dan indeks); README menjadi ringkasan dengan indeks dokumentasi (README v2.0.0, AGENTS.md v1.5.0). Tidak ada perubahan kode.
 - Klasifikasi repo ditetapkan dan pengaturan GitHub (proteksi `main`, check wajib, merge commit saja) didokumentasikan.
 - awvd ditetapkan hanya sebagai upstream (renderer, runtime, template contoh generik, uji), bukan repo proyek video. Pemakaian di repo proyek (dependensi git terkunci SHA, struktur repo proyek, naik versi, lisensi) didokumentasikan di README §Peran repo: upstream, dengan aturan 11 di AGENTS.md dan checklist baru di template PR. Tidak ada perubahan kode.
 
