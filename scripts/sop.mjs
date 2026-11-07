@@ -16,10 +16,10 @@
  */
 import { parseArgs } from "node:util";
 import { createRequire } from "node:module";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { cariBrowser } from "./browser.js";
 
 // ---------------------------------------------------------------- muat helper
 // runtime.js dan sop-alir.js adalah skrip browser (UMD); dimuat dengan window
@@ -922,36 +922,6 @@ ${pengesahan}
 }
 
 // ------------------------------------------------------------------------ PDF
-// Utang teknis: pencarian browser ini menduplikasi cariBrowser() di render.mjs agar
-// perilaku render.mjs tidak berubah. Bila render.mjs kelak mengekstrak fungsinya ke
-// modul bersama, ganti salinan ini.
-function cariBrowser(pilihan) {
-  if (pilihan) {
-    if (!existsSync(pilihan)) throw Object.assign(new Error(`--browser tidak ada: ${pilihan}`), { kode: 2 });
-    return pilihan;
-  }
-  const root = process.env.PLAYWRIGHT_BROWSERS_PATH || join(homedir(), ".cache", "ms-playwright");
-  const kandidat = [
-    ["chromium_headless_shell-", "chrome-headless-shell-linux64/chrome-headless-shell"],
-    ["chromium-", "chrome-linux64/chrome"],
-  ];
-  if (existsSync(root)) {
-    for (const [awalan, rel] of kandidat) {
-      const dirs = readdirSync(root)
-        .filter((d) => d.startsWith(awalan) && /^\d+$/.test(d.slice(awalan.length)))
-        .sort((a, b) => Number(b.slice(awalan.length)) - Number(a.slice(awalan.length)));
-      for (const d of dirs) {
-        const exe = join(root, d, rel);
-        if (existsSync(exe)) return exe;
-      }
-    }
-  }
-  for (const exe of ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"]) {
-    if (existsSync(exe)) return exe;
-  }
-  throw Object.assign(new Error("tidak menemukan browser Chromium; pakai --browser /path/chrome"), { kode: 2 });
-}
-
 /** Mencetak sop.html ke PDF A4 landscape. Mengembalikan daftar peringatan tata letak. */
 export async function cetakPdf(htmlPath, pdfPath, sop, pilihanBrowser) {
   const { chromium } = await import("playwright-core");

@@ -21,11 +21,11 @@
  * Karya asli repo ini.
  */
 import { parseArgs } from "node:util";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright-core";
+import { cariBrowser } from "./browser.js";
 
 const BATAS_WAKTU_VIDEO_MS = 15000;
 
@@ -130,33 +130,6 @@ function urlKomposisi(arg) {
   const p = resolve(arg);
   if (!existsSync(p)) gagal(`komposisi tidak ditemukan: ${arg}`, 2);
   return pathToFileURL(p).href;
-}
-
-function cariBrowser() {
-  if (o.browser) {
-    if (!existsSync(o.browser)) gagal(`--browser tidak ada: ${o.browser}`, 2);
-    return o.browser;
-  }
-  const root = process.env.PLAYWRIGHT_BROWSERS_PATH || join(homedir(), ".cache", "ms-playwright");
-  const kandidat = [
-    ["chromium_headless_shell-", "chrome-headless-shell-linux64/chrome-headless-shell"],
-    ["chromium-", "chrome-linux64/chrome"],
-  ];
-  if (existsSync(root)) {
-    for (const [awalan, rel] of kandidat) {
-      const dirs = readdirSync(root)
-        .filter((d) => d.startsWith(awalan) && /^\d+$/.test(d.slice(awalan.length)))
-        .sort((a, b) => Number(b.slice(awalan.length)) - Number(a.slice(awalan.length)));
-      for (const d of dirs) {
-        const exe = join(root, d, rel);
-        if (existsSync(exe)) return exe;
-      }
-    }
-  }
-  for (const exe of ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"]) {
-    if (existsSync(exe)) return exe;
-  }
-  gagal("tidak menemukan browser Chromium; pakai --browser /path/chrome", 2);
 }
 
 // ---------------------------------------------------------------------- ffmpeg
@@ -329,7 +302,12 @@ async function perkecilPng(buf, w, h) {
 // ------------------------------------------------------------------------ main
 const t0 = Date.now();
 const url = urlKomposisi(positionals[0]);
-const exe = cariBrowser();
+let exe;
+try {
+  exe = cariBrowser(o.browser);
+} catch (e) {
+  gagal(e.message, e.kode);
+}
 const browser = await chromium.launch({
   executablePath: exe,
   headless: true,
