@@ -214,7 +214,8 @@ export async function deteksiKemampuan() {
   if (r.kode !== 0) throw new Error(`ffmpeg -filters gagal (exit ${r.kode}): ${r.err.trim()}`);
   const nama = new Set();
   for (const baris of r.out.split("\n")) {
-    const m = /^\s*[.TSC]{3}\s+(\S+)\s+\S+->\S+/.exec(baris);
+    // kolom bendera berbeda antarversi (ffmpeg 6: 3 karakter "T.C"; versi baru bisa lebih panjang)
+    const m = /^\s*[A-Z.|]{2,6}\s+([A-Za-z0-9_]+)\s+\S*->\S*/.exec(baris);
     if (m) nama.add(m[1]);
   }
   return nama;
