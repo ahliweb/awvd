@@ -14,5 +14,5 @@
 - [ ] README/AGENTS.md: `Version`, `Last updated`, `Changeset`, dan entri Changelog dokumen dinaikkan
 - [ ] `CHANGELOG.md`: entri di `[Unreleased]` untuk perubahan software
 - [ ] Template baru atau berubah: `templates/<nama>/ASET.md` diperbarui
-- [ ] API/flag berubah: penyesuaian skill `video-terprogram` di pedoman internal AhliWeb dicatat
+- [ ] API/flag berubah: "skill pemakaian awvd perlu disesuaikan" ditulis di PR (tanpa menyebut lokasi internal)
 - [ ] Tidak ada klaim rilis/tag yang belum ada, data nyata, atau secret

@@ -13,3 +13,9 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/). Ve
 - Dokumentasi: README, AGENTS.md, CLAUDE.md.
 - Aturan dokumentasi di AGENTS.md §Dokumentasi: setiap perubahan konsep/fitur wajib disertai pembaruan dokumen, dengan peta pemicu dan checklist.
 - Template PR `.github/pull_request_template.md` dan `templates/contoh-dasar/ASET.md`.
+- Pedoman orchestrator di AGENTS.md beserta subagent `.claude/agents/pelaksana-kompleks.md` dan `pelaksana-sederhana.md`; bagian Skill, Git dan PR, serta Rilis dan Deployment.
+- README: bagian Klasifikasi repo dan Rilis.
+
+### Diubah
+
+- Dokumentasi tidak lagi menyebut nama, path, atau tautan repo pedoman internal AhliWeb yang privat.
