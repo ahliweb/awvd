@@ -9,7 +9,9 @@
   },
   "scripts": {
     "render": "bun scripts/render.mjs",
-    "uji": "bun scripts/uji-runtime.mjs && bun scripts/uji.mjs",
-    "uji:runtime": "bun scripts/uji-runtime.mjs"
+    "periksa": "bun scripts/periksa.mjs",
+    "uji": "bun scripts/uji-runtime.mjs && bun scripts/uji-periksa.mjs && bun scripts/uji.mjs",
+    "uji:runtime": "bun scripts/uji-runtime.mjs",
+    "uji:periksa": "bun scripts/uji-periksa.mjs"
   }
 }

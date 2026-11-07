@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.6.0`
+- Version: `v1.7.0`
 - Last updated: `2026-11-07`
-- Changeset: `Referensi API runtime: helper generik baru (areaAman, ms/durasi, preset easing, kontras WCAG, durasiBaca, pecahBaris, captionAktif/parseVtt/parseSrt, berjenjang) beserta uji unit scripts/uji-runtime.mjs.`
+- Changeset: `Bagian baru Pemeriksaan mutu (bun run periksa): alat QC pasca-render untuk encoding, kenyaringan, kilatan fotosensitif (WCAG 2.3.1), subtitle, dan durasi, beserta uji scripts/uji-periksa.mjs.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -205,6 +205,39 @@ Dua render dari komposisi dan props yang sama harus menghasilkan frame identik (
 - Jangan pakai CSS animation atau transition; runtime menyuntikkan aturan yang mematikannya.
 - Font dan gambar harus termuat sebelum frame pertama; renderer menunggu `document.fonts.ready` dan semua `<img>`, dan gagal bila ada gambar rusak.
 
+## Pemeriksaan mutu (bun run periksa)
+
+```text
+bun run periksa <video.mp4> [--subtitle F.vtt|.srt] [--kenyaringan web|siaran]
+                [--jenis penjelasan|promo] [--cps 17] [--json]
+```
+
+Alat QC pasca-render: memeriksa berkas MP4 hasil render dengan `ffprobe`/`ffmpeg` sistem (tanpa dependensi baru) dan mencetak tabel `LOLOS`/`GAGAL`/`PERINGATAN` per pemeriksaan (`INFO` dan `LEWATI` untuk yang tidak dinilai). `--json` mencetak satu objek JSON (`lolos`, `ringkasan`, `pemeriksaan[]` dengan `id`, `status`, `wajib`, `ringkas`, `rincian`, `data`) untuk CI. Kode keluar `0` bila semua pemeriksaan **wajib** lolos, `1` bila ada yang gagal, `2` untuk argumen salah (flag tidak valid, berkas tidak ada, berkas tanpa trek video atau tidak terbaca ffprobe).
+
+| Flag | Bawaan | Keterangan |
+| --- | --- | --- |
+| `--subtitle F` | - | `.vtt` atau `.srt`; mengaktifkan pemeriksaan subtitle. |
+| `--kenyaringan M` | `web` | Target kenyaringan: `web` atau `siaran`. |
+| `--jenis J` | - | `penjelasan` atau `promo`; menentukan penilaian durasi. |
+| `--cps N` | `17` | Batas karakter per detik subtitle (Netflix dewasa: 20). |
+| `--json` | mati | Cetak hasil sebagai JSON, bukan tabel. |
+
+| Pemeriksaan | Wajib | Ambang | Sumber |
+| --- | --- | --- | --- |
+| Encoding | ya | Video: H.264 profil High, `yuv420p`, `color_primaries`/`color_transfer`/`color_space` = `bt709`, `color_range` = `tv`. Kontainer: `moov` sebelum `mdat` (faststart; dibaca dari urutan kotak tingkat atas MP4). Audio (bila ada): AAC, 48000 Hz. | YouTube Help "Recommended upload encoding settings" |
+| Kenyaringan | ya bila ada audio (tanpa audio: `LEWATI`) | `web`: I = -16 LUFS +-1 LU, true peak <= -1,0 dBTP. `siaran`: I = -23 LUFS +-1 LU, true peak <= -1,0 dBTP. Diukur dengan `ebur128=peak=true`. | EBU R 128; AES TD1004/TD1008 |
+| Kilatan umum dan kilatan merah | ya | Gagal bila ada lebih dari 3 flash (lebih dari 6 transisi berlawanan) dalam jendela geser 1 detik pada area uji (lihat di bawah). | WCAG 2.2 SC 2.3.1 Three Flashes or Below Threshold |
+| Subtitle | ya bila `--subtitle` | Gagal bila baris > 42 karakter, > 2 baris per cue, cps > `--cps`, durasi cue < 5/6 detik atau > 7 detik, atau cue tumpang tindih. `PERINGATAN` bila `pecahBaris` menghasilkan pemecahan baris yang berbeda dari yang ada. Nomor cue = urutan cue yang terurai (mulai 1; cue yang tidak sah dibuang parser). | Netflix Timed Text Style Guide |
+| Durasi | tidak (hanya peringatan) | `--jenis penjelasan`: `PERINGATAN` bila > 6 menit. `promo`: hanya `INFO` (tidak ada ambang berbasis bukti). Tanpa `--jenis`: `INFO`. | Guo, Kim & Rubin (2014), keterlibatan penonton video pembelajaran |
+
+**Kilatan fotosensitif.** Video didekode `ffmpeg` pada fps aslinya, diskalakan (`scale=48:48:flags=area`, rata-rata area) ke kisi sampel 48x48, dialirkan sebagai `rgb24` mentah (tidak ada frame yang disimpan; memori konstan). Tiap sampel dilinearisasi sRGB dan dirata-ratakan per blok, lalu luminans relatif WCAG dihitung dari rata-rata RGB linear blok. Satu **flash** adalah pasangan transisi berlawanan (naik lalu turun, atau sebaliknya) dengan selisih luminans relatif >= 0,10 dan sisi lebih gelap < 0,80. Transisi dihitung per blok dengan penyaring zig-zag per frame dan jendela geser 1 detik (jumlah frame = fps); gagal bila ada blok dengan lebih dari 6 transisi dalam jendela mana pun. **Flash merah** dihitung terpisah: transisi dengan selisih `(R-G-B)*320` >= 20 yang salah satu sisinya merah jenuh (`R/(R+G+B)` >= 0,8, nilai RGB linear).
+
+Aproksimasi area uji: WCAG menguji flash yang luasnya lebih dari sekitar 0,006 steradian (persegi 341x256 piksel pada layar 1024x768, sekitar 11% luas layar). Alat ini memakai blok seluas 1/9 layar (sekitar 11%) dan menggesernya per setengah blok (jendela 5x5 yang tumpang tindih; kisi 3x3 sejajar adalah himpunan bagiannya) agar hasil tidak bergantung pada posisi flash terhadap kisi.
+
+> **Penting.** Ini penyaringan konservatif untuk menangkap kilatan yang jelas, **bukan sertifikasi** PEAT/Harding atau bukti kepatuhan WCAG. Batasannya: (1) blok dirata-ratakan, sehingga elemen kecil berkontras penuh yang berkedip (sekitar 1% layar atau lebih) sudah bisa memicu `GAGAL` meski WCAG tidak menganggapnya pelanggaran (positif palsu); (2) rata-rata area dilakukan pada nilai sRGB sebelum linearisasi, jadi luminans campuran sedikit meleset; (3) tidak memodelkan sudut pandang 10 derajat atau ukuran layar nyata; (4) dihitung dari video yang sudah dikompresi, bukan master. Untuk siaran atau kebutuhan regulasi, pakai alat uji tersertifikasi.
+
+Batasan lain: encoding hanya memeriksa trek video pertama; subtitle dinilai dari berkas `.vtt`/`.srt`, bukan trek `mov_text` di dalam MP4; waktu kilatan mengasumsikan fps konstan. Contoh waktu: video 6 detik 1280x720 selesai dalam sekitar 0,3 detik.
+
 ## Aksesibilitas
 
 - **Subtitle lunak:** `--subtitle teks.vtt` menyematkan trek `mov_text` yang bisa dinyalakan atau dimatikan pemutar.
@@ -226,7 +259,9 @@ Dua render dari komposisi dan props yang sama harus menghasilkan frame identik (
 ```text
 scripts/render.mjs     CLI renderer (Chromium + ffmpeg)
 scripts/runtime.js     runtime komposisi (defineVideo, interpolasi, helper, dst.)
+scripts/periksa.mjs    alat QC pasca-render (bun run periksa)
 scripts/uji-runtime.mjs  uji unit helper runtime (tanpa browser)
+scripts/uji-periksa.mjs  uji alat QC periksa.mjs
 scripts/uji.mjs        uji otomatis renderer (bun run uji)
 templates/<nama>/      komposisi contoh + ASET.md (catatan aset pihak ketiga)
 .github/workflows/     CI uji
@@ -236,13 +271,13 @@ AGENTS.md              aturan kerja AI agent (orchestrator, git, rilis, dokument
 CHANGELOG.md           riwayat perubahan software
 ```
 
-Perintah: `bun run render <komposisi> --out ...` dan `bun run uji` (uji unit helper runtime lewat `scripts/uji-runtime.mjs`, lalu sembilan uji renderer: properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran; sekitar satu setengah menit). `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
+Perintah: `bun run render <komposisi> --out ...`, `bun run periksa <video.mp4>` (lihat §Pemeriksaan mutu), dan `bun run uji` (uji unit helper runtime lewat `scripts/uji-runtime.mjs`, uji alat QC lewat `scripts/uji-periksa.mjs`, lalu sembilan uji renderer: properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran; sekitar satu setengah menit). `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
 
 ## Kontribusi dan dokumentasi
 
 Setiap perubahan lewat branch dan pull request (`<jenis>/<ringkas>`), dan merge hanya setelah semua check (`uji`, GitGuardian) berstatus SUCCESS. Perubahan konsep atau fitur wajib membawa pembaruan dokumen di PR yang sama. Aturan lengkapnya ada di [AGENTS.md](AGENTS.md): §Git dan PR untuk alur git, dan §Dokumentasi untuk peta "perubahan apa memperbarui dokumen mana".
 
-Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata README dan AGENTS.md) menandai revisi dokumen. Versi software ada di `package.json` dan `CHANGELOG.md`. README `v1.6.0` tidak berarti awvd `1.6.0`.
+Ada dua jenis versi yang berbeda. Versi dokumen (`Version` di blok Metadata README dan AGENTS.md) menandai revisi dokumen. Versi software ada di `package.json` dan `CHANGELOG.md`. README `v1.7.0` tidak berarti awvd `1.6.0`.
 
 ## Rilis
 
@@ -273,6 +308,11 @@ Belum ada rilis bertag. Versi paket `0.1.0`, dan semua perubahan dicatat di [CHA
 Font, musik (`--audio`), gambar, footage, dan suara TTS wajib berlisensi jelas dan dicatat sumbernya. Video yang memuat data pribadi tunduk pada UU 27/2022 tentang Pelindungan Data Pribadi (dasar pemrosesan atau persetujuan). Jangan pakai data nyata di contoh. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.7.0
+
+- Menambahkan §Pemeriksaan mutu (bun run periksa): flag, kode keluar, tabel pemeriksaan (encoding, kenyaringan, kilatan fotosensitif, subtitle, durasi) dengan ambang dan sumbernya, aproksimasi area uji kilatan, serta batasannya (penyaringan konservatif, bukan sertifikasi).
+- §Struktur repo: mencantumkan `scripts/periksa.mjs`, `scripts/uji-periksa.mjs`, dan perintah `bun run periksa`; `bun run uji` kini juga menjalankan uji alat QC.
 
 ### 2026-11-07 - v1.6.0
 
