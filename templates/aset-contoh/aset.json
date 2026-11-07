@@ -1,0 +1,50 @@
+{
+  "skema": 1,
+  "proyek": {
+    "tujuan": "nonkomersial",
+    "jenisVideo": "edukasi"
+  },
+  "aset": [
+    {
+      "id": "logo-contoh",
+      "jenis": "logo",
+      "berkas": "aset/logo-contoh.svg",
+      "sha256": "3d69cde932033b1697a11b12da6e13a87aa66177f3659a392e82f8b47fcfde96",
+      "judul": "Logo Contoh Karya",
+      "pencipta": "Proyek awvd",
+      "sumberUrl": "https://github.com/ahliweb/awvd",
+      "lisensi": "MILIK-SENDIRI",
+      "tanggalAkses": "2026-11-07",
+      "perubahan": "tidak ada (dibuat langsung sebagai SVG yang lolos sanitasi)",
+      "atribusiTampil": "tidak",
+      "teksAlternatif": "Logo Contoh Karya (fiktif)",
+      "merek": {
+        "kategori": "milik-sendiri",
+        "pemilik": "Proyek awvd",
+        "aturan": {
+          "ukuranMinPx": 96,
+          "clearSpace": { "nilai": 0.25, "satuan": "tinggi" },
+          "warnaDiizinkan": ["#0b5fa5", "#1e9bd7", "#ffffff"],
+          "larangan": ["distorsi", "rotasi", "bayangan"]
+        }
+      },
+      "izin": { "jenis": "milik-sendiri" },
+      "ai": { "status": "tidak" },
+      "tampil": { "lebar": 360, "tinggi": 120, "fit": "contain" }
+    },
+    {
+      "id": "ikon-centang",
+      "jenis": "ikon",
+      "berkas": "aset/ikon-centang.svg",
+      "sha256": "488191f6fdc943ea2feec447f0a45e88134304f5213f6be450f17239714bf339",
+      "judul": "Ikon centang",
+      "pencipta": "Proyek awvd",
+      "sumberUrl": "https://github.com/ahliweb/awvd",
+      "lisensi": "CC0-1.0",
+      "tanggalAkses": "2026-11-07",
+      "perubahan": "tidak ada",
+      "atribusiTampil": "tidak",
+      "ikon": { "keluarga": "awvd-contoh", "gaya": "outline" }
+    }
+  ]
+}

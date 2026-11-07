@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.2.0`
 - Last updated: `2026-11-07`
-- Changeset: `Mencatat atribusi angka pola Material (Apache-2.0) yang dipakai sebagai nilai di scripts/transisi.js.`
+- Changeset: `Menambahkan bagian Aset: ringkasan matriks lisensi per jenis, aturan OFL, merek dan lambang, hak potret, hasil AI, serta rujukan ke docs/aset.md; bukan nasihat hukum.`
 
 Catatan hukum di dokumen ini bukan nasihat hukum.
 
@@ -30,6 +30,24 @@ Font, musik (`--audio`), gambar, footage, klip tertanam, dan suara TTS wajib ber
 
 Syarat lisensi sumber klip tertanam (CC BY, BY-SA, BY-NC, CC0, PDM, stok) dan lisensi keluaran ada di [video-tertanam-audio.md](video-tertanam-audio.md#aturan-sumber).
 
+## Aset: matriks lisensi (ringkas)
+
+Manifest `aset.json` ([aset.md](aset.md)) mencatat sumber, lisensi, dan bukti tiap aset dan menolak lisensi di luar daftar. Ringkasan di bawah memetakan lisensi umum ke syarat yang divalidasi; ini ringkasan teknis atas teks lisensi yang dibaca pada 2026-11-07, bukan nasihat hukum, dan lisensi dapat berubah.
+
+| Sumber atau jenis | Lisensi | Syarat yang divalidasi atau dicatat |
+| --- | --- | --- |
+| Ikon permisif (Material Symbols, Lucide, Heroicons) | Apache-2.0, ISC, MIT | `hakCipta` dan `berkasLisensi` (notice ikut terdistribusi); Apache-2.0: tandai berkas yang diubah di `perubahan`; tidak memberi hak merek. |
+| Font Awesome Free | Ikon CC BY 4.0; font OFL 1.1; kode MIT | Atribusi CC BY (tampil `layar` atau `akhir`). Apakah komentar CSS memenuhi CC BY belum terverifikasi. Ikon merek = merek dagang pemiliknya. |
+| Font SIL OFL 1.1 (mayoritas Google Fonts) | OFL-1.1 | `OFL.txt` dan baris hak cipta ikut bila berkas font didistribusikan; font tidak boleh dijual sendiri; versi modifikasi tidak boleh memakai Reserved Font Name. Video keluaran adalah dokumen yang dibuat dengan font dan tidak wajib OFL. Subset atau konversi WOFF2 sebagai modifikasi belum terverifikasi. |
+| Foto stok (Pexels, Unsplash, Pixabay) | `STOK:<penyedia>` | `bukti` (tangkapan halaman lisensi dan tanggal) wajib. Larangan penyedia (menjual tanpa diubah, menyiratkan dukungan, orang teridentifikasi dalam cahaya buruk, konten bermerek) dan hak potret tidak dapat diverifikasi mesin. |
+| Wikimedia Commons | CC BY, CC BY-SA, domain publik | TASL lengkap; BY-SA memaksa `proyek.lisensiKeluaran` BY-SA kompatibel; hak merek dan privasi terpisah dari hak cipta. |
+| Musik dan efek suara | CC0, CC BY, CC BY-SA, `STOK:`, `MILIK-SENDIRI`, `IZIN-TERTULIS:` | Dua lapis hak (komposisi dan rekaman); ND ditolak; NC hanya proyek nonkomersial; YouTube Audio Library aman hanya di YouTube; Content ID dapat tetap menandai trek CC, jadi simpan bukti. |
+| Logo dan lambang | `MILIK-SENDIRI`, `IZIN-TERTULIS:` (CC0, PDM bila memang diterbitkan demikian) | Logo pihak lain, instansi, dan lambang negara = gerbang izin manusia: `izin`, `bukti`, dan (instansi, lambang) `persetujuanHukum`; tanpa rotasi, perubahan warna, atau distorsi. Wajib tinjauan hukum (UU 20/2016, UU 24/2009). |
+| Foto orang | sesuai sumber | `modelRelease` ber-hash atau `izin`; anak atau data sensitif wajib `persetujuanHukum`; hak potret (UU 28/2014 Pasal 12) dan UU 27/2022 perlu ditinjau. |
+| Hasil AI | sesuai syarat layanan AI | `ai.status`, `alat`, tautan dan tanggal syarat layanan, kontribusi manusia; hasil murni AI belum jelas dapat dilindungi hak cipta di Indonesia (belum terverifikasi primer). |
+
+Lisensi lain (GPL/AGPL, Ubuntu Font License, dan seterusnya) ditolak sampai ada keputusan pemilik, sejalan dengan aturan dependensi di bawah. Aset pihak ketiga di repo ini tidak ada; setiap aset dicatat di `templates/<nama>/ASET.md` dan `aset.json`.
+
 ## Aturan bagi kontributor
 
 Ringkasan dari [AGENTS.md](../AGENTS.md) §Lisensi dan Aset:
@@ -40,6 +58,10 @@ Ringkasan dari [AGENTS.md](../AGENTS.md) §Lisensi dan Aset:
 - Atribusi mulberry32 di `scripts/runtime.js` dipertahankan.
 
 ## Changelog
+
+### 2026-11-07 - v1.2.0
+
+- Menambahkan bagian Aset: matriks lisensi (ringkas) dengan rujukan ke [aset.md](aset.md).
 
 ### 2026-11-07 - v1.1.0
 

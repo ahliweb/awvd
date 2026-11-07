@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Contoh aset awvd</title>
+<meta name="viewport" content="width=1280">
+<style>
+  html, body { margin: 0; background: #0f172a; }
+  #layar {
+    position: relative; width: 1280px; height: 720px; overflow: hidden;
+    font-family: system-ui, "Segoe UI", Roboto, "DejaVu Sans", sans-serif;
+    color: #f8fafc; background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+  }
+  /* logo di atas panel terang agar kontras warna logo terjaga */
+  #panel { position: absolute; left: 96px; top: 120px; width: 440px; height: 180px; border-radius: 24px; background: #ffffff; display: flex; align-items: center; justify-content: center; }
+  #logo { width: 360px; height: 120px; object-fit: contain; }
+  #judul { position: absolute; left: 96px; top: 360px; margin: 0; font-size: 64px; font-weight: 800; max-width: 1088px; }
+  #baris { position: absolute; left: 96px; top: 470px; display: flex; align-items: center; gap: 20px; font-size: 32px; color: #cbd5e1; }
+  #ikon { width: 48px; height: 48px; filter: brightness(0) invert(1); }
+</style>
+</head>
+<body>
+<div id="layar">
+  <div id="panel"><img id="logo" src="aset/logo-contoh.svg" alt="Logo Contoh Karya (fiktif)"></div>
+  <h1 id="judul"></h1>
+  <div id="baris"><img id="ikon" src="aset/ikon-centang.svg" alt=""><span id="teks"></span></div>
+</div>
+<script src="../../scripts/runtime.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  defineVideo({
+    width: 1280, height: 720, fps: 30, durationInFrames: 60,
+    render(frame, ctx) {
+      const p = Object.assign({ judul: "Aset lokal yang tercatat", teks: "Logo dan ikon dimuat dari berkas lokal" }, ctx.props);
+      const masuk = interpolasi(frame, [0, 15], [0, 1], { easing: easing.keluarCubic });
+      $("judul").textContent = p.judul;
+      $("teks").textContent = p.teks;
+      $("panel").style.opacity = String(masuk);
+      $("judul").style.opacity = String(masuk);
+      $("baris").style.opacity = String(masuk);
+      $("judul").style.transform = "translateY(" + ((1 - masuk) * 40) + "px)";
+    },
+  });
+</script>
+</body>
+</html>
