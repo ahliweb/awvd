@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.4.0`
+- Version: `v1.5.0`
 - Last updated: `2026-11-07`
-- Changeset: `Paritas: chroma key dan stabilisasi klip berstatus ada (F3/02 dan F3/03 selesai).`
+- Changeset: `Paritas: caption sinkron voice over tetap sebagian, kini dengan mode dan posisi tampil caption (F1/06B selesai); adaptor TTS (F1/06C) belum.`
 
 ## Visi
 
@@ -78,7 +78,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Video di dalam video | ada ([video-tertanam-audio.md](video-tertanam-audio.md)) | — |
 | Reaction dan kutipan wajar | ada ([pelajari-reaction.md](pelajari-reaction.md)) | F1/05 (selesai) |
 | Pemeriksa visual dan profil audiens | ada ([visual-audiens.md](visual-audiens.md)) | F1/01 (selesai) |
-| Caption sinkron voice over | sebagian: naskah, estimasi timing, cue VTT/SRT dan rencana audio ada ([narasi-caption.md](narasi-caption.md)), mode tampil caption belum | F1/06A (selesai), F1/06B |
+| Caption sinkron voice over | sebagian: naskah, estimasi timing, cue VTT/SRT, rencana audio, serta mode dan posisi tampil caption ada ([narasi-caption.md](narasi-caption.md)); adaptor TTS belum | F1/06A (selesai), F1/06B (selesai), F1/06C |
 | Text-to-speech | belum (adaptor opsional diputuskan) | F1/06C |
 | Ducking, fade, kenyaringan | ada | — |
 | QC kenyaringan, kilatan, subtitle | ada ([pemeriksaan-mutu.md](pemeriksaan-mutu.md)) | — |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-07 - v1.5.0
+
+- Tabel paritas: caption sinkron voice over memuat mode dan posisi tampil caption (F1/06B selesai).
 
 ### 2026-11-07 - v1.4.0
 

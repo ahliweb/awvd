@@ -1,12 +1,12 @@
 {
   "versi": 1,
-  "catatan": "Naskah contoh generik berdata fiktif. WAV narasi dibuat buat-audio.mjs (nada sinus bergerak seperti ucapan, bukan suara orang atau TTS); lihat ASET.md dan docs/narasi-caption.md.",
+  "catatan": "Naskah contoh generik berdata fiktif. Adegan a2 menandai zonaCaption bawah (grafis di komposisi) dan jangkarPenutur (titik pusat caption dekat penutur, piksel pada 1280x720). WAV narasi dibuat buat-audio.mjs (nada sinus bergerak seperti ucapan, bukan suara orang atau TTS); lihat ASET.md dan docs/narasi-caption.md.",
   "fps": 30,
   "bahasa": "id",
   "klasifikasi": "publik",
   "ukuran": { "lebar": 1280, "tinggi": 720 },
   "audiens": ["umum"],
-  "caption": { "maksKarakter": 42, "maksBaris": 2 },
+  "caption": { "maksKarakter": 42, "maksBaris": 2, "mode": "pop-on", "posisi": "auto" },
   "suara": {
     "mesin": "berkas-beku",
     "kalibrasi": { "awal": 0.1, "akhir": 0.04 },
@@ -31,6 +31,8 @@
     {
       "id": "a2",
       "durasiMin": 5,
+      "zonaCaption": [{ "area": "bawah", "dari": 0 }],
+      "jangkarPenutur": { "x": 794, "y": 331 },
       "kalimat": [
         { "teks": "Saya biasa menata kabel di bagian belakang meja.", "penutur": "pak-budi", "berkas": "../../.cache/awvd/narasi-contoh/a2-1.wav" },
         { "teks": "Dengan begitu, kaki tidak mudah tersangkut.", "penutur": "pak-budi", "berkas": "../../.cache/awvd/narasi-contoh/a2-2.wav" }

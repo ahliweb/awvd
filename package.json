@@ -18,7 +18,7 @@
     "pelajari": "bun scripts/pelajari.mjs",
     "kutipan": "bun scripts/kutipan.mjs",
     "narasi": "bun scripts/narasi.mjs",
-    "uji": "bun scripts/uji-runtime.mjs && bun scripts/uji-periksa.mjs && bun scripts/uji-sop.mjs && bun scripts/uji-klip.mjs && bun scripts/uji-audio.mjs && bun scripts/uji-konsep.mjs && bun scripts/uji-visual.mjs && bun scripts/uji-transisi.mjs && bun scripts/uji-aset.mjs && bun scripts/uji-pelajari.mjs && bun scripts/uji-narasi.mjs && bun scripts/uji.mjs",
+    "uji": "bun scripts/uji-runtime.mjs && bun scripts/uji-periksa.mjs && bun scripts/uji-sop.mjs && bun scripts/uji-klip.mjs && bun scripts/uji-audio.mjs && bun scripts/uji-konsep.mjs && bun scripts/uji-visual.mjs && bun scripts/uji-transisi.mjs && bun scripts/uji-aset.mjs && bun scripts/uji-pelajari.mjs && bun scripts/uji-narasi.mjs && bun scripts/uji-caption.mjs && bun scripts/uji.mjs",
     "uji:runtime": "bun scripts/uji-runtime.mjs",
     "uji:periksa": "bun scripts/uji-periksa.mjs",
     "uji:sop": "bun scripts/uji-sop.mjs",
@@ -29,6 +29,7 @@
     "uji:visual": "bun scripts/uji-visual.mjs",
     "uji:aset": "bun scripts/uji-aset.mjs",
     "uji:pelajari": "bun scripts/uji-pelajari.mjs",
-    "uji:narasi": "bun scripts/uji-narasi.mjs"
+    "uji:narasi": "bun scripts/uji-narasi.mjs",
+    "uji:caption": "bun scripts/uji-caption.mjs"
   }
 }

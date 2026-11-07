@@ -53,6 +53,12 @@
  *   pecahBaris(teks, { maks = 42, baris = 2 }) -> array baris; properti .melebihi
  *   captionAktif(cues, frame, fps) -> cue aktif atau null
  *   parseVtt(teks), parseSrt(teks) -> [{ mulai, akhir, teks }] (detik)
+ *   areaAmanVertikal(lebar, tinggi), areaCaption(lebar, tinggi) -> { x, y, w, h }  (area teks 9:16;
+ *                                  area caption bawaan: vertikal bila potret, selain itu area aksi)
+ *   rencanaCaption({ cues, kata, lebar, tinggi, fps, mode, posisi, zona, jangkar, ... }) -> rencana
+ *   keadaanCaption(rencana, frame) -> keadaan | null;  captionHtml(keadaan, gaya) -> string HTML
+ *                                  mode caption: pop-on, roll-up, paint-on, sorot-kata, satu-kata;
+ *                                  posisi: bawah, atas, auto (hindari zona), dekat-penutur
  *   presetJenis(nama) -> salinan preset jenis video (formal, edukasi, promo, ...);
  *                                  butuh <script src=".../preset-jenis.js"> dimuat lebih dulu
  *
@@ -739,6 +745,477 @@
   }
   function parseVtt(teks) { return uraiCue(teks, true); }
   function parseSrt(teks) { return uraiCue(teks, false); }
+
+  // ------------------------------------------------ caption: mode dan posisi
+  // Pengaturan tampil caption sebagai fungsi murni dari nomor frame. Alurnya:
+  //   rencanaCaption(opsi)          sekali (di luar render): cue + kata -> rencana JSON
+  //   keadaanCaption(rencana, f)    per frame: apa yang terlihat pada frame f
+  //   captionHtml(keadaan, gaya)    string HTML tanpa animasi CSS, untuk disisipkan ke DOM
+  // Semua gerak (gulir roll-up, lukis paint-on, sorot kata, pergantian kata) dihitung dari
+  // nomor frame; tidak ada Date, Math.random, timer, atau transisi CSS. Keputusan posisi
+  // diambil per cue (bukan per frame) agar kotak tidak melompat di tengah cue.
+  var MODE_CAPTION = ["pop-on", "roll-up", "paint-on", "sorot-kata", "satu-kata"];
+  var POSISI_CAPTION = ["bawah", "atas", "auto", "dekat-penutur"];
+  // Konstanta tata letak: KEPUTUSAN DESAIN awvd (bukan standar). Lebar rata-rata satu
+  // karakter 0,6 em adalah batas atas aman untuk font sans-serif umum (rata-rata nyata
+  // sekitar 0,5 em); ia menentukan batas ukuran font agar baris terpanjang muat di area.
+  var LEBAR_KARAKTER_EM = 0.6;
+  var PAD_X_EM = 0.5;
+  var PAD_Y_EM = 0.3;
+  var TINGGI_BARIS_EM = 1.3;
+  var PERSEN_FONT_LANSKAP = 0.055; // 5,5% tinggi frame (riset awvd; praktik, bukan standar)
+  var PERSEN_FONT_POTRET = 0.038;  // 3,8% tinggi frame pada 9:16
+  var SKALA_SATU_KATA = 1.6;       // satu-kata: font dasar x 1,6 (dibatasi lebar kata terpanjang)
+  var AMBANG_KONTRAS_CAPTION = 4.5; // WCAG 2.2 SC 1.4.3
+
+  // Area teks aman 9:16: pada 1080x1920 atas 250, bawah 480, kiri 65, kanan 120 px
+  // (diskalakan menurut lebar/tinggi, dibulatkan ke piksel) lalu diiriskan dengan area aksi
+  // EBU R 95. Menghindari zona antarmuka Reels/Shorts/TikTok. Angka zona platform berasal
+  // dari sumber sekunder yang saling berbeda dan BELUM diverifikasi dari spesifikasi
+  // resmi; ia titik awal konservatif, periksa terhadap templat platform saat produksi.
+  function areaAmanVertikal(lebar, tinggi) {
+    cekPositif("areaAmanVertikal", "lebar", lebar);
+    cekPositif("areaAmanVertikal", "tinggi", tinggi);
+    var aksi = areaAman(lebar, tinggi).aksi;
+    var x = Math.max(Math.round((lebar * 65) / 1080), aksi.x);
+    var y = Math.max(Math.round((tinggi * 250) / 1920), aksi.y);
+    var x2 = Math.min(lebar - Math.round((lebar * 120) / 1080), aksi.x + aksi.w);
+    var y2 = Math.min(tinggi - Math.round((tinggi * 480) / 1920), aksi.y + aksi.h);
+    return { x: x, y: y, w: x2 - x, h: y2 - y };
+  }
+  // Area caption bawaan: potret (tinggi > lebar) -> areaAmanVertikal; selain itu area aksi.
+  function areaCaption(lebar, tinggi) {
+    return tinggi > lebar ? areaAmanVertikal(lebar, tinggi) : areaAman(lebar, tinggi).aksi;
+  }
+
+  function hexWarna(rgb) {
+    var s = "#";
+    for (var i = 0; i < 3; i++) {
+      var h = Math.round(rgb[i]).toString(16);
+      s += h.length < 2 ? "0" + h : h;
+    }
+    return s;
+  }
+  function campurWarna(fg, alfa, bg) {
+    return [0, 1, 2].map(function (i) { return alfa * fg[i] + (1 - alfa) * bg[i]; });
+  }
+  function irisanKotak(a, b) {
+    return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  }
+  function dalamKotak(k, area) {
+    return k.x >= area.x && k.y >= area.y && k.x + k.w <= area.x + area.w && k.y + k.h <= area.y + area.h;
+  }
+  function frameDari(obj, namaFrame, namaDetik, fps) {
+    if (typeof obj[namaFrame] === "number" && isFinite(obj[namaFrame])) return Math.round(obj[namaFrame]);
+    if (typeof obj[namaDetik] === "number" && isFinite(obj[namaDetik])) return Math.round(obj[namaDetik] * fps);
+    return null;
+  }
+  // Jumlah token awal yang berupa label penutur "[Nama ...]" (0 bila tidak ada, atau bila
+  // seluruh teks adalah label, misalnya penanda bunyi "[musik]").
+  function jumlahLabel(tok) {
+    if (!tok.length || tok[0].charAt(0) !== "[") return 0;
+    for (var i = 0; i < tok.length; i++) {
+      if (tok[i].charAt(tok[i].length - 1) === "]") return i + 1 < tok.length ? i + 1 : 0;
+    }
+    return 0;
+  }
+
+  // rencanaCaption({ cues, kata, lebar, tinggi, fps, mode = "pop-on", posisi = "bawah",
+  //   zona, jangkar, area, maksKarakter, maksBaris = 2, ukuranFont, lebarKarakter = 0.6, audiens, konteks,
+  //   latar = { warna: "#000000", alfa: 0.75 }, warnaTeks, sorot = "#ffd400", sorotTeks })
+  // -> rencana (objek JSON murni: dapat diserialisasi dan dibandingkan).
+  //   cues   [{ mulai, akhir, teks }] detik (hasil parseVtt/parseSrt); boleh juga mulaiFrame/akhirFrame.
+  //   kata   array atau seluruh kata.json: [{ tampil|teks, mulaiFrame, akhirFrame, cue, penutur }].
+  //          Dipetakan ke cue lewat `cue` (nomor 1..n seperti di VTT), atau lewat waktu bila tak ada.
+  //          Tanpa kata (atau jumlahnya tak cocok dengan teks cue), waktu kata dibagi proporsional
+  //          menurut jumlah karakter sepanjang cue (estimasi kasar).
+  //   zona   [{ area: "bawah"|"atas" | kotak: {x,y,w,h}, dari = 0, sampai = tak hingga }] frame
+  //          absolut; area penting yang tidak boleh tertutup caption pada rentang itu.
+  //   jangkar { x, y, dari, sampai, penutur } atau array-nya: titik PUSAT kotak caption untuk
+  //          posisi "dekat-penutur" (dijepit ke area); entri pertama yang cocok pada awal cue.
+  //   lebarKarakter: lebar rata-rata satu karakter (em) untuk menaksir lebar baris; 0,6 cukup untuk
+  //          kalimat biasa pada font sans-serif umum (teks HURUF BESAR semi-tebal sekitar 0,6 em
+  //          pada Noto Sans, mepet). Font yang lebih lebar atau teks berhuruf lebar butuh nilai
+  //          lebih besar (mis. 0,75), kalau tidak baris bisa melewati kotak dan area aman.
+  //   Posisi "auto": bawah; naik ke atas bila ada zona yang beririsan dengan kotak bawah
+  //   selama cue dan atas bebas; bila keduanya tertutup tetap bawah dengan peringatan.
+  function rencanaCaption(opsi) {
+    opsi = opsi || {};
+    var lebar = opsi.lebar, tinggi = opsi.tinggi, fps = opsi.fps;
+    cekPositif("rencanaCaption", "lebar", lebar);
+    cekPositif("rencanaCaption", "tinggi", tinggi);
+    cekPositif("rencanaCaption", "fps", fps);
+    if (!Array.isArray(opsi.cues)) throw new Error("rencanaCaption: 'cues' harus array");
+    var mode = opsi.mode == null ? "pop-on" : opsi.mode;
+    if (MODE_CAPTION.indexOf(mode) < 0) throw new Error("rencanaCaption: 'mode' harus salah satu dari " + MODE_CAPTION.join(", "));
+    var posisi = opsi.posisi == null ? "bawah" : opsi.posisi;
+    if (POSISI_CAPTION.indexOf(posisi) < 0) throw new Error("rencanaCaption: 'posisi' harus salah satu dari " + POSISI_CAPTION.join(", "));
+    var potret = tinggi > lebar;
+    var maksKarakter = opsi.maksKarakter == null ? (potret ? 28 : 42) : opsi.maksKarakter;
+    var maksBaris = opsi.maksBaris == null ? 2 : opsi.maksBaris;
+    cekPositif("rencanaCaption", "maksKarakter", maksKarakter);
+    cekPositif("rencanaCaption", "maksBaris", maksBaris);
+    var lebarKarakter = opsi.lebarKarakter == null ? LEBAR_KARAKTER_EM : opsi.lebarKarakter;
+    cekPositif("rencanaCaption", "lebarKarakter", lebarKarakter);
+    var peringatan = [];
+
+    var area = opsi.area || areaCaption(lebar, tinggi);
+    if (!area || [area.x, area.y, area.w, area.h].some(function (v) { return typeof v !== "number" || !isFinite(v); }) ||
+        area.w <= 0 || area.h <= 0 || area.x < 0 || area.y < 0 || area.x + area.w > lebar || area.y + area.h > tinggi) {
+      throw new Error("rencanaCaption: 'area' harus { x, y, w, h } positif di dalam bingkai");
+    }
+    area = { x: area.x, y: area.y, w: area.w, h: area.h };
+
+    // ---- warna dan kontras (WCAG 2.2 SC 1.4.3), terburuk atas latar gambar hitam atau putih
+    var lt = opsi.latar || {};
+    var latarRgb = uraiWarna(lt.warna == null ? "#000000" : lt.warna, "rencanaCaption");
+    var alfa = lt.alfa == null ? 0.75 : lt.alfa;
+    if (typeof alfa !== "number" || !(alfa >= 0 && alfa <= 1)) throw new Error("rencanaCaption: 'latar.alfa' harus angka 0..1");
+    var teksRgb = uraiWarna(opsi.warnaTeks == null ? pilihTeksKontras(latarRgb) : opsi.warnaTeks, "rencanaCaption");
+    var sorotRgb = uraiWarna(opsi.sorot == null ? "#ffd400" : opsi.sorot, "rencanaCaption");
+    var sorotTeksRgb = uraiWarna(opsi.sorotTeks == null ? pilihTeksKontras(sorotRgb) : opsi.sorotTeks, "rencanaCaption");
+    var kTeks = Math.min(kontras(teksRgb, campurWarna(latarRgb, alfa, [0, 0, 0])), kontras(teksRgb, campurWarna(latarRgb, alfa, [255, 255, 255])));
+    var kSorot = kontras(sorotTeksRgb, sorotRgb);
+    var kontrasInfo = {
+      teks: Math.round(kTeks * 100) / 100, sorot: Math.round(kSorot * 100) / 100, ambang: AMBANG_KONTRAS_CAPTION,
+      lolos: kTeks >= AMBANG_KONTRAS_CAPTION && (mode !== "sorot-kata" || kSorot >= AMBANG_KONTRAS_CAPTION),
+    };
+    if (kTeks < AMBANG_KONTRAS_CAPTION) {
+      peringatan.push("kontras teks terhadap latar terburuk " + kontrasInfo.teks + ":1, di bawah " + AMBANG_KONTRAS_CAPTION + ":1 (naikkan latar.alfa atau ganti warna)");
+    }
+    if (mode === "sorot-kata" && kSorot < AMBANG_KONTRAS_CAPTION) {
+      peringatan.push("kontras teks sorot terhadap warna sorot " + kontrasInfo.sorot + ":1, di bawah " + AMBANG_KONTRAS_CAPTION + ":1");
+    }
+
+    // ---- zona dan jangkar
+    var zona = [];
+    (opsi.zona == null ? [] : opsi.zona).forEach(function (z, i) {
+      if (!z || (z.area !== "bawah" && z.area !== "atas" && !z.kotak)) {
+        throw new Error("rencanaCaption: zona[" + i + "] butuh area \"bawah\"/\"atas\" atau kotak { x, y, w, h }");
+      }
+      var kotakZ = null;
+      if (z.kotak) {
+        var kz = z.kotak;
+        if (!kz || [kz.x, kz.y, kz.w, kz.h].some(function (v) { return typeof v !== "number" || !isFinite(v); }) || kz.w <= 0 || kz.h <= 0) {
+          throw new Error("rencanaCaption: zona[" + i + "].kotak harus { x, y, w, h } dengan w, h > 0");
+        }
+        kotakZ = { x: kz.x, y: kz.y, w: kz.w, h: kz.h };
+      }
+      zona.push({ area: z.area || null, kotak: kotakZ, dari: z.dari == null ? -Infinity : z.dari, sampai: z.sampai == null ? Infinity : z.sampai });
+    });
+    var jangkar = opsi.jangkar == null ? [] : (Array.isArray(opsi.jangkar) ? opsi.jangkar : [opsi.jangkar]);
+    jangkar.forEach(function (j, i) {
+      if (!j || typeof j.x !== "number" || typeof j.y !== "number" || !isFinite(j.x) || !isFinite(j.y)) {
+        throw new Error("rencanaCaption: jangkar[" + i + "] harus { x, y } angka");
+      }
+    });
+
+    // ---- kata per cue
+    var daftarKata = opsi.kata == null ? [] : (Array.isArray(opsi.kata) ? opsi.kata : opsi.kata.kata);
+    if (!Array.isArray(daftarKata)) throw new Error("rencanaCaption: 'kata' harus array atau objek kata.json");
+    var cueBingkai = opsi.cues.map(function (c, i) {
+      if (!c || typeof c.teks !== "string") throw new Error("rencanaCaption: cues[" + i + "] harus { mulai, akhir, teks }");
+      var m = frameDari(c, "mulaiFrame", "mulai", fps), a = frameDari(c, "akhirFrame", "akhir", fps);
+      if (m == null || a == null) throw new Error("rencanaCaption: cues[" + i + "] butuh mulai/akhir (detik) atau mulaiFrame/akhirFrame");
+      if (rapikan(c.teks) === "") throw new Error("rencanaCaption: cues[" + i + "].teks tidak boleh kosong");
+      return { mulai: m, akhir: Math.max(a, m + 1), teks: rapikan(c.teks), penutur: c.penutur == null ? null : c.penutur };
+    });
+    var kelompok = cueBingkai.map(function () { return []; });
+    var berNomor = daftarKata.length > 0 && daftarKata.every(function (k) {
+      return typeof k.cue === "number" && k.cue % 1 === 0 && k.cue >= 1 && k.cue <= cueBingkai.length;
+    });
+    daftarKata.forEach(function (k, i) {
+      var m = frameDari(k, "mulaiFrame", "mulai", fps), a = frameDari(k, "akhirFrame", "akhir", fps);
+      if (m == null || a == null) throw new Error("rencanaCaption: kata[" + i + "] butuh mulaiFrame/akhirFrame (atau mulai/akhir detik)");
+      var teks = k.tampil != null ? k.tampil : k.teks;
+      var kata = { teks: String(teks), mulai: m, akhir: a, penutur: k.penutur == null ? null : k.penutur };
+      if (berNomor) { kelompok[k.cue - 1].push(kata); return; }
+      for (var c = 0; c < cueBingkai.length; c++) {
+        if (cueBingkai[c].mulai <= m && m < cueBingkai[c].akhir) { kelompok[c].push(kata); return; }
+      }
+    });
+
+    var cueKata = cueBingkai.map(function (c, ci) {
+      var tok = c.teks === "" ? [] : c.teks.split(" ");
+      var nLabel = jumlahLabel(tok);
+      var nyata = tok.length - nLabel;
+      var grup = kelompok[ci];
+      var kata = [], sumber = "proporsional";
+      var i;
+      if (nyata > 0 && grup.length === nyata) {
+        sumber = "kata";
+        for (i = 0; i < nyata; i++) kata.push({ m: grup[i].mulai, a: grup[i].akhir });
+      } else {
+        if (grup.length > 0 && nyata > 0) {
+          peringatan.push("cue " + (ci + 1) + ": jumlah kata di kata.json (" + grup.length + ") tidak sama dengan teks cue (" + nyata + "); waktu kata dibagi proporsional");
+        }
+        var bobot = 0, kum = [0];
+        for (i = nLabel; i < tok.length; i++) { bobot += panjangTeks(tok[i]) + 1; kum.push(bobot); }
+        for (i = 0; i < nyata; i++) {
+          kata.push({
+            m: c.mulai + Math.round(((c.akhir - c.mulai) * kum[i]) / bobot),
+            a: c.mulai + Math.round(((c.akhir - c.mulai) * kum[i + 1]) / bobot),
+          });
+        }
+      }
+      // jepit ke dalam cue dan jaga urutan monoton; tiap kata minimal satu frame
+      var prev = c.mulai;
+      kata.forEach(function (k) {
+        var m = clampNum(k.m, c.mulai, c.akhir - 1);
+        if (m < prev) m = prev;
+        k.m = m;
+        k.a = clampNum(k.a, m + 1, Math.max(c.akhir, m + 1));
+        prev = m;
+      });
+      var semua = [], awalNyata = kata.length ? kata[0].m : c.mulai;
+      for (i = 0; i < nLabel; i++) semua.push({ teks: tok[i], mulaiFrame: awalNyata, akhirFrame: awalNyata, label: true });
+      for (i = 0; i < nyata; i++) semua.push({ teks: tok[nLabel + i], mulaiFrame: kata[i].m, akhirFrame: kata[i].a, label: false });
+      var penutur = c.penutur;
+      for (i = 0; i < grup.length && penutur == null; i++) penutur = grup[i].penutur;
+      return { semua: semua, sumber: sumber, penutur: penutur };
+    });
+
+    // ---- ukuran font
+    var konteks = opsi.konteks == null ? (potret ? "ponselVertikalPenuh" : "ponselLanskap") : opsi.konteks;
+    var ukuranMin = ukuranTeks(tinggi, "caption", opsi.audiens, konteks).px;
+    var pilihan = Math.round(tinggi * (potret ? PERSEN_FONT_POTRET : PERSEN_FONT_LANSKAP));
+    function batasFont(nKarakter) {
+      return Math.max(1, Math.floor(area.w / (nKarakter * lebarKarakter + 2 * PAD_X_EM)));
+    }
+    var kapDasar = batasFont(maksKarakter);
+    var ukuranFont;
+    if (opsi.ukuranFont != null) {
+      cekPositif("rencanaCaption", "ukuranFont", opsi.ukuranFont);
+      ukuranFont = Math.round(opsi.ukuranFont);
+      if (ukuranFont > kapDasar) {
+        peringatan.push("ukuranFont " + ukuranFont + " px dikurangi menjadi " + kapDasar + " px agar " + maksKarakter + " karakter muat di area");
+        ukuranFont = kapDasar;
+      }
+    } else {
+      ukuranFont = Math.min(kapDasar, Math.max(ukuranMin, pilihan));
+    }
+    if (ukuranFont < ukuranMin) {
+      peringatan.push("ukuran font " + ukuranFont + " px di bawah minimum ukuranTeks (" + ukuranMin + " px); kurangi maksKarakter atau perbesar area");
+    }
+    var fontEfektif = ukuranFont;
+    if (mode === "satu-kata") {
+      var terpanjang = 1;
+      cueKata.forEach(function (c) {
+        c.semua.forEach(function (k) { if (!k.label) terpanjang = Math.max(terpanjang, panjangTeks(k.teks)); });
+      });
+      fontEfektif = Math.min(Math.round(ukuranFont * SKALA_SATU_KATA), batasFont(terpanjang));
+    }
+    var tinggiBaris = Math.round(fontEfektif * TINGGI_BARIS_EM);
+    var padX = Math.round(fontEfektif * PAD_X_EM), padY = Math.round(fontEfektif * PAD_Y_EM);
+
+    // ---- tata letak per cue
+    var cueRencana = cueBingkai.map(function (c, ci) {
+      var n = ci + 1, ck = cueKata[ci], semua = ck.semua;
+      var teksBersih = c.teks;
+      var pecah = pecahBaris(teksBersih, { maks: maksKarakter, baris: maksBaris });
+      if (pecah.melebihi) {
+        peringatan.push("cue " + n + ": teks tidak muat dalam " + maksBaris + " baris x " + maksKarakter + " karakter");
+      }
+      var baris = [], idx = 0;
+      pecah.forEach(function (teksBaris) {
+        var jml = teksBaris.split(" ").length;
+        var dari = idx, sampai = idx + jml;
+        idx = sampai;
+        var mulai = c.mulai;
+        if (baris.length > 0 && semua[dari]) mulai = Math.max(semua[dari].mulaiFrame, baris[baris.length - 1].mulaiFrame);
+        baris.push({ teks: teksBaris, mulaiFrame: mulai, dari: dari, sampai: sampai });
+      });
+      var nBaris, nKarakter = 1;
+      if (mode === "satu-kata") {
+        nBaris = 1;
+        semua.forEach(function (k) { if (!k.label) nKarakter = Math.max(nKarakter, panjangTeks(k.teks)); });
+      } else {
+        nBaris = mode === "roll-up" ? Math.min(2, baris.length) : baris.length;
+        baris.forEach(function (b) { nKarakter = Math.max(nKarakter, panjangTeks(b.teks)); });
+      }
+      if (nBaris < 1) nBaris = 1;
+      var w = Math.min(area.w, Math.round((nKarakter * lebarKarakter + 2 * PAD_X_EM) * fontEfektif));
+      var h = nBaris * tinggiBaris + 2 * padY;
+      var xTengah = Math.round(area.x + (area.w - w) / 2);
+      var kandidat = {
+        bawah: { x: xTengah, y: area.y + area.h - h, w: w, h: h },
+        atas: { x: xTengah, y: area.y, w: w, h: h },
+      };
+      // zona aktif pada cue ini (beririsan waktu) menjadi kotak penghalang
+      var penghalang = [];
+      zona.forEach(function (z) {
+        if (!(z.dari < c.akhir && z.sampai > c.mulai)) return;
+        if (z.kotak) penghalang.push({ kotak: z.kotak, nama: "kotak" });
+        else penghalang.push({ kotak: z.area === "bawah" ? kandidat.bawah : kandidat.atas, nama: z.area });
+      });
+      function tertutup(k) {
+        return penghalang.some(function (p) { return irisanKotak(k, p.kotak); });
+      }
+      var pos = posisi, kotak;
+      if (pos === "dekat-penutur") {
+        var jk = null;
+        for (var j = 0; j < jangkar.length && !jk; j++) {
+          var e = jangkar[j];
+          if ((e.penutur == null || e.penutur === ck.penutur) && (e.dari == null || e.dari <= c.mulai) && (e.sampai == null || c.mulai < e.sampai)) jk = e;
+        }
+        if (!jk) {
+          peringatan.push("cue " + n + ": posisi dekat-penutur tanpa jangkar yang cocok; memakai bawah");
+          pos = "bawah";
+        } else {
+          kotak = {
+            x: Math.round(clampNum(jk.x - w / 2, area.x, area.x + Math.max(0, area.w - w))),
+            y: Math.round(clampNum(jk.y - h / 2, area.y, area.y + Math.max(0, area.h - h))),
+            w: w, h: h,
+          };
+          if (tertutup(kotak)) peringatan.push("cue " + n + ": kotak dekat-penutur beririsan dengan zona yang ditandai");
+        }
+      }
+      if (pos === "auto") {
+        if (!tertutup(kandidat.bawah)) pos = "bawah";
+        else if (!tertutup(kandidat.atas)) pos = "atas";
+        else {
+          pos = "bawah";
+          peringatan.push("cue " + n + ": posisi bawah dan atas sama-sama tertutup zona; memakai bawah");
+        }
+      } else if ((pos === "bawah" || pos === "atas") && tertutup(kandidat[pos])) {
+        peringatan.push("cue " + n + ": posisi " + pos + " beririsan dengan zona yang ditandai (pakai posisi auto)");
+      }
+      if (pos !== "dekat-penutur") kotak = kandidat[pos];
+      if (kotak.h > area.h) kotak = { x: kotak.x, y: area.y, w: kotak.w, h: kotak.h };
+      if (!dalamKotak(kotak, area)) peringatan.push("cue " + n + ": kotak caption keluar dari area aman (teks terlalu banyak untuk area)");
+      return {
+        n: n, mulaiFrame: c.mulai, akhirFrame: c.akhir, teks: teksBersih, penutur: ck.penutur, posisi: pos, kotak: kotak,
+        sumberKata: ck.sumber, baris: baris, kata: semua,
+      };
+    });
+
+    return {
+      versi: 1, mode: mode, posisi: posisi, lebar: lebar, tinggi: tinggi, fps: fps, potret: potret, area: area,
+      maksKarakter: maksKarakter, maksBaris: maksBaris, lebarKarakter: lebarKarakter,
+      ukuranFont: fontEfektif, ukuranFontMin: ukuranMin, tinggiBaris: tinggiBaris, padX: padX, padY: padY,
+      warna: { teks: hexWarna(teksRgb), latar: hexWarna(latarRgb), latarAlfa: alfa, sorot: hexWarna(sorotRgb), sorotTeks: hexWarna(sorotTeksRgb) },
+      kontras: kontrasInfo,
+      cue: cueRencana, peringatan: peringatan,
+    };
+  }
+  rencanaCaption.mode = MODE_CAPTION;
+  rencanaCaption.posisi = POSISI_CAPTION;
+
+  // keadaanCaption(rencana, frame) -> keadaan atau null (tidak ada cue aktif pada frame).
+  // keadaan = { n, mode, posisi, kotak, ukuranFont, tinggiBaris, padX, padY, warna, aktifKata,
+  //   baris: [{ y, opasitas, kata: [{ teks, terlihat, sorot }] }] }; `y` px dari tepi atas
+  // kotak, `terlihat` jumlah karakter (code point) yang sudah tampil. Murni dari `frame`.
+  function keadaanCaption(rencana, frame) {
+    if (!rencana || !Array.isArray(rencana.cue)) throw new Error("keadaanCaption: 'rencana' harus hasil rencanaCaption");
+    if (typeof frame !== "number" || !isFinite(frame)) throw new Error("keadaanCaption: 'frame' harus angka");
+    var c = null;
+    for (var i = 0; i < rencana.cue.length && !c; i++) {
+      if (rencana.cue[i].mulaiFrame <= frame && frame < rencana.cue[i].akhirFrame) c = rencana.cue[i];
+    }
+    if (!c) return null;
+    var mode = rencana.mode, row = rencana.tinggiBaris, padY = rencana.padY;
+    var aktif = -1, baris = [];
+    function kataBaris(b, terlihatDari, sorotIdx) {
+      var arr = [];
+      for (var k = b.dari; k < b.sampai; k++) {
+        var kt = c.kata[k];
+        arr.push({ teks: kt.teks, terlihat: terlihatDari ? terlihatDari(kt, k) : panjangTeks(kt.teks), sorot: k === sorotIdx });
+      }
+      return arr;
+    }
+    var j, k2;
+    if (mode === "pop-on") {
+      for (j = 0; j < c.baris.length; j++) baris.push({ y: padY + j * row, opasitas: 1, kata: kataBaris(c.baris[j]) });
+    } else if (mode === "sorot-kata") {
+      for (k2 = 0; k2 < c.kata.length; k2++) {
+        if (!c.kata[k2].label && c.kata[k2].mulaiFrame <= frame) aktif = k2;
+      }
+      for (j = 0; j < c.baris.length; j++) baris.push({ y: padY + j * row, opasitas: 1, kata: kataBaris(c.baris[j], null, aktif) });
+    } else if (mode === "paint-on") {
+      for (j = 0; j < c.baris.length; j++) {
+        baris.push({
+          y: padY + j * row, opasitas: 1,
+          kata: kataBaris(c.baris[j], function (kt) {
+            var n = panjangTeks(kt.teks);
+            if (kt.label) return n;
+            if (frame < kt.mulaiFrame) return 0;
+            var lama = Math.max(1, kt.akhirFrame - kt.mulaiFrame);
+            return Math.min(n, Math.ceil((n * (frame - kt.mulaiFrame + 1)) / lama));
+          }),
+        });
+      }
+    } else if (mode === "satu-kata") {
+      var tampil = -1;
+      for (k2 = 0; k2 < c.kata.length; k2++) {
+        if (c.kata[k2].label) continue;
+        if (tampil < 0 || c.kata[k2].mulaiFrame <= frame) tampil = k2;
+      }
+      aktif = tampil;
+      if (tampil >= 0) {
+        baris.push({ y: padY, opasitas: 1, kata: [{ teks: c.kata[tampil].teks, terlihat: panjangTeks(c.kata[tampil].teks), sorot: false }] });
+      }
+    } else { // roll-up: jendela dua baris, baris baru menggulir naik (dari nomor frame)
+      var mulaiN = 0;
+      for (j = 0; j < c.baris.length; j++) if (c.baris[j].mulaiFrame <= frame) mulaiN = j + 1;
+      var W = Math.min(2, c.baris.length), baru = mulaiN - 1;
+      var gulir = Math.max(1, Math.round(0.12 * rencana.fps));
+      var p = baru === 0 ? 1 : easing.keluarQuad(clampNum((frame - c.baris[baru].mulaiFrame + 1) / gulir, 0, 1));
+      for (j = Math.max(0, mulaiN - 1 - W); j < mulaiN; j++) {
+        var slot = (W - 1) - (mulaiN - 1 - j);
+        var op = 1;
+        if (slot < 0) { if (p >= 1) continue; op = 1 - p; }
+        else if (j === baru && baru > 0) op = p;
+        baris.push({ y: Math.round(padY + (slot + (1 - p)) * row), opasitas: op, kata: kataBaris(c.baris[j]) });
+      }
+    }
+    return {
+      n: c.n, mode: mode, posisi: c.posisi, kotak: c.kotak, ukuranFont: rencana.ukuranFont, tinggiBaris: row,
+      padX: rencana.padX, padY: padY, warna: rencana.warna, aktifKata: aktif, baris: baris,
+    };
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function rgbaCss(hex, alfa) {
+    var c = uraiWarna(hex, "captionHtml");
+    return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + alfa + ")";
+  }
+
+  // captionHtml(keadaan, gaya = {}) -> string HTML (kosong bila keadaan null). Satu elemen
+  // posisi-absolut di koordinat bingkai (sisipkan ke elemen berposisi relatif/absolut
+  // seukuran bingkai). Tanpa animasi atau transisi CSS: semua nilai sudah dihitung dari
+  // frame. Sorot kata memakai bayangan sebaran (tidak menggeser tata letak). gaya:
+  // { fontFamily, bobot = 600, radius, bayangan = true }.
+  function captionHtml(keadaan, gaya) {
+    if (keadaan == null) return "";
+    gaya = gaya || {};
+    var fontFamily = gaya.fontFamily || 'system-ui, "Segoe UI", Roboto, "DejaVu Sans", sans-serif';
+    var bobot = gaya.bobot == null ? 600 : gaya.bobot;
+    var fs = keadaan.ukuranFont, k = keadaan.kotak, wr = keadaan.warna;
+    var radius = gaya.radius == null ? Math.round(fs * 0.25) : gaya.radius;
+    var bayangan = gaya.bayangan === false ? "" : "text-shadow:0 1px 2px rgba(0,0,0,.6);";
+    var klip = keadaan.mode === "roll-up" ? "clip-path:inset(0 -100vw 0 -100vw);" : "";
+    var h = '<div data-caption="' + escHtml(keadaan.mode) + '" data-posisi="' + escHtml(keadaan.posisi) + '" style="position:absolute;left:' + k.x + "px;top:" + k.y +
+      "px;width:" + k.w + "px;height:" + k.h + "px;box-sizing:border-box;background:" + rgbaCss(wr.latar, wr.latarAlfa) + ";border-radius:" + radius +
+      "px;color:" + wr.teks + ";font-family:" + fontFamily.replace(/"/g, "&quot;") + ";font-weight:" + bobot + ";font-size:" + fs + "px;line-height:" + keadaan.tinggiBaris +
+      "px;pointer-events:none;" + klip + bayangan + '">';
+    keadaan.baris.forEach(function (b) {
+      var spans = b.kata.map(function (kt) {
+        var kar = Array.from(kt.teks);
+        var tampil = escHtml(kar.slice(0, kt.terlihat).join(""));
+        var sisa = kar.slice(kt.terlihat).join("");
+        var isi = tampil + (sisa ? '<span style="visibility:hidden">' + escHtml(sisa) + "</span>" : "");
+        if (kt.sorot) {
+          return '<span style="background:' + wr.sorot + ";color:" + wr.sorotTeks + ";box-shadow:0 0 0 .12em " + wr.sorot + ';border-radius:.15em;text-shadow:none">' + isi + "</span>";
+        }
+        return "<span>" + isi + "</span>";
+      });
+      h += '<div style="position:absolute;left:50%;top:' + b.y + "px;transform:translateX(-50%);white-space:nowrap;height:" + keadaan.tinggiBaris +
+        "px;opacity:" + (Math.round(b.opasitas * 1000) / 1000) + ';">' + spans.join(" ") + "</div>";
+    });
+    return h + "</div>";
+  }
 
   // ---------------------------------------------------- video di dalam video
   // Klip tertanam: scripts/klip.mjs mengekstrak frame klip (ffmpeg, pada fps komposisi)
@@ -1498,6 +1975,11 @@
     captionAktif: captionAktif,
     parseVtt: parseVtt,
     parseSrt: parseSrt,
+    areaAmanVertikal: areaAmanVertikal,
+    areaCaption: areaCaption,
+    rencanaCaption: rencanaCaption,
+    keadaanCaption: keadaanCaption,
+    captionHtml: captionHtml,
     gambarKosong: gambarKosong,
     indeksFrameKlip: indeksFrameKlip,
     jalurFrameKlip: jalurFrameKlip,
