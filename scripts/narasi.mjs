@@ -3,6 +3,8 @@
  * awvd / narasi.mjs — dari naskah.json ke cue caption (VTT/SRT), stempel kata, dan rencana audio.
  *
  *   bun scripts/narasi.mjs <naskah.json> [--out DIR]      # bawaan out/narasi
+ *   bun scripts/narasi.mjs <naskah.json> --selaras whisper  # stempel kata dari ASR whisper.cpp lokal
+ *   bun scripts/narasi.mjs transkripsi <audio> [--out DIR]  # caption dari audio tanpa naskah (ASR)
  *
  * Keluaran di DIR: caption.vtt, caption.srt, kata.json, rencana-audio.json, laporan.json.
  *   - rencana-audio.json masuk ke `bun run audio` (scripts/audio.mjs) tanpa perubahan.
@@ -16,6 +18,9 @@
  * baris, karakter, dan durasi. Mesin suara bersifat pluggable (`daftarkanMesin`); yang
  * tersedia: `berkas-beku` (WAV sudah jadi) dan `sherpa-onnx` (adaptor TTS lokal opsional,
  * narasi-tts.mjs; tidak dibundel, WAV dibekukan di cache berhash, label suara sintetis wajib).
+ * ASR opsional (narasi-asr.mjs; whisper.cpp lokal, tidak dibundel): `--selaras whisper` memetakan
+ * stempel kata ASR ke kata naskah (skor rendah jatuh ke estimasi), dan `transkripsi` membuat
+ * caption dari audio tanpa naskah yang ditandai wajib ditinjau manusia.
  *
  * Kode keluar: 0 berhasil (peringatan boleh ada), 1 lint gagal atau galat saat memproses
  * (keluaran tetap ditulis bila memungkinkan), 2 naskah atau argumen tidak valid.
@@ -30,6 +35,7 @@ import { bacaAudio, kataDariPenanda, keFrame, selaraskanToken, sebarkanTampil, t
 import { keSrt, keVtt, periksaCue, susunCue } from "./narasi-cue.mjs";
 import { JENIS_KONTEN, mesinSherpa } from "./narasi-tts.mjs";
 import { bacaTampilAdegan, bacaTampilNaskah, tampilKeKata } from "./narasi-caption.mjs";
+import { AMBANG_SKOR_BAWAAN, KOREKSI_DTW_BAWAAN, OPSI_CLI_ASR, PETUNJUK_ASR, infoMesinAsr, jalankanWhisper, kataDariWhisper, opsiAsrDariFlag, ringkasSelaras, selarasWhisper, utamaTranskripsi } from "./narasi-asr.mjs";
 
 // ------------------------------------------------------------------ mesin suara
 /**
@@ -293,8 +299,12 @@ function tokenSegmen(segmen, idAdegan) {
  * Menjalankan seluruh pipeline pada naskah ternormalisasi. Tidak menulis berkas.
  * `dirKeluaran` dipakai untuk jalur relatif di rencana-audio.json dan laporan.
  * Mengembalikan { berkas: { "caption.vtt", ... teks }, cues, gagal[], peringatan[], laporan }.
+ * `selaras` (opsional): { mode: "whisper", konfig: { bin, model }, cache, ulang, koreksi, ambang }
+ * memakai whisper.cpp lokal untuk stempel kata (narasi-asr.mjs); tanpa itu timing = estimasi.
+ * Prioritas sumber waktu per segmen: penanda mesin TTS, lalu whisper (skor penyelarasan >=
+ * ambang), lalu estimasi berjangkar jeda.
  */
-export async function buatNarasi(naskah, { dirKeluaran, sha256Naskah = null, opsiMesin = {} } = {}) {
+export async function buatNarasi(naskah, { dirKeluaran, sha256Naskah = null, opsiMesin = {}, selaras = null } = {}) {
   const { fps, batas, suara, penutur } = naskah;
   const mesin = MESIN[suara.mesin];
   const peringatan = [], gagal = [];
@@ -336,6 +346,8 @@ export async function buatNarasi(naskah, { dirKeluaran, sha256Naskah = null, ops
   const kata = [];
   const batasKalimat = [];
   const sumberSegmen = [];
+  const asrSegmen = [];
+  let asrMesin = null;
   for (const s of segmen) {
     const { baca, tampil } = tokenSegmen(s, s.adegan);
     const alir = baca.flat();
@@ -347,6 +359,16 @@ export async function buatNarasi(naskah, { dirKeluaran, sha256Naskah = null, ops
     const est = selaraskanToken(alir, s.audio, { kalibrasi: suara.kalibrasi });
     jeda = est.jeda; jangkar = est.jangkar; titikJangkar = est.titikJangkar;
     if (!est.ada) gagal.push({ n: null, tingkat: "gagal", kode: "senyap", pesan: `segmen "${s.id}": tidak ada ucapan terdeteksi (audio senyap)` });
+    if (!hasil && selaras?.mode === "whisper" && est.ada) {
+      // ASR lokal: kata ASR dipetakan ke kata naskah; skor rendah jatuh ke estimasi dengan peringatan
+      const r = await jalankanWhisper(s.berkas, { bahasa: naskah.bahasa.split("-")[0], cache: selaras.cache, ulang: selaras.ulang, konfig: selaras.konfig, peringatan });
+      asrMesin ??= infoMesinAsr(r);
+      const { kata: kataAsr, presisi } = kataDariWhisper(r.json);
+      const sw = selarasWhisper(alir, kataAsr, est, { ambang: selaras.ambang ?? AMBANG_SKOR_BAWAAN, koreksi: selaras.koreksi ?? KOREKSI_DTW_BAWAAN, presisi, durasi: s.audio.durasi });
+      asrSegmen.push({ ...ringkasSelaras(s.id, sw), presisi });
+      if (sw.ok) { hasil = sw.kata; sumber = "whisper"; }
+      else peringatan.push(`segmen "${s.id}": penyelarasan whisper tidak dipakai (${sw.alasan}); memakai estimasi`);
+    }
     if (!hasil) hasil = est.kata;
     else { jangkar = 0; titikJangkar = 0; }
     const durasi = s.audio.durasi;
@@ -420,6 +442,9 @@ export async function buatNarasi(naskah, { dirKeluaran, sha256Naskah = null, ops
     gagal: gagal.map((x) => ({ cue: x.n, kode: x.kode, pesan: x.pesan })),
     peringatan,
   };
+  if (asrMesin || asrSegmen.length) {
+    laporan.asr = { ...asrMesin, koreksiDtw: selaras.koreksi ?? KOREKSI_DTW_BAWAAN, ambangSkor: selaras.ambang ?? AMBANG_SKOR_BAWAAN, segmen: asrSegmen };
+  }
   // berkas tambahan dari mesin (TTS: kredit dan label suara sintetis)
   let ekstra = null;
   if (typeof mesin.selesai === "function") {
@@ -443,23 +468,31 @@ export async function buatNarasi(naskah, { dirKeluaran, sha256Naskah = null, ops
 const PETUNJUK = `awvd narasi: naskah.json -> caption VTT/SRT, stempel kata, rencana audio
 
 Pemakaian:
-  bun scripts/narasi.mjs <naskah.json> [--out DIR]
+  bun scripts/narasi.mjs <naskah.json> [--out DIR] [--selaras whisper]
+  bun scripts/narasi.mjs transkripsi <audio> [--out DIR]   (caption dari audio tanpa naskah; lihat transkripsi --bantuan)
 
 Flag TTS (hanya untuk suara.mesin "sherpa-onnx"):
   --cache DIR        folder cache WAV beku (bawaan .cache/awvd/suara atau suara.cache di naskah)
   --sintesis-ulang   sintesis ulang semua kalimat dan ganti cache (suara berubah; bukan bawaan)
+
+Penyelarasan:
+  --selaras MODE     estimasi (bawaan) atau whisper (stempel kata dari whisper.cpp lokal; skor
+                     penyelarasan rendah jatuh ke estimasi dengan peringatan)
+
+${PETUNJUK_ASR}
 
 Keluaran di DIR (bawaan out/narasi): caption.vtt, caption.srt, kata.json,
 rencana-audio.json (masukan bun run audio), laporan.json; untuk TTS juga
 suara-kredit.json dan kredit-suara.txt (label suara sintetis, wajib ditampilkan).
 Berkas audio narasi (WAV) disebut di naskah dan dibaca apa adanya; mesin suara tidak
 dipanggil saat render. Kode keluar: 0 berhasil, 1 lint gagal atau galat proses (termasuk
-mesin TTS tidak terpasang), 2 naskah atau argumen tidak valid.`;
+mesin TTS atau ASR yang diminta tidak terpasang), 2 naskah atau argumen tidak valid.`;
 
 export async function utama(argv) {
+  if (argv[0] === "transkripsi") return utamaTranskripsi(argv.slice(1));
   let nilai, posisi;
   try {
-    ({ values: nilai, positionals: posisi } = parseArgs({ args: argv, allowPositionals: true, options: { out: { type: "string" }, cache: { type: "string" }, "sintesis-ulang": { type: "boolean" }, bantuan: { type: "boolean", short: "h" } } }));
+    ({ values: nilai, positionals: posisi } = parseArgs({ args: argv, allowPositionals: true, options: { out: { type: "string" }, cache: { type: "string" }, "sintesis-ulang": { type: "boolean" }, selaras: { type: "string" }, ...OPSI_CLI_ASR, bantuan: { type: "boolean", short: "h" } } }));
   } catch (e) {
     console.error(`narasi: ${e.message}\n\n${PETUNJUK}`);
     return 2;
@@ -467,6 +500,14 @@ export async function utama(argv) {
   if (nilai.bantuan) { console.log(PETUNJUK); return 0; }
   if (posisi.length !== 1) { console.error(`narasi: butuh tepat satu <naskah.json>\n\n${PETUNJUK}`); return 2; }
   const jalur = resolve(posisi[0]);
+  const modeSelaras = nilai.selaras ?? "estimasi";
+  if (modeSelaras !== "estimasi" && modeSelaras !== "whisper") { console.error(`narasi: --selaras harus "estimasi" atau "whisper" (dapat ${JSON.stringify(nilai.selaras)})`); return 2; }
+  let selaras = null;
+  if (modeSelaras === "whisper") {
+    try { selaras = { mode: "whisper", ...opsiAsrDariFlag(nilai) }; } catch (e) { console.error(`narasi: ${e.message}`); return 2; }
+  } else if (["whisper-bin", "whisper-model", "cache-asr", "asr-ulang", "koreksi-asr"].some((k) => nilai[k] !== undefined)) {
+    console.error("peringatan: flag ASR diabaikan tanpa --selaras whisper");
+  }
   const { galat, peringatan, naskah, sha256 } = bacaNaskah(jalur);
   for (const p of peringatan) console.error(`peringatan: ${p}`);
   if (!naskah) {
@@ -477,9 +518,9 @@ export async function utama(argv) {
   const keluar = resolve(nilai.out ?? "out/narasi");
   let hasil;
   try {
-    hasil = await buatNarasi(naskah, { dirKeluaran: keluar, sha256Naskah: sha256, opsiMesin: { cache: nilai.cache, sintesisUlang: nilai["sintesis-ulang"] === true } });
+    hasil = await buatNarasi(naskah, { dirKeluaran: keluar, sha256Naskah: sha256, opsiMesin: { cache: nilai.cache, sintesisUlang: nilai["sintesis-ulang"] === true }, selaras });
   } catch (e) {
-    // galat mesin (tidak terpasang, gagal jalan, cache rusak) dilaporkan sebagai pesan, bukan jejak tumpukan
+    // galat mesin TTS atau ASR (tidak terpasang, gagal jalan, cache rusak) dilaporkan sebagai pesan, bukan jejak tumpukan
     console.error(`narasi: ${e.message}`);
     return 1;
   }

@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.7.0`
+- Version: `v1.10.0`
 - Last updated: `2026-11-07`
-- Changeset: `Paritas: timeline multitrack berstatus sebagian (validator timeline.json ada, render menyusul). Sebelumnya: text-to-speech berstatus ada sebagai adaptor opsional yang tidak dibundel.`
+- Changeset: `Paritas: timeline multitrack berstatus sebagian (validator timeline.json ada, render menyusul). Sebelumnya: caption otomatis dari audio (ASR) berstatus ada sebagai adaptor opsional.`
 
 ## Visi
 
@@ -83,15 +83,15 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Ducking, fade, kenyaringan | ada | — |
 | QC kenyaringan, kilatan, subtitle | ada ([pemeriksaan-mutu.md](pemeriksaan-mutu.md)) | — |
 | Timeline multitrack | sebagian: format `timeline.json`, validator `bun run timeline periksa`, dan contoh ada ([timeline.md](timeline.md)); render ke video menyusul | F2/02 (selesai), F2/03 |
-| Trim, speed, reverse, freeze | sebagian (pemetaan frame manual) | F2/04 |
+| Trim, speed, reverse, freeze | ada sebagai helper pemetaan frame ([api-runtime.md](api-runtime.md#pemetaan-waktu-klip); `petaWaktuKlip`, `frameSumber`, ramp kecepatan); tanpa interpolasi gerak, audio tidak ikut diregangkan | F2/04 (selesai) |
 | Keyframe generik | sebagian (`interpolasi`, `urutan`) | F2/06 |
 | Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
 | Chroma key | ada ([olah-klip.md](olah-klip.md); `kunciWarna`, keluaran PNG beralfa) | F3/02 (selesai) |
 | Stabilisasi | ada ([olah-klip.md](olah-klip.md); `stabil`: vidstab, cadangan deshake) | F3/03 (selesai) |
 | Peredam bising, pengubah suara | ada ([video-tertanam-audio.md](video-tertanam-audio.md#olah-suara-per-trek)); `arnndn` butuh model milik pengguna | F3/04 (selesai) |
 | Render cepat untuk footage panjang | belum (serial) | F4 |
-| Caption otomatis dari audio (ASR) | belum | F5/01 |
-| Sinkron ketukan musik | belum | F5/02 |
+| Caption otomatis dari audio (ASR) | ada sebagai adaptor opsional yang tidak dibundel ([narasi-caption.md](narasi-caption.md#asr-lokal-whispercpp)): whisper.cpp lokal untuk caption dari audio tanpa naskah (wajib ditinjau manusia) dan stempel kata narasi; belum diuji pada suara manusia | F5/01 (selesai) |
+| Sinkron ketukan musik | sebagian: deteksi ketukan dan tempo tetap dari audio lokal ke `ketukan.json` dengan helper komposisi ada ([ketukan.md](ketukan.md)); diuji pada sinyal sintetis, musik nyata dan tempo berubah belum diuji | F5/02 (selesai) |
 | Reframe 16:9 ke 9:16 | belum | F5/03 |
 | Hapus latar tanpa layar hijau | belum | F5/04 |
 | Penyunting visual | belum (ada mode `?preview`) | F6 |
@@ -113,9 +113,21 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 
 ## Changelog
 
-### 2026-11-07 - v1.7.0
+### 2026-11-07 - v1.10.0
 
 - Paritas "Timeline multitrack" diubah menjadi sebagian (format, validator, dan contoh `timeline.json` ada, F2/02; render menyusul, F2/03).
+
+### 2026-11-07 - v1.9.0
+
+- Paritas "Caption otomatis dari audio (ASR)" diubah menjadi ada (adaptor whisper.cpp lokal opsional, F5/01).
+
+### 2026-11-07 - v1.8.0
+
+- Paritas "Sinkron ketukan musik" diubah menjadi sebagian (deteksi ketukan F5/02; tempo tetap, bukti hanya sinyal sintetis).
+
+### 2026-11-07 - v1.7.0
+
+- Paritas "Trim, speed, reverse, freeze" diubah menjadi ada (helper pemetaan frame, F2/04).
 
 ### 2026-11-07 - v1.6.0
 

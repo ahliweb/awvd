@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.4.0`
+- Version: `v1.5.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan bagian Model TTS dan OpenRAIL-M: sherpa-onnx, Supertonic 3 (bobot OpenRAIL-M dengan butir yang relevan) dan Kokoro (Apache-2.0) sebagai mesin opsional yang tidak dibundel, kewajiban pemakai (label suara sintetis, larangan nasihat medis, izin suara), dan baris sherpa-onnx di Pihak ketiga.`
+- Changeset: `Menambahkan bagian ASR lokal (whisper.cpp): kode MIT dan bobot Whisper (MIT menurut README OpenAI; metadata Hugging Face mencatat MIT atau Apache-2.0), tidak dibundel, berjalan lokal sehingga boleh untuk naskah internal, kewajiban tinjauan hasil, pencatatan, dan baris whisper.cpp di Pihak ketiga. Sebelumnya: menambahkan bagian Model TTS dan OpenRAIL-M: sherpa-onnx, Supertonic 3 (bobot OpenRAIL-M dengan butir yang relevan) dan Kokoro (Apache-2.0) sebagai mesin opsional yang tidak dibundel, kewajiban pemakai (label suara sintetis, larangan nasihat medis, izin suara), dan baris sherpa-onnx di Pihak ketiga.`
 
 Catatan hukum di dokumen ini bukan nasihat hukum.
 
@@ -21,6 +21,7 @@ Catatan hukum di dokumen ini bukan nasihat hukum.
 - **playwright-core 1.64.1:** Apache-2.0 (Microsoft). Dependensi npm, bukan kode yang disalin ke repo; LICENSE/NOTICE-nya ikut dalam paket.
 - **Material Components for Android:** Apache License 2.0 (Copyright Google LLC). Hanya **nilai** yang dipakai di `scripts/transisi.js`, diambil dari dokumentasi Motion dan sumber `MaterialFadeThrough`, `FadeThroughProvider`, `MaterialSharedAxis`, `MaterialFade`, dan `MaterialContainerTransform`: ambang fade through 35 %, skala awal 0,92, durasi 450 ms, token durasi, dan kurva bezier standard dan emphasized. Tidak ada kode yang disalin dan tidak ada dependensi; atribusi ada di komentar kepala `scripts/transisi.js` dan di [transisi-animasi.md](transisi-animasi.md#sumber). Nilai numerik tunggal bukan ekspresi yang dilindungi, tetapi atribusi dicatat sebagai kehati-hatian.
 - **sherpa-onnx, Supertonic 3, Kokoro:** mesin dan model TTS opsional untuk `bun run narasi` (adaptor `scripts/narasi-tts.mjs`). Dipanggil sebagai program eksternal yang dipasang pengguna; **tidak dibundel, tidak didistribusikan, dan tidak ditautkan** oleh awvd. Lisensi dan syaratnya di [Model TTS dan OpenRAIL-M](#model-tts-dan-openrail-m).
+- **whisper.cpp dan model Whisper (GGML):** ASR opsional untuk `bun run narasi` (adaptor `scripts/narasi-asr.mjs`). Dipanggil sebagai program eksternal yang dipasang pengguna; **tidak dibundel, tidak didistribusikan, dan tidak ditautkan** oleh awvd. Lisensi dan syaratnya di [ASR lokal (whisper.cpp)](#asr-lokal-whispercpp).
 - **Chromium/Chrome:** dipakai dari instalasi lokal dan tidak didistribusikan.
 - **ffmpeg:** dipanggil sebagai program sistem lewat CLI dan tidak didistribusikan atau ditautkan, sehingga kewajiban LGPL/GPL (libx264) tidak berlaku untuk repo ini. Video keluaran tidak terkena GPL.
 - **H.264:** lisensi paten AVC (dulu MPEG LA, kini Via LA) secara historis tidak memungut royalti untuk video internet yang gratis bagi pengguna akhir. Untuk distribusi berbayar, siaran, atau platform streaming komersial, cek ketentuan Via LA terbaru. Status 2026 belum diverifikasi dari halaman resmi.
@@ -51,6 +52,22 @@ Perwujudannya di awvd:
 - **Pencatatan**: catat versi mesin dan model, lisensinya, tanggal unduh, dan hash model di `ASET.md` repo proyek; `suara.json` memuat `lisensiKode`, `lisensiBobot`, `syaratPakai`, dan `sumber` yang dikeluarkan ke `suara-kredit.json`.
 - **TTS daring** hanya untuk konten publik (aturan 5 AGENTS.md); mesin berpenanda `daring` ditolak untuk naskah berklasifikasi `internal`.
 - Mesin lain (Piper dan suara turunannya, MMS-TTS, F5-TTS, XTTS) tidak didukung bawaan karena lisensi data atau bobotnya membatasi atau asal datanya tidak jelas (riset awvd 2026-11-07); `suara.json` kustom boleh mendaftarkannya atas tanggung jawab pemakai.
+
+## ASR lokal (whisper.cpp)
+
+Adaptor ASR ([narasi-caption.md](narasi-caption.md#asr-lokal-whispercpp)) bersifat opsional: pengguna membangun biner dan mengunduh model sendiri, dan awvd tidak membundel biner maupun bobot. Ringkasan di bawah dari berkas lisensi dan metadata yang dibaca pada riset 2026-11-07; ini bukan nasihat hukum, lisensi dapat berubah, dan teks lengkapnya wajib dibaca pemakai.
+
+| Komponen | Lisensi | Hal yang relevan bagi pemakai awvd |
+| --- | --- | --- |
+| whisper.cpp (CLI `whisper-cli`, commit `727d3e7`) | MIT (berkas LICENSE: "Copyright (c) 2023-2026 The ggml authors") | Dipanggil sebagai program eksternal; tidak ada kewajiban copyleft. Dibangun sendiri oleh pengguna. |
+| Bobot Whisper dalam format GGML (`ggml-base-q5_1.bin`, `ggml-small-q5_1.bin`) | MIT menurut README OpenAI Whisper (kode dan bobot); metadata Hugging Face `ggerganov/whisper.cpp` mencatat MIT dan metadata `openai/whisper-*` mencatat apache-2.0. Keduanya permisif | Tidak ada pembatasan penggunaan seperti OpenRAIL-M. Periksa lisensi pada halaman model yang Anda unduh; model hasil penyesuaian pihak ketiga punya lisensinya sendiri. |
+
+Perwujudannya di awvd:
+
+- **Lokal, bukan daring.** whisper.cpp berjalan di mesin pengguna tanpa jaringan; audio tidak keluar dari mesin. Karena itu ASR ini boleh dipakai untuk naskah dan rekaman berklasifikasi `internal`, tidak seperti ASR atau TTS daring yang hanya untuk konten publik (aturan 5 AGENTS.md). `laporan.json` mencatat `asr.lokal: true` dan `asr.daring: false`. Memilih biner atau model yang memanggil jaringan (mis. lewat pembungkus pihak ketiga) menjadi tanggung jawab pemakai.
+- **Hasil ASR wajib ditinjau manusia** sebelum tayang: transkripsi dari audio tanpa naskah ditandai "hasil ASR, wajib ditinjau manusia" di VTT, `kata.json`, `laporan.json`, dan `PERLU-TINJAUAN.txt` ([aksesibilitas.md](aksesibilitas.md)).
+- **Data pribadi.** Rekaman suara dapat memuat data pribadi (UU 27/2022; status hukum rekaman suara sebagai data pribadi belum diverifikasi). Pakai rekaman yang sah Anda miliki, dan perlakukan transkrip yang memuat data pribadi sebagai data pribadi.
+- **Pencatatan**: catat versi whisper.cpp, nama dan hash model, lisensinya, dan tanggal unduh di `ASET.md` repo proyek; `laporan.json` mencatat nama dan ukuran model serta preset DTW.
 
 ## Aset: matriks lisensi (ringkas)
 
@@ -86,6 +103,10 @@ Ringkasan dari [AGENTS.md](../AGENTS.md) §Lisensi dan Aset:
 - Atribusi mulberry32 di `scripts/runtime.js` dipertahankan.
 
 ## Changelog
+
+### 2026-11-07 - v1.5.0
+
+- Menambahkan bagian ASR lokal (whisper.cpp): lisensi kode dan bobot, berjalan lokal (boleh untuk naskah internal), kewajiban tinjauan hasil, data pribadi, dan pencatatan; baris whisper.cpp di Pihak ketiga.
 
 ### 2026-11-07 - v1.4.0
 
