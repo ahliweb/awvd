@@ -13,8 +13,10 @@
  *   3. ffmpeg mengekstrak frame JPEG/PNG pada fps komposisi, satu berkas per nomor
  *      frame, ke cache berkunci (hash berkas + fps + ukuran + rentang + matriks + efek + ...).
  *      Cache hit tidak mengekstrak ulang. Audio klip diekstrak ke audio.wav (tanpa efek).
- *      Efek klip (`klip[].efek`, mis. LUT .cube dan koreksi warna) diterapkan sekali di tahap
- *      ini, bukan per frame di Chromium; registri efek: lihat EFEK di bawah.
+ *      Efek klip (`klip[].efek`: stabilisasi, chroma key menjadi PNG beralfa, LUT .cube, koreksi
+ *      warna) diterapkan sekali di tahap ini, bukan per frame di Chromium; registri efek: lihat
+ *      EFEK di bawah. Efek yang butuh kemampuan build ffmpeg (stabil: vidstab) dicek sebelum
+ *      ekstraksi dan gagal dengan pesan jelas (kode keluar 2).
  *   3b. Sumber berlisensi KUTIPAN-WAJAR atau berblok `kutipan` diperiksa kebijakan kutipan
  *      wajar (scripts/kutipan.mjs: batas durasi, proporsi, komentar aktif) dan gerbang hukum
  *      GH; gerbang belum disetujui = kode keluar 2, atau tanda draf dengan --draf.
@@ -116,15 +118,23 @@ export function kreditLengkap(a) {
  * `kanonik(e, konteks)` -> objek kanonik untuk kunci cache (null bila efek netral, dibuang dari
  * rantai), dan `saring(kanonik, indeks)` -> { saring: string[] (filter ffmpeg), berkas: [{ nama,
  * sumber }] (berkas yang disalin ke folder kerja ffmpeg supaya jalur tak perlu di-escape) }.
- * `tahap` menentukan di rantai mana efek dipasang. Tahap yang ada: "warna" (setelah penskalaan,
- * di RGB 8 bit; semua efek warna). Menambah jenis efek (chroma key, stabilisasi) = satu entri di
- * EFEK; tahap baru (mis. "pra" sebelum skala untuk stabilisasi, "alfa" untuk chroma key, yang
- * juga mengharuskan format PNG beralfa) = satu entri di TAHAP dan satu slot di argsEkstrak.
+ * `tahap` menentukan di rantai mana efek dipasang, dalam urutan TAHAP: "pra" (sebelum penskalaan,
+ * pada frame sumber: stabilisasi), "alfa" (setelah penskalaan, menghasilkan kanal alfa: chroma
+ * key; keluaran PNG beralfa) dan "warna" (setelah alfa, di RGB 8 bit; semua efek warna).
+ * Kunci opsional entri: `maks` (jumlah maksimal efek jenis itu per klip), `alfa: true` (efek
+ * menghasilkan alfa, jadi klip harus berformat PNG), `kemampuan(e, kemampuan)` -> { galat?, peringatan? }
+ * (memeriksa kemampuan build ffmpeg yang dideteksi `deteksiKemampuan`, sebelum ekstraksi), dan
+ * `saring` boleh mengembalikan `analisis` (filter pass pertama yang dijalankan sebelum ekstraksi,
+ * dengan awalan rantai yang sama). Menambah jenis efek = satu entri di EFEK; tahap baru = satu
+ * entri di TAHAP dan satu slot di argsEkstrak.
  */
-const TAHAP = ["warna"];
+const TAHAP = ["pra", "alfa", "warna"];
 const INTERPOLASI_LUT = ["nearest", "trilinear", "tetrahedral", "pyramid", "prism"];
 const BATAS_EFEK = 16;
 const POLA_HEX64 = /^[0-9a-f]{64}$/i;
+const POLA_WARNA = /^#[0-9a-f]{6}$/i;
+const METODE_KUNCI = ["rgb", "yuv"];
+const MESIN_STABIL = ["otomatis", "vidstab", "deshake"];
 const adaKunci = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const angkaDalam = (v, min, maks) => typeof v === "number" && Number.isFinite(v) && v >= min && v <= maks;
 const fmt = (x) => String(Number(x.toFixed(6)));
@@ -193,7 +203,116 @@ function mixerSaturasi(s) {
   return `colorchannelmixer=${t.join(":")}`;
 }
 
+const FILTER_VIDSTAB = ["vidstabdetect", "vidstabtransform"];
+
+/**
+ * Kemampuan filter build ffmpeg: Set nama filter dari `ffmpeg -filters`. Dipakai efek yang
+ * bergantung pada build (stabil: libvidstab). Dibaca sekali per proses, hanya bila perlu.
+ */
+export async function deteksiKemampuan() {
+  const r = await jalankan(["ffmpeg", "-hide_banner", "-filters"]);
+  if (r.kode !== 0) throw new Error(`ffmpeg -filters gagal (exit ${r.kode}): ${r.err.trim()}`);
+  const nama = new Set();
+  for (const baris of r.out.split("\n")) {
+    // kolom bendera berbeda antarversi (ffmpeg 6: 3 karakter "T.C"; versi baru bisa lebih panjang)
+    const m = /^\s*[A-Z.|]{2,6}\s+([A-Za-z0-9_]+)\s+\S*->\S*/.exec(baris);
+    if (m) nama.add(m[1]);
+  }
+  return nama;
+}
+
+/**
+ * Memilih mesin stabilisasi dari kemampuan build. `mesin`: "otomatis" (vidstab bila ada, cadangan
+ * deshake), "vidstab", atau "deshake". Mengembalikan { mesin, cadangan? } atau { galat }.
+ */
+export function pilihMesinStabil(mesin, kemampuan) {
+  const vidstab = FILTER_VIDSTAB.every((f) => kemampuan.has(f)), deshake = kemampuan.has("deshake");
+  const tanpaVidstab = "filter vidstab (vidstabdetect dan vidstabtransform) tidak tersedia di build ffmpeg ini (libvidstab tidak ikut dikompilasi)";
+  if (mesin === "vidstab") return vidstab ? { mesin } : { galat: `${tanpaVidstab}; pasang ffmpeg dengan libvidstab, atau pakai "mesin": "deshake" (atau "otomatis")` };
+  if (mesin === "deshake") return deshake ? { mesin } : { galat: 'filter deshake tidak tersedia di build ffmpeg ini; pasang ffmpeg yang memuatnya, atau pakai "mesin": "vidstab"' };
+  if (vidstab) return { mesin: "vidstab" };
+  if (deshake) return { mesin: "deshake", cadangan: `${tanpaVidstab}; memakai deshake (hasil kurang halus dan "halus" diabaikan)` };
+  return { galat: `stabilisasi tidak tersedia: ${tanpaVidstab} dan filter deshake juga tidak ada; pasang ffmpeg dengan libvidstab atau deshake` };
+}
+
 const EFEK = {
+  /**
+   * Stabilisasi: vidstab (dua pass: vidstabdetect lalu vidstabtransform) bila build ffmpeg
+   * memilikinya, cadangan deshake (satu pass). Dipasang sebelum penskalaan (pada frame sumber
+   * setelah `fps`), supaya gerak diperkirakan dan dikoreksi pada resolusi penuh.
+   */
+  stabil: {
+    tahap: "pra",
+    maks: 1,
+    kunci: ["jenis", "mesin", "goyangan", "halus"],
+    periksa(e) {
+      const g = [];
+      if (e.mesin !== undefined && !MESIN_STABIL.includes(e.mesin)) g.push(`"mesin" harus salah satu dari ${MESIN_STABIL.join(", ")} (bawaan otomatis)`);
+      if (e.goyangan !== undefined && !(Number.isInteger(e.goyangan) && e.goyangan >= 1 && e.goyangan <= 10)) g.push('"goyangan" harus bilangan bulat 1..10 (bawaan 5)');
+      if (e.halus !== undefined && !(Number.isInteger(e.halus) && e.halus >= 1 && e.halus <= 100)) g.push('"halus" harus bilangan bulat 1..100 (jumlah frame di tiap sisi; bawaan 15)');
+      if (e.mesin === "deshake" && e.halus !== undefined) g.push('"halus" hanya berlaku untuk mesin vidstab');
+      return g;
+    },
+    kemampuan(e, kemampuan) {
+      const p = pilihMesinStabil(e.mesin ?? "otomatis", kemampuan);
+      return p.galat ? { galat: p.galat } : p.cadangan ? { peringatan: p.cadangan } : {};
+    },
+    kanonik(e, { kemampuan }) {
+      if (!kemampuan) throw new Error("efek stabil butuh kemampuan ffmpeg (deteksiKemampuan) untuk memilih mesin");
+      const p = pilihMesinStabil(e.mesin ?? "otomatis", kemampuan);
+      if (p.galat) throw new Error(p.galat);
+      const c = { jenis: "stabil", mesin: p.mesin, goyangan: e.goyangan ?? 5 };
+      if (p.mesin === "vidstab") c.halus = e.halus ?? 15;
+      return c;
+    },
+    saring(c) {
+      if (c.mesin === "vidstab") {
+        // jejak gerak ditulis pass pertama ke berkas relatif di folder kerja ekstraksi (dihapus sesudahnya)
+        return {
+          analisis: [`vidstabdetect=shakiness=${c.goyangan}:accuracy=15:result=stabil.trf`],
+          saring: [`vidstabtransform=input=stabil.trf:smoothing=${c.halus}`], berkas: [],
+        };
+      }
+      // deshake: rx dan ry harus kelipatan 16 (maksimal 64); goyangan 1..10 -> 16, 32, 48, 64 piksel
+      const rx = 16 * Math.min(4, Math.ceil(c.goyangan / 2.5));
+      return { saring: [`deshake=rx=${rx}:ry=${rx}`], berkas: [] };
+    },
+  },
+
+  /**
+   * Chroma key: warna latar menjadi transparan (kanal alfa), keluaran PNG beralfa. Dipasang
+   * setelah penskalaan dan sebelum efek warna, jadi `warna` kunci mengacu ke warna sumber, bukan
+   * hasil koreksi. `rgb` memakai colorkey (jarak di RGB); `yuv` memakai chromakey (jarak pada
+   * kroma saja, lebih tahan terhadap perbedaan terang latar), dan hanya mengambil kanal alfanya
+   * sehingga RGB subjek tidak berubah oleh konversi YUV.
+   */
+  kunciWarna: {
+    tahap: "alfa",
+    maks: 1,
+    alfa: true,
+    kunci: ["jenis", "warna", "toleransi", "halus", "metode"],
+    periksa(e) {
+      const g = [];
+      if (typeof e.warna !== "string" || !POLA_WARNA.test(e.warna)) g.push('"warna" (warna latar, #rrggbb) wajib');
+      if (e.toleransi !== undefined && !angkaDalam(e.toleransi, 0.01, 1)) g.push('"toleransi" harus angka 0.01..1 (bawaan 0.3)');
+      if (e.halus !== undefined && !angkaDalam(e.halus, 0, 1)) g.push('"halus" harus angka 0..1 (kelembutan tepi; bawaan 0.1)');
+      if (e.metode !== undefined && !METODE_KUNCI.includes(e.metode)) g.push(`"metode" harus salah satu dari ${METODE_KUNCI.join(", ")} (bawaan rgb)`);
+      return g;
+    },
+    kanonik(e) {
+      return { jenis: "kunciWarna", warna: e.warna.toLowerCase(), toleransi: e.toleransi ?? 0.3, halus: e.halus ?? 0.1, metode: e.metode ?? "rgb" };
+    },
+    saring(c) {
+      const warna = `0x${c.warna.slice(1)}`, opsi = `color=${warna}:similarity=${fmt(c.toleransi)}:blend=${fmt(c.halus)}`;
+      if (c.metode === "rgb") return { saring: ["format=rgba", `colorkey=${opsi}`], berkas: [] };
+      // alfa dari salinan YUV 4:4:4, digabung kembali ke RGB asli
+      return {
+        saring: ["format=rgba", "split[a][b];[a]format=yuva444p", `chromakey=${opsi}`, "alphaextract[m];[b][m]alphamerge"],
+        berkas: [],
+      };
+    },
+  },
+
   /** LUT 3D .cube lewat lut3d. */
   lut: {
     tahap: "warna",
@@ -295,11 +414,14 @@ export function periksaEfek(efek, dirManifest) {
   if (!Array.isArray(efek)) return ['"efek" harus array objek'];
   const galat = [];
   if (efek.length > BATAS_EFEK) galat.push(`"efek" maksimal ${BATAS_EFEK} butir (dapat ${efek.length})`);
+  const hitung = {};
   for (const [i, e] of efek.entries()) {
     if (e === null || typeof e !== "object" || Array.isArray(e)) { galat.push(`efek[${i}]: harus objek`); continue; }
     const def = adaKunci(EFEK, e.jenis) ? EFEK[e.jenis] : null;
     if (!def) { galat.push(`efek[${i}]: jenis ${JSON.stringify(e.jenis)} tidak dikenal; yang ada: ${Object.keys(EFEK).join(", ")}`); continue; }
     const nama = `efek[${i}] (${e.jenis})`;
+    hitung[e.jenis] = (hitung[e.jenis] ?? 0) + 1;
+    if (def.maks && hitung[e.jenis] > def.maks) { galat.push(`${nama}: maksimal ${def.maks} efek ${e.jenis} per klip`); continue; }
     const asing = Object.keys(e).filter((k) => !def.kunci.includes(k));
     if (asing.length) { galat.push(`${nama}: kunci tidak dikenal: ${asing.join(", ")} (sah: ${def.kunci.join(", ")})`); continue; }
     for (const p of def.periksa(e, { dirManifest })) galat.push(`${nama}: ${p}`);
@@ -307,19 +429,50 @@ export function periksaEfek(efek, dirManifest) {
   return galat;
 }
 
+/** Apakah ada klip yang memakai efek yang bergantung pada kemampuan build ffmpeg. */
+export function perluKemampuan(manifest) {
+  return (manifest.klip ?? []).some((k) => (k.efek ?? []).some((e) => EFEK[e.jenis]?.kemampuan));
+}
+
 /**
- * Efek klip yang sudah lolos periksaEfek -> { kanonik[] (untuk kunci cache), warna[] (filter),
- * berkas[] }. Efek netral dibuang; urutan antar-tahap mengikuti TAHAP, dalam tahap mengikuti array.
+ * Memeriksa efek yang bergantung pada build ffmpeg terhadap `kemampuan` (Set dari
+ * deteksiKemampuan) untuk manifest yang sudah lolos validasi. Mengembalikan { galat[], peringatan[] }.
  */
-export function rakitEfek(efek, dirManifest) {
-  const hasil = { kanonik: [], warna: [], berkas: [] };
+export function periksaKemampuanEfek(manifest, kemampuan) {
+  const galat = [], peringatan = [];
+  for (const k of manifest.klip ?? []) {
+    for (const [i, e] of (k.efek ?? []).entries()) {
+      const def = EFEK[e.jenis];
+      if (!def?.kemampuan) continue;
+      const r = def.kemampuan(e, kemampuan);
+      if (r.galat) galat.push(`klip "${k.id}": efek[${i}] (${e.jenis}): ${r.galat}`);
+      if (r.peringatan) peringatan.push(`klip "${k.id}": efek[${i}] (${e.jenis}): ${r.peringatan}`);
+    }
+  }
+  return { galat, peringatan };
+}
+
+/** Format berkas frame klip: PNG bila ada efek beralfa (chroma key) dan format tak ditulis; bila tidak, jpg. */
+export function formatKlip(k) {
+  return k.format ?? ((k.efek ?? []).some((e) => EFEK[e.jenis]?.alfa) ? "png" : "jpg");
+}
+
+/**
+ * Efek klip yang sudah lolos periksaEfek -> { kanonik[] (untuk kunci cache), pra[], alfa[], warna[]
+ * (filter per tahap), analisis[] (filter pass pertama), berkas[] }. Efek netral dibuang; urutan
+ * antar-tahap mengikuti TAHAP, dalam tahap mengikuti array. `kemampuan` (Set dari deteksiKemampuan)
+ * wajib bila ada efek yang bergantung pada build ffmpeg (stabil).
+ */
+export function rakitEfek(efek, dirManifest, kemampuan) {
+  const hasil = { kanonik: [], pra: [], alfa: [], warna: [], analisis: [], berkas: [] };
   const urut = (efek ?? []).map((e, i) => ({ e, i })).sort((a, b) => TAHAP.indexOf(EFEK[a.e.jenis].tahap) - TAHAP.indexOf(EFEK[b.e.jenis].tahap) || a.i - b.i);
   for (const { e } of urut) {
     const def = EFEK[e.jenis];
-    const c = def.kanonik(e, { dirManifest });
+    const c = def.kanonik(e, { dirManifest, kemampuan });
     if (!c) continue;
-    const { saring, berkas } = def.saring(c, hasil.berkas.length);
-    hasil.warna.push(...saring);
+    const { saring, berkas, analisis } = def.saring(c, hasil.berkas.length);
+    hasil[def.tahap].push(...saring);
+    hasil.analisis.push(...(analisis ?? []));
     hasil.berkas.push(...berkas);
     const { jalur, ...bersih } = c; // jalur mutlak tidak ikut kunci cache; isinya diwakili sha256
     hasil.kanonik.push(bersih);
@@ -463,7 +616,14 @@ export async function validasiManifest(manifest, dirManifest) {
     if (k.panjang !== undefined && !(typeof k.panjang === "number" && k.panjang > 0)) g("panjang (detik) harus angka > 0");
     if (k.format !== undefined && !JENIS_FORMAT.includes(k.format)) g(`format harus salah satu dari ${JENIS_FORMAT.join(", ")}`);
     if (k.kualitas !== undefined && !(Number.isInteger(k.kualitas) && k.kualitas >= 1 && k.kualitas <= 31)) g("kualitas (q:v JPEG, 1 terbaik) harus bilangan bulat 1..31");
-    if (k.efek !== undefined) for (const pesan of periksaEfek(k.efek, dirManifest)) g(pesan);
+    if (k.efek !== undefined) {
+      for (const pesan of periksaEfek(k.efek, dirManifest)) g(pesan);
+      if (k.format === "jpg" && Array.isArray(k.efek)) {
+        for (const [i, e] of k.efek.entries()) {
+          if (e && EFEK[e.jenis]?.alfa) g(`efek[${i}] (${e.jenis}): menghasilkan kanal alfa, tetapi format "jpg" tidak mendukung alfa; pakai "format": "png" atau hapus "format" (otomatis png)`);
+        }
+      }
+    }
   }
   for (const id of idSumber) if (!dipakai.has(id) && klip && klip.length) peringatan.push(`sumber "${id}" tidak dipakai klip mana pun`);
   return { galat, peringatan, hash };
@@ -518,22 +678,41 @@ function matriksRentang(info) {
   return { matriks, rentang };
 }
 
-function argsEkstrak({ berkas, dir, fps, k, info, m, efek }) {
-  const format = k.format ?? "jpg";
+/** Awal rantai ekstraksi dan analisis: fps lalu koreksi SAR (sama persis di pass analisis stabilisasi). */
+function rantaiAwal({ fps, info }) {
   const rantai = [`fps=${fps}`];
   if (Math.abs(info.sar - 1) > 1e-6) rantai.push("scale=trunc(iw*sar):ih", "setsar=1");
+  return rantai;
+}
+
+/** Pass pertama (analisis gerak vidstab): hanya menulis berkas jejak di folder kerja, tanpa keluaran frame. */
+function argsAnalisis({ berkas, fps, k, info, efek }) {
+  const a = ["-hide_banner", "-loglevel", "error", "-y"];
+  if (k.dari) a.push("-ss", String(k.dari));
+  a.push("-i", berkas);
+  if (k.panjang) a.push("-t", String(k.panjang));
+  a.push("-an", "-sn", "-vf", [...rantaiAwal({ fps, info }), ...efek.analisis].join(","), "-f", "null", "-");
+  return a;
+}
+
+function argsEkstrak({ berkas, dir, fps, k, info, m, efek }) {
+  const format = formatKlip(k);
+  const rantai = [...rantaiAwal({ fps, info }), ...efek.pra]; // tahap "pra": pada frame sumber
   let skala = `scale=${k.lebar}:${k.tinggi}:flags=bicubic`;
   if (m.matriks !== "rgb") skala += `:in_color_matrix=${m.matriks}:in_range=${m.rentang}:out_range=full`;
   rantai.push(skala, "format=rgb24");
-  // efek tahap "warna": di RGB planar 8 bit (konversi rgb24 <-> gbrp tanpa kehilangan)
-  if (efek.warna.length) rantai.push("format=gbrp", ...efek.warna, "format=rgb24");
+  // efek tahap "alfa": menghasilkan kanal alfa (RGBA); tahap berikutnya membawa alfa (gbrap) bila ada
+  const alfa = efek.alfa.length > 0;
+  if (alfa) rantai.push(...efek.alfa, "format=rgba");
+  // efek tahap "warna": di RGB planar 8 bit (konversi rgb24 <-> gbrp tanpa kehilangan; alfa tak disentuh)
+  if (efek.warna.length) rantai.push(alfa ? "format=gbrap" : "format=gbrp", ...efek.warna, alfa ? "format=rgba" : "format=rgb24");
   const a = ["-hide_banner", "-loglevel", "error", "-y"];
   if (k.dari) a.push("-ss", String(k.dari));
   a.push("-i", berkas);
   if (k.panjang) a.push("-t", String(k.panjang));
   a.push("-an", "-sn", "-vf", rantai.join(","), "-fflags", "+bitexact", "-flags", "+bitexact");
   if (format === "jpg") a.push("-c:v", "mjpeg", "-pix_fmt", "yuvj444p", "-q:v", String(k.kualitas ?? 2));
-  else a.push("-c:v", "png", "-pix_fmt", "rgb24");
+  else a.push("-c:v", "png", "-pix_fmt", alfa ? "rgba" : "rgb24");
   a.push("-start_number", "0", join(dir, `%06d.${format}`));
   return a;
 }
@@ -576,9 +755,9 @@ async function hashFrame(dir, daftar) {
 }
 
 /** Ekstrak satu klip ke cache (atau cache hit). Mengembalikan { dir, kunci, meta, hit }. */
-async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, paksa, versi, dirManifest }) {
-  const format = k.format ?? "jpg";
-  const efek = rakitEfek(k.efek, dirManifest);
+async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, paksa, versi, dirManifest, kemampuan }) {
+  const format = formatKlip(k);
+  const efek = rakitEfek(k.efek, dirManifest, kemampuan);
   const params = {
     skema: VERSI_SKEMA, sha256, fps, lebar: k.lebar, tinggi: k.tinggi, dari: k.dari ?? 0,
     panjang: k.panjang ?? null, matriks: m.matriks, rentang: m.rentang, format,
@@ -595,8 +774,16 @@ async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, pa
   rmSync(tmp, { recursive: true, force: true });
   mkdirSync(tmp, { recursive: true });
   for (const b of efek.berkas) copyFileSync(b.sumber, join(tmp, b.nama)); // ffmpeg berjalan di tmp: nama berkas aman tanpa escape
+  if (efek.analisis.length) {
+    const ra = await jalankan(["ffmpeg", ...argsAnalisis({ berkas, fps, k, info, efek })], tmp);
+    if (ra.kode !== 0) {
+      rmSync(tmp, { recursive: true, force: true });
+      throw new Error(`ffmpeg gagal menganalisis gerak klip "${k.id}" (exit ${ra.kode}):\n${ra.err.trim()}`);
+    }
+  }
   const r = await jalankan(["ffmpeg", ...argsEkstrak({ berkas, dir: tmp, fps, k, info, m, efek })], tmp);
   for (const b of efek.berkas) rmSync(join(tmp, b.nama), { force: true });
+  rmSync(join(tmp, "stabil.trf"), { force: true });
   if (r.kode !== 0) {
     rmSync(tmp, { recursive: true, force: true });
     throw new Error(`ffmpeg gagal mengekstrak frame klip "${k.id}" (exit ${r.kode}):\n${r.err.trim()}`);
@@ -634,7 +821,7 @@ function gagal(pesan, kode = 1) {
 const PETUNJUK = `Pemakaian:
   bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung props.json] [--paksa] [--draf]
 Keluaran di --out: klip-props.json, atribusi.txt, <kunci>/ (frame + audio.wav + meta.json),
-dan props-gabungan.json bila --gabung. klip[].efek (lut, warna, keseimbangan) diterapkan saat ekstraksi. Kode keluar 2 untuk manifest/argumen tidak valid.
+dan props-gabungan.json bila --gabung. klip[].efek (stabil, kunciWarna, lut, warna, keseimbangan) diterapkan saat ekstraksi. Kode keluar 2 untuk manifest/argumen tidak valid.
 --draf: izinkan sumber KUTIPAN-WAJAR yang gerbang hukum GH-nya belum disetujui; props memuat
 "draf": true (komposisi wajib menampilkan tanda draf). Pelanggaran angka kutipan tidak bisa dilewati.`;
 
@@ -757,6 +944,23 @@ async function utama() {
     console.log(kutipan.gerbang.pesan);
   }
 
+  // 2c. efek yang bergantung pada build ffmpeg (stabil: vidstab) dicek sebelum ekstraksi
+  let kemampuan = null;
+  if (perluKemampuan(manifest)) {
+    try {
+      kemampuan = await deteksiKemampuan();
+    } catch (e) {
+      gagal(e.message);
+    }
+    const kk = periksaKemampuanEfek(manifest, kemampuan);
+    for (const p of kk.peringatan) console.error(`peringatan: ${p}`);
+    if (kk.galat.length) {
+      console.error(`klip.mjs: efek tidak bisa dijalankan oleh ffmpeg ini (${kk.galat.length} pelanggaran); tidak ada ekstraksi dan tidak ada render:`);
+      for (const g of kk.galat) console.error(`  - ${g}`);
+      process.exit(2);
+    }
+  }
+
   // 3. ekstraksi ke cache
   const keluar = resolve(o.out);
   try {
@@ -773,13 +977,13 @@ async function utama() {
     let hasil;
     try {
       hasil = await ekstrakKlip({
-        k, sumber: s.id, berkas: mutlak(dirManifest, s.berkas), sha256: v.hash[s.id], info, m, fps, keluar, paksa: o.paksa, versi, dirManifest,
+        k, sumber: s.id, berkas: mutlak(dirManifest, s.berkas), sha256: v.hash[s.id], info, m, fps, keluar, paksa: o.paksa, versi, dirManifest, kemampuan,
       });
     } catch (e) {
       gagal(e.message);
     }
     const { meta, kunci, hit } = hasil;
-    console.log(`klip "${k.id}": ${hit ? "cache hit" : "ekstraksi"} ${meta.jumlah} frame ${k.lebar}x${k.tinggi} @ ${fps} fps (matriks ${m.matriks}, rentang ${m.rentang}${meta.efek ? `, efek ${meta.efek.map((x) => x.jenis).join("+")}` : ""}) -> ${kunci}`);
+    console.log(`klip "${k.id}": ${hit ? "cache hit" : "ekstraksi"} ${meta.jumlah} frame ${k.lebar}x${k.tinggi} @ ${fps} fps (matriks ${m.matriks}, rentang ${m.rentang}${meta.efek ? `, efek ${meta.efek.map((x) => (x.jenis === "stabil" ? `stabil(${x.mesin})` : x.jenis)).join("+")}` : ""}) -> ${kunci}`);
     props.push({
       id: k.id, sumber: s.id, akar, folder: kunci, ekstensi: meta.ekstensi, digit: meta.digit,
       jumlah: meta.jumlah, fps, lebar: k.lebar, tinggi: k.tinggi,

@@ -316,6 +316,61 @@ daftar("(n) determinisme galeri: dua render rentang gangguan menghasilkan framem
   tegas(fa === fb, "framemd5 dua render berbeda");
 });
 
+daftar("(o) regresi #63: pengali profil dipakai sekali; durasi transisi sama dengan overlap susunAdegan", () => {
+  for (const profil of ["standar", "lansia", "anak", "kurangiGerak"]) {
+    for (const tr of [{ jenis: "pudar" }, { jenis: "pudar", durasi: 15 }, { jenis: "pudarMelalui" }, { jenis: "celup" }, { jenis: "geser", durasiMs: 400 }]) {
+      const s = T.susunAdegan([{ durasi: 60 }, { durasi: 60, transisi: tr }], { fps: 30, profil });
+      const b = s.peta[1], ov = b.overlap;
+      tegas(ov > 0, `${profil}/${tr.jenis}: overlap ${ov}`);
+      for (let f = b.mulai; f < b.mulai + ov; f++) {
+        const h = s.pada(f).transisi;
+        tegas(h && h.durasi === ov, `${profil}/${tr.jenis}: durasi transisi ${h && h.durasi} != overlap ${ov}`);
+      }
+      // frame terakhir overlap: progres (ov-1)/ov; frame berikutnya: adegan masuk tuntas
+      const akhir = s.pada(b.mulai + ov - 1).transisi;
+      tegas(Math.abs(akhir.progres - (ov - 1) / ov) < 1e-4, `${profil}/${tr.jenis}: progres akhir ${akhir.progres}`);
+      const lewat = s.pada(b.mulai + ov);
+      tegas(lewat.transisi === null && lewat.adegan[1].tampil && !lewat.adegan[0].tampil, `${profil}/${tr.jenis}: frame setelah overlap`);
+      tegas(T.transisi(b.mulai + ov, { ...tr, mulai: b.mulai, durasi: ov, fps: 30, profil, durasiAkhir: true }).progres === 1, `${profil}/${tr.jenis}: progres 1 setelah overlap`);
+    }
+  }
+  // jenis berkilat dengan durasi minimum: overlap hasil jepit adegan pendek tetap sama dengan durasi transisi
+  const pendek = T.susunAdegan([{ durasi: 12 }, { durasi: 12, transisi: { jenis: "kebocoran" } }], { fps: 30, profil: "lansia" });
+  const bp = pendek.peta[1];
+  tegas(pendek.pada(bp.mulai).transisi.durasi === bp.overlap, `adegan pendek: ${pendek.pada(bp.mulai).transisi.durasi} != ${bp.overlap}`);
+  // API tingkat rendah tidak berubah: durasi eksplisit tetap diskalakan profil satu kali
+  tegas(T.transisi(20, { jenis: "pudar", mulai: 10, durasi: 20, profil: "lansia" }).durasi === 30, "transisi() tingkat rendah: lansia 1,5x");
+});
+
+daftar("(p) #28: kurangiGerak dari konsep.json lewat props-file, tanpa mengubah komposisi", async () => {
+  const konsepCli = join(akar, "scripts", "konsep.mjs");
+  const dasar = JSON.parse(await Bun.file(join(akar, "templates", "konsep-contoh", "konsep.json")).text());
+  const presetDari = async (nama, ubah) => {
+    const k = join(tmp, `${nama}.konsep.json`), pr = join(tmp, `${nama}.preset.json`);
+    writeFileSync(k, JSON.stringify(ubah(structuredClone(dasar))));
+    const r = await jalankan(["bun", konsepCli, "preset", k]);
+    tegas(r.kode === 0, `konsep preset ${nama}: ${r.err}`);
+    writeFileSync(pr, r.out);
+    return { berkas: pr, props: JSON.parse(r.out) };
+  };
+  const kg = await presetDari("kg", (k) => { k.kurangiGerak = true; return k; });
+  const std = await presetDari("std", (k) => k);
+  tegas(kg.props.profil === "kurangiGerak" && kg.props.transisi.antarBagian.profil === "kurangiGerak", `props kurangiGerak: ${json(kg.props.profil)}`);
+  tegas(std.props.profil === "standar", `props standar: ${json(std.props.profil)}`);
+  // props dari konsep memberi hasil render yang sama dengan --props eksplisit yang dipakai (l)
+  const a = join(tmp, "p-kg.mp4"), b = join(tmp, "p-eksplisit.mp4"), c = join(tmp, "p-std.mp4");
+  const sempit = ["--dari", "612", "--sampai", "650"];
+  const [ra, rb, rc] = await Promise.all([
+    renderKe(galeri, "--out", a, "--props-file", kg.berkas, ...sempit),
+    renderKe(galeri, "--out", b, "--props", '{"profil":"kurangiGerak"}', ...sempit),
+    renderKe(galeri, "--out", c, "--props-file", std.berkas, ...sempit),
+  ]);
+  tegas(ra.kode === 0 && rb.kode === 0 && rc.kode === 0, `render: ${ra.err} ${rb.err} ${rc.err}`);
+  const [fa, fb, fc] = [await framemd5(a), await framemd5(b), await framemd5(c)];
+  tegas(fa === fb, "props-file dari konsep kurangiGerak harus sama dengan --props profil kurangiGerak");
+  tegas(fa !== fc, "kurangiGerak dari konsep harus berbeda dari profil standar");
+});
+
 // ----------------------------------------------------------------- jalankan
 const t0 = Date.now();
 let gagal = 0;

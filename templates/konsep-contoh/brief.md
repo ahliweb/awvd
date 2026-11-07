@@ -93,6 +93,21 @@ Pilihan proyek pada konsep.json (menjadi acuan `bun run periksa --konsep`):
 - Musik: tidak.
 - Kenyaringan: web (-16 LUFS).
 
+## Transisi dan gerak
+
+Preset transisi jenis `panduan` dari `scripts/transisi.js` (`Transisi.presetJenisVideo`); nilainya keputusan desain, bukan hasil riset (docs/transisi-animasi.md). Token durasi `transisi` (sedang) di tabel atas adalah tingkat kasar runtime dan terpisah dari preset ini.
+
+- Profil gerak: `standar` (audiens.profil: umum).
+- Efek berat (`gangguan`, grain hidup): mati untuk jenis ini (diganti `pudar`).
+- Komposisi memilih profil lewat props: `bun run konsep -- preset konsep.json > preset.json`, lalu `render.mjs --props-file preset.json`; komposisi yang membaca `props.profil` (seperti galeri transisi) memakainya tanpa perubahan kode, dan `props.transisi` memuat preset per peran. Setel `kurangiGerak: true` di konsep.json untuk memaksa profil `kurangiGerak`.
+
+| Peran | Preset | Efektif | Durasi efektif | Catatan |
+| --- | --- | --- | --- | --- |
+| antarAdegan | pudarMelalui 150 ms | pudarMelalui | 5 frame (167 ms pada 30 fps) | - |
+| antarBagian | geser 300 ms, arah kiri | geser | 9 frame (300 ms pada 30 fps) | - |
+| pembuka | pudar 400 ms | pudar | 12 frame (400 ms pada 30 fps) | - |
+| penutup | pudar 400 ms | pudar | 12 frame (400 ms pada 30 fps) | - |
+
 ## Aturan teknis
 
 - Caption: baris maksimal 42 karakter, maksimal 2 baris, 17 cps, durasi cue 5/6 sampai 7 detik (Netflix Timed Text Style Guide).

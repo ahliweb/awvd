@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.1`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Keterbatasan --skala diperbarui: skala di bawah 1 kini deterministik (isu #26).`
+- Changeset: `Preset jenis video dan profil gerak kini terhubung ke konsep.json (brief, keluaran preset, kurangiGerak lewat props); susunAdegan menerapkan pengali durasi profil sekali (isu #63, #28).`
 
 Referensi modul `scripts/transisi.js`, yang menyediakan `window.Transisi`: transisi antar adegan, animasi masuk/keluar/penekanan elemen, dan helper gerak. Modul ini mandiri dan terpisah dari `scripts/runtime.js` ([api-runtime.md](api-runtime.md)); runtime tetap kecil dan komposisi memuat modul ini hanya bila perlu. Galeri semua jenis ada di `templates/transisi-galeri/`. Aturan determinisme yang mendasarinya ada di [arsitektur.md](arsitektur.md#aturan-determinisme).
 
@@ -72,7 +72,7 @@ Konvensi lapisan: adegan masuk di atas (`zIndex` 2), keluar di bawah (1), overla
 | `kamera(frame, { dari, ke, ... })` | Zoom/pan/Ken Burns; memberi `peringatan[]` bila laju zoom > 15 %/detik atau pan > 25 % lebar/detik (ambang keputusan desain). |
 | `paralaks(frame, { lapisan, gerak, ... })` | Lapisan berkedalaman 0..1; hanya aktif bila profil mengizinkan. |
 | `bersama(frame, { dari, ke, mode, busur, ... })` | Elemen bersama (container transform): kotak `{ x, y, w, h, r }` berubah via properti layout (teks tidak terdistorsi); isi lama memudar keluar, isi baru masuk (`mode` `melalui` atau `silang`). |
-| `susunAdegan(daftar, { fps, lebar, tinggi, profil, jenisVideo })` | `daftar = [{ durasi, transisi? }]`. Mengembalikan `{ total, peta[], pada(frame) }`; `peta[i]` memuat `mulai`, `durasi`, `overlap`, `tunggal` (frame adegan tampil sendirian). |
+| `susunAdegan(daftar, { fps, lebar, tinggi, profil, jenisVideo })` | `daftar = [{ durasi, transisi? }]`. Mengembalikan `{ total, peta[], pada(frame) }`; `peta[i]` memuat `mulai`, `durasi`, `overlap`, `tunggal` (frame adegan tampil sendirian). Pengali durasi profil diterapkan sekali, saat menghitung `overlap`; `pada(frame).transisi.durasi` selalu sama dengan `peta[i].overlap`, sehingga `progres` frame terakhir tumpang-tindih bernilai `(overlap - 1) / overlap` dan adegan masuk tuntas (progres 1) di frame berikutnya, sama untuk semua profil. |
 | `terapkan(hasil, { keluar, masuk, wadah, overlay })` | Menulis gaya ke DOM, memasang atau menghapus node `<filter>` SVG per frame, dan mengelola `div` overlay. |
 | `grain(kanvas, frame, { seed, hidup, tahan, kekuatan, jenisVideo })` | Butiran film di `<canvas>` kecil (mis. 320x180, `image-rendering: pixelated`). Bawaan `hidup: 0` (diam). |
 | `periksaKilatan(daftarTransisi, fps)` | Pemeriksa kilatan tingkat rencana: `{ ok, galat[], peringatan[], kilatan }`. |
@@ -148,7 +148,7 @@ Makna harus dikaitkan dengan isi: batang tumbuh = nilai, garis digambar = tren. 
 - **Rantai.** `jenis` boleh array, mis. `["geser", "kebocoran"]` atau `[{ jenis: "zoom" }, { jenis: "gangguan", seed: 3 }]` dengan parameter per anak. `transform` dan `filter` disambung berurutan, `opacity` dikalikan (dua `pudar` berantai memberi fade kuadrat), `clipPath`/`maskImage` yang terakhir bukan `none` menang. Urutan adegan dengan transisi berbeda memakai `susunAdegan`.
 - **Easing.** Nama bawaan `linear`, `standar`, `percepat`, `perlambat`, `ditekankan`, `ditekankanKeluar`, `masukKeluar`, `kuat`, `keluarCubic`, `masukKeluarCubic`, `pegas`, `pegasLembut`; bezier `[x1, y1, x2, y2]`; fungsi `t -> t`; atau `easing.pegasEasing({ osilasi, redaman })`. Tabel kurva di modul ini ditulis sendiri dan terpisah dari `easing` runtime (koefisien bezier Material diduplikasi demi kemandirian).
 - **Profil audiens** (`profil`): `standar`; `lansia` (durasi 1,5x, tanpa paralaks, jarak 0,6x, intensitas 0,7x, menghindari `gangguan`, `cambuk`, `kilat`, `kebocoran`, `halaman`, `balik`, `zoom`, `pudarBlur`); `anak` (durasi 1,25x, intensitas 0,85x, menghindari `gangguan` dan `kilat`); `kurangiGerak` (lihat Aksesibilitas). Semua angka profil adalah keputusan desain, bukan hasil riset. Profil dapat berupa objek kustom. **Panjang total video berubah menurut profil** (galeri: 1189 frame standar, 1015 `lansia`, 1224 `kurangiGerak`), jadi subtitle dan narasi harus disinkronkan dari `peta` `susunAdegan`, bukan angka tetap.
-- **Preset per jenis video.** `presetJenisVideo(jenis, peran, audiens)` dengan `peran` `antarAdegan`, `antarBagian`, `pembuka`, atau `penutup`, mis. formal: `pudar` 300 ms antar adegan, `pudarMelalui` 500 ms antar bagian, `celup` 700 ms penutup; promo: `dorong` 250 ms antar adegan, `tirai` 500 ms antar bagian. Seluruh nilai preset adalah keputusan desain (selaras `data/jenis-video.json`; belum dihubungkan ke `konsep.json`).
+- **Preset per jenis video.** `presetJenisVideo(jenis, peran, audiens)` dengan `peran` `antarAdegan`, `antarBagian`, `pembuka`, atau `penutup`, mis. formal: `pudar` 300 ms antar adegan, `pudarMelalui` 500 ms antar bagian, `celup` 700 ms penutup; promo: `dorong` 250 ms antar adegan, `tirai` 500 ms antar bagian. Seluruh nilai preset adalah keputusan desain (selaras `data/jenis-video.json`). Preset ini dibaca langsung oleh `scripts/konsep.mjs`: `bun run konsep -- brief` menampilkannya (beserta jenis dan durasi efektif setelah profil) dan `bun run konsep -- preset` menyuntikkannya sebagai props `profil` dan `transisi`; profil gerak diturunkan dari `kurangiGerak` dan `audiens.profil` di `konsep.json` ([konsep-jenis-alur.md](konsep-jenis-alur.md#transisi-dan-gerak)).
 - **Efek berat.** Jenis `gangguan` dan grain hidup berbiaya tinggi (lihat Biaya kompresi). `efekBerat(jenisVideo)` bernilai `true` hanya untuk `kreatif`, `promo`, `sosial`, dan `acara`. Bila opsi `jenisVideo` diberikan dan jenis itu tidak mengizinkan, `transisi` mengganti `gangguan` dengan `pudar` (dengan `peringatan`) dan `grain` menurunkan `hidup` menjadi diam. `paksaEfekBerat: true` menimpa. Tanpa opsi `jenisVideo`, tidak ada pemblokiran. `grain` bawaan diam (`hidup: 0`).
 
 ## Aksesibilitas
@@ -168,7 +168,7 @@ Dasar yang berlaku langsung untuk video pra-rekam ialah **WCAG 2.2 SC 2.3.1 Thre
 
 `bun run periksa` dan `periksaKilatan` adalah penyaringan konservatif, **bukan sertifikasi** PEAT/Harding ([pemeriksaan-mutu.md](pemeriksaan-mutu.md#kilatan-fotosensitif), KP-005). `periksaKilatan` hanya menghitung jenis yang ditandai berkilat; ia tidak melihat piksel.
 
-Pemakaian `kurangiGerak` di CLI: renderer belum punya flag khusus; berikan lewat props (`--props '{"profil":"kurangiGerak"}'`) dan komposisi membacanya, seperti galeri.
+Pemakaian `kurangiGerak` di CLI: renderer belum punya flag khusus; berikan lewat props (`--props '{"profil":"kurangiGerak"}'`) dan komposisi membacanya, seperti galeri. Dari konsep: setel `kurangiGerak: true` di `konsep.json`, jalankan `bun run konsep -- preset konsep.json > preset.json`, lalu `--props-file preset.json`; hasilnya identik dengan `--props` eksplisit di atas (diuji di `bun run uji:transisi`, uji p).
 
 ## Biaya kompresi dan render
 
@@ -205,7 +205,7 @@ Temuan: ongkos bitrate dominan datang dari derau dan detail temporal (grain hidu
 - Lolos `periksa` tidak menjamin aman bagi semua penonton fotosensitif.
 - Determinisme hanya diuji pada satu mesin dan satu build Chromium; lintas mesin belum diuji. `render.mjs --skala` di bawah 1 sebelumnya tidak deterministik (isu #26) dan kini deterministik pada `templates/contoh-dasar` (uji regresi di `bun run uji`); uji determinisme transisi tetap memakai skala 1. Fidelitas filter SVG pada `--skala` selain 1, `backdrop-filter`, `will-change`, dan rasio 9:16 (lebar/tinggi parametrik tetapi tidak dirender) belum diuji.
 - `gangguan` meninggalkan jalur piksel berwarna di tepi kiri dan kanan bila adegan tidak terpotong `overflow: hidden`; `halaman` tanpa lengkung kertas; `bentuk` terbuka cepat karena easing `ditekankan`.
-- Pemeriksa otomatis `tunggal >= durasiBaca` dan integrasi `presetJenisVideo` dengan `konsep.json` belum ada.
+- Pemeriksa otomatis `tunggal >= durasiBaca` belum ada. Pemetaan `audiens.profil` ke profil gerak dan preset per jenis video adalah keputusan desain; `kurangiGerak` dari konsep menggantikan (bukan menambah) pengali durasi `lansia`/`anak`, dan komposisi yang tidak membaca `props.profil` mengabaikannya.
 - Angka kompresi di atas hanya indikasi relatif.
 
 ## Sumber
@@ -220,6 +220,14 @@ Tingkat bukti: [standar], [pedoman industri], [riset empiris], [buku teks], [pra
 - [praktik], [keputusan desain] Jenis tanpa rujukan di katalog, seluruh angka profil dan preset, ambang kamera, dan durasi minimum jenis berkilat.
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Integrasi dengan `konsep.json` (isu #28): `presetJenisVideo` dibaca oleh `konsep.mjs` untuk brief dan keluaran `preset`; profil `kurangiGerak` dapat dipilih dari konsep lewat props tanpa mengubah komposisi atau `render.mjs`. `transisi.js` tidak berubah untuk ini (hanya koreksi v1.0.2).
+
+### 2026-11-07 - v1.0.2
+
+- Koreksi `susunAdegan`: pada profil `lansia` (1,5x) dan `anak` (1,25x) pengali durasi diterapkan dua kali (sekali ke `overlap`, sekali lagi di `transisi` yang dipanggil `pada`), sehingga transisi `pudar` pada dua adegan 60 frame memakai durasi 35 frame di overlap 23 frame dan adegan masuk muncul mendadak. Kini durasi transisi sama dengan `overlap` (opsi internal `durasiAkhir`); `transisi()` dan `durasiTransisi()` tingkat rendah tidak berubah (isu #63).
 
 ### 2026-11-07 - v1.0.1
 
