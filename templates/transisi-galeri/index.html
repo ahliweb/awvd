@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Galeri transisi dan animasi awvd</title>
+<meta name="viewport" content="width=1280">
+<style>
+  html, body { margin: 0; background: #111; }
+  #layar { position: relative; width: 1280px; height: 720px; overflow: hidden; background: #1b1b2f;
+    font-family: system-ui, "Segoe UI", Roboto, "DejaVu Sans", sans-serif; color: #fff; }
+  .adegan { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; overflow: hidden; }
+  .adegan h1 { position: absolute; left: 96px; top: 240px; margin: 0; font-size: 104px; font-weight: 800;
+    letter-spacing: -2px; white-space: pre; text-shadow: 0 3px 18px rgba(0,0,0,.35); }
+  .adegan .sub { position: absolute; left: 100px; top: 380px; font-size: 38px; font-weight: 500; white-space: pre;
+    text-shadow: 0 2px 10px rgba(0,0,0,.35); min-height: 48px; }
+  .adegan .bentuk { position: absolute; border-radius: 28px; background: rgba(255,255,255,.18); }
+  .adegan .gambar { position: absolute; inset: 0; }
+  .adegan .nomor { position: absolute; right: 60px; top: 40px; font-size: 40px; font-weight: 700; opacity: .8; }
+  .adegan .grain { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; image-rendering: pixelated; pointer-events: none; }
+  #ov { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; z-index: 10; pointer-events: none; }
+  #hud { position: absolute; left: 24px; bottom: 18px; z-index: 30; font: 600 22px/1.2 ui-monospace, "DejaVu Sans Mono", monospace;
+    background: rgba(0,0,0,.55); padding: 8px 14px; border-radius: 10px; color: #fff; }
+  .kartu { position: absolute; background: rgba(0,0,0,.28); border-radius: 22px; padding: 26px 34px; font-size: 34px; }
+  .chip { position: absolute; top: 200px; width: 270px; height: 110px; border-radius: 20px; background: rgba(255,255,255,.22);
+    font-size: 32px; font-weight: 700; text-align: center; line-height: 110px; }
+  svg text { font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="layar"><div id="ov"></div><div id="hud"></div></div>
+<script src="../../scripts/runtime.js"></script>
+<script src="../../scripts/transisi.js"></script>
+<script>
+// Galeri semua jenis transisi dan animasi awvd (konten fiktif). Props: profil
+// ("standar" | "lansia" | "anak" | "kurangiGerak"), hud (true | false).
+// Panjang total video bergantung profil: susunAdegan menghitung tumpang-tindih.
+(function () {
+  var W = 1280, H = 720, FPS = 30;
+  var Tr = window.Transisi;
+  var layar = document.getElementById("layar"), ovEl = document.getElementById("ov"), hud = document.getElementById("hud");
+
+  function bacaProps() {
+    if (window.videoProps) return window.videoProps;
+    try { var q = new URLSearchParams(window.location.search); if (q.has("props")) return JSON.parse(q.get("props")); } catch (e) {}
+    return {};
+  }
+  var props = bacaProps(), PROFIL = props.profil || "standar", TAMPIL_HUD = props.hud !== false;
+  if (!TAMPIL_HUD) hud.style.display = "none";
+
+  // (label, makna singkat, warna, transisi MASUK ke adegan ini); urutan: kilatan tidak berdekatan.
+  var D = 50;
+  var adegan = [
+    { nama: "awvd transisi", sub: "galeri katalog gerak", c: ["#1e3a8a", "#6d28d9"], dur: 72 },
+    { nama: "potong", sub: "kontinuitas, instan", c: ["#334155", "#64748b"], tr: { jenis: "potong" } },
+    { nama: "pudar", sub: "waktu berlalu", c: ["#0f766e", "#14b8a6"], tr: { jenis: "pudar", durasiMs: 500 } },
+    { nama: "pudarMelalui", sub: "antar bagian", c: ["#b45309", "#f59e0b"], tr: { jenis: "pudarMelalui", warna: "#111827" } },
+    { nama: "pudarBlur", sub: "kenangan, fokus lembut", c: ["#475569", "#94a3b8"], tr: { jenis: "pudarBlur" } },
+    { nama: "geser", sub: "topik baru di atas", c: ["#9d174d", "#ec4899"], tr: { jenis: "geser", arah: "kiri" } },
+    { nama: "dorong", sub: "perpindahan tempat", c: ["#1d4ed8", "#60a5fa"], tr: { jenis: "dorong", arah: "kiri" } },
+    { nama: "tumpuk", sub: "kedalaman (sumbu z)", c: ["#166534", "#4ade80"], tr: { jenis: "tumpuk", arah: "bawah" } },
+    { nama: "sapu", sub: "tepi lembut, sudut 70", c: ["#7c2d12", "#fb923c"], tr: { jenis: "sapu", sudut: 70, lembut: 28, durasiMs: 600 } },
+    { nama: "belah", sub: "pengungkapan", c: ["#4c1d95", "#a78bfa"], tr: { jenis: "belah", arah: "kiri" } },
+    { nama: "kisi", sub: "ritme grafis", c: ["#0e7490", "#22d3ee"], tr: { jenis: "kisi", arah: "kiri", jumlah: 10 } },
+    { nama: "iris", sub: "fokus ke satu titik", c: ["#be123c", "#fb7185"], tr: { jenis: "iris", lembut: 90, pusat: [0.3, 0.6] } },
+    { nama: "bentuk: berlian", sub: "pengungkapan bermerek", c: ["#3f6212", "#a3e635"], tr: { jenis: "bentuk", bentuk: "berlian" } },
+    { nama: "zoom", sub: "menyelam ke detail", c: ["#0c4a6e", "#38bdf8"], tr: { jenis: "zoom" } },
+    { nama: "cambuk", sub: "whip pan, blur arah", c: ["#86198f", "#e879f9"], tr: { jenis: "cambuk", arah: "kiri" } },
+    { nama: "halaman", sub: "page turn sederhana", c: ["#854d0e", "#facc15"], tr: { jenis: "halaman", arah: "kiri" } },
+    { nama: "balik", sub: "dua sisi satu hal", c: ["#1e40af", "#818cf8"], tr: { jenis: "balik", arah: "kanan" } },
+    { nama: "gangguan", sub: "glitch (efek berat)", c: ["#134e4a", "#2dd4bf"], tr: { jenis: "gangguan", seed: 11 } },
+    { nama: "kebocoran", sub: "light leak hangat", c: ["#44403c", "#a8a29e"], tr: { jenis: "kebocoran" } },
+    { nama: "kilat", sub: "flash bloom dibatasi", c: ["#7f1d1d", "#f87171"], tr: { jenis: "kilat" } },
+    { nama: "tirai", sub: "panel warna merek", c: ["#065f46", "#34d399"], tr: { jenis: "tirai", arah: "kanan", warna: "#f97316", warna2: "#facc15" } },
+    { nama: "celup", sub: "akhir bab (dip)", c: ["#1f2937", "#6b7280"], tr: { jenis: "celup", warna: "#000000" } },
+    { nama: "animasi teks", kind: "teks", c: ["#1e293b", "#475569"], dur: 110, tr: { jenis: "pudar", durasiMs: 400 } },
+    { nama: "animasi grafik", kind: "grafik", c: ["#0f172a", "#334155"], dur: 110, tr: { jenis: "pudarMelalui" } },
+    { nama: "kamera dan jalur", kind: "kamera", c: ["#312e81", "#6366f1"], dur: 110, tr: { jenis: "pudar", durasiMs: 400 } },
+    { nama: "animasi lain", kind: "lain", c: ["#27272a", "#52525b"], dur: 130, tr: { jenis: "pudar", durasiMs: 400 } },
+  ];
+  var daftar = adegan.map(function (a) { return { durasi: a.dur || D, transisi: a.tr }; });
+  var susun = Tr.susunAdegan(daftar, { fps: FPS, lebar: W, tinggi: H, profil: PROFIL });
+  var elAdegan = [];
+
+  var BATANG = [42, 68, 55, 88, 73], LABEL = ["A", "B", "C", "D", "E"], WARNA = ["#38bdf8", "#34d399", "#fbbf24", "#f472b6", "#a78bfa"];
+
+  function bangun() {
+    adegan.forEach(function (a, i) {
+      var d = document.createElement("div");
+      d.className = "adegan";
+      d.style.background = "linear-gradient(135deg," + a.c[0] + "," + a.c[1] + ")";
+      var html = "";
+      if (!a.kind) {
+        html += '<div class="bentuk" style="left:820px;top:120px;width:360px;height:360px"></div>' +
+                '<div class="bentuk" style="left:980px;top:360px;width:200px;height:200px;border-radius:100px"></div>' +
+                '<h1></h1><div class="sub"></div><div class="nomor">' + (i + 1) + '</div>';
+      } else if (a.kind === "teks") {
+        html += '<h1 style="top:80px;font-size:84px"></h1>' +
+          '<div class="kartu" style="left:96px;top:250px;width:1000px" id="ket-' + i + '"></div>' +
+          '<div class="kartu" style="left:96px;top:380px;width:1100px;white-space:nowrap" id="sor-' + i + '"></div>' +
+          '<div class="kartu" style="left:96px;top:520px;width:600px;font-size:40px" id="gar-' + i + '"></div>' +
+          '<div class="sub" style="display:none"></div>';
+      } else if (a.kind === "grafik") {
+        html += '<h1 style="top:60px;font-size:84px"></h1><div class="sub" style="display:none"></div>' +
+          '<div id="batang-' + i + '" style="position:absolute;left:110px;top:200px;width:700px;height:420px"></div>' +
+          '<div class="kartu" style="left:870px;top:200px;width:300px;text-align:center"><div style="font-size:26px;opacity:.8">Cakupan</div><div id="angka-' + i + '" style="font-size:84px;font-weight:800"></div></div>' +
+          '<svg style="position:absolute;left:860px;top:400px" width="330" height="220" viewBox="0 0 330 220"><path id="gr-' + i + '" pathLength="1" d="M10 200 C 70 190, 90 60, 150 100 S 250 160, 320 20" fill="none" stroke="#38bdf8" stroke-width="8" stroke-linecap="round"/></svg>';
+      } else if (a.kind === "kamera") {
+        html += '<div class="gambar" id="dunia-' + i + '"></div><h1 style="top:60px;font-size:84px;z-index:2"></h1><div class="sub" style="display:none"></div>';
+      } else {
+        html += '<h1 style="top:60px;font-size:84px;z-index:2"></h1><div class="sub" style="display:none"></div>' +
+          '<div class="chip" style="left:64px" id="c0-' + i + '">pudar</div>' +
+          '<div class="chip" style="left:358px" id="c1-' + i + '">kabur</div>' +
+          '<div class="chip" style="left:652px" id="c2-' + i + '">tirai</div>' +
+          '<div class="chip" style="left:946px" id="c3-' + i + '">kilatSorot</div>' +
+          '<div id="bs-' + i + '" style="position:absolute;background:rgba(255,255,255,.2);overflow:hidden">' +
+            '<div id="bsd-' + i + '" style="position:absolute;left:24px;top:44px;font-size:28px;font-weight:700;white-space:nowrap">kontainer ringkas</div>' +
+            '<div id="bsk-' + i + '" style="position:absolute;left:48px;top:48px;font-size:40px;line-height:1.35;white-space:nowrap">Elemen bersama (container transform)<br><span style="font-size:30px;opacity:.85">ukuran dan posisi berubah, teks tidak terdistorsi</span></div>' +
+          '</div>' +
+          '<canvas class="grain" id="gr-' + i + '" width="320" height="180"></canvas>';
+      }
+      d.innerHTML = html;
+      layar.insertBefore(d, ovEl);
+      elAdegan.push(d);
+      var h1 = d.querySelector("h1");
+      if (h1) {
+        Tr.pecahTeks(a.nama, "huruf").forEach(function (ch) {
+          var s = document.createElement("span"); s.textContent = ch; s.style.display = "inline-block"; s.style.whiteSpace = "pre"; h1.appendChild(s);
+        });
+      }
+      if (a.kind === "grafik") {
+        var cont = d.querySelector("#batang-" + i);
+        BATANG.forEach(function (v, k) {
+          var b = document.createElement("div");
+          b.className = "bar";
+          b.style.cssText = "position:absolute;bottom:40px;left:" + (k * 140) + "px;width:100px;height:" + (v * 3.4) + "px;background:" + WARNA[k] + ";border-radius:10px 10px 0 0";
+          cont.appendChild(b);
+          var l = document.createElement("div");
+          l.textContent = LABEL[k] + " " + v; l.style.cssText = "position:absolute;bottom:0;left:" + (k * 140) + "px;width:100px;text-align:center;font-size:28px";
+          cont.appendChild(l);
+        });
+      }
+      if (a.kind === "kamera") {
+        var dn = d.querySelector("#dunia-" + i);
+        dn.innerHTML = '<div class="lap" style="position:absolute;inset:-100px;background:radial-gradient(circle at 20% 30%,rgba(255,255,255,.25) 0 6%,transparent 7%),radial-gradient(circle at 70% 60%,rgba(255,255,255,.2) 0 9%,transparent 10%)"></div>' +
+          '<div class="lap" style="position:absolute;inset:-100px;background:radial-gradient(circle at 40% 70%,rgba(255,255,255,.3) 0 5%,transparent 6%),radial-gradient(circle at 85% 25%,rgba(255,255,255,.28) 0 7%,transparent 8%)"></div>' +
+          '<div class="lap" style="position:absolute;inset:-100px;background:radial-gradient(circle at 55% 45%,rgba(255,255,255,.4) 0 3%,transparent 4%),radial-gradient(circle at 15% 80%,rgba(255,255,255,.35) 0 4%,transparent 5%)"></div>' +
+          '<div id="titik-' + i + '" style="position:absolute;left:0;top:0;width:60px;height:60px;border-radius:30px;background:#fde047;margin:-30px 0 0 -30px"></div>' +
+          '<div id="kartu-' + i + '" class="kartu" style="left:420px;top:560px">denyut + getar ringan</div>';
+      }
+    });
+  }
+
+  // Tulis gaya (objek) ke elemen; kunci non-CSS (peringatan) dilewati.
+  function tulisGaya(el, g) {
+    for (var k in g) { if (k === "peringatan") continue; el.style[k] = typeof g[k] === "number" ? String(g[k]) : g[k]; }
+  }
+  function gabungTransform(a, b) {
+    var x = (a && a !== "none" ? a : ""), y = (b && b !== "none" ? b : "");
+    return (x + " " + y).trim() || "none";
+  }
+
+  function isiAdegan(i, lokal, P) {
+    var a = adegan[i], d = elAdegan[i];
+    var h1 = d.querySelector("h1");
+    var spans = h1 ? h1.children : [];
+    if (!a.kind) {
+      // sub diketik, bentuk berdenyut setelah transisi selesai; adegan judul: huruf mantul bertahap
+      var ov = susun.peta[i].overlap, t0 = ov + 4;
+      d.querySelector(".sub").textContent = Tr.ketik(lokal, a.sub, { mulai: t0, cps: 22, fps: FPS }).teks;
+      var s = Tr.animasi(lokal, { jenis: "denyut", mulai: t0 + 10, durasi: 24, profil: P });
+      d.querySelectorAll(".bentuk")[0].style.transform = s.transform || "none";
+      if (i === 0) {
+        for (var k = 0; k < spans.length; k++) {
+          tulisGaya(spans[k], Tr.animasi(lokal, { jenis: "mantul", mulai: 4, indeks: k, stagger: 2, jarak: 60, durasi: 20, profil: P }));
+        }
+      }
+      return;
+    }
+    for (var q = 0; q < spans.length; q++) {
+      tulisGaya(spans[q], Tr.animasi(lokal, { jenis: "geser", arah: "atas", mulai: 4, indeks: q, stagger: 1, jarak: 40, durasi: 14, profil: P }));
+    }
+    if (a.kind === "teks") {
+      var kt = Tr.ketik(lokal, "Ketik: satu karakter per langkah frame", { mulai: 10, cps: 20, fps: FPS });
+      d.querySelector("#ket-" + i).textContent = kt.teks + (kt.kursor ? "|" : " ");
+      var sor = d.querySelector("#sor-" + i);
+      if (!sor.firstChild) sor.innerHTML = 'Penekanan kata <span class="hl" style="padding:0 6px">penting</span> dengan sorot dan <span class="ul" style="font-weight:700">garis bawah</span>';
+      tulisGaya(sor.querySelector(".hl"), Tr.animasi(lokal, { jenis: "sorot", mulai: 40, durasi: 18, warna: "rgba(250,204,21,.55)", profil: P }));
+      tulisGaya(sor.querySelector(".ul"), Tr.animasi(lokal, { jenis: "garisBawah", mulai: 56, durasi: 15, warna: "#38bdf8", tebal: 6, profil: P }));
+      var gar = d.querySelector("#gar-" + i);
+      if (!gar.firstChild) {
+        Tr.pecahTeks("Per kata bertahap", "kata").forEach(function (w) {
+          var sp = document.createElement("span"); sp.textContent = w; sp.style.display = "inline-block"; sp.style.whiteSpace = "pre"; gar.appendChild(sp);
+        });
+      }
+      var idx = 0;
+      for (var z = 0; z < gar.children.length; z++) {
+        var ch = gar.children[z];
+        if (/^\s+$/.test(ch.textContent)) continue;
+        tulisGaya(ch, Tr.animasi(lokal, { jenis: "skala", mulai: 30, indeks: idx++, stagger: 6, durasi: 18, easing: "pegas", skalaAwal: 0.4, profil: P }));
+      }
+    } else if (a.kind === "grafik") {
+      var bars = d.querySelectorAll(".bar");
+      for (var m = 0; m < bars.length; m++) {
+        tulisGaya(bars[m], Tr.animasi(lokal, { jenis: "tumbuh", arah: "atas", mulai: 8, indeks: m, stagger: 5, durasi: 24, profil: P }));
+      }
+      d.querySelector("#angka-" + i).textContent = Tr.angkaBergulir(lokal, { dari: 0, ke: 12847, mulai: 8, durasi: 50 }).teks;
+      tulisGaya(d.querySelector("#gr-" + i), Tr.animasi(lokal, { jenis: "gambarGaris", mulai: 20, durasi: 50, profil: P }));
+    } else if (a.kind === "kamera") {
+      var dunia = d.querySelector("#dunia-" + i);
+      var kam = Tr.kamera(lokal, { mulai: 0, durasi: 110, dari: { skala: 1, x: 0, y: 0 }, ke: { skala: 1.1, x: 0, y: 0 }, profil: P });
+      dunia.style.transform = kam.transform; dunia.style.transformOrigin = kam.transformOrigin;
+      var laps = d.querySelectorAll(".lap");
+      var pl = Tr.paralaks(lokal, { mulai: 0, durasi: 110, gerak: { x: -140, y: 0 }, lapisan: [{ kedalaman: 0.15 }, { kedalaman: 0.5 }, { kedalaman: 1 }], profil: P });
+      for (var n = 0; n < laps.length; n++) laps[n].style.transform = pl[n].transform;
+      d.querySelector("#titik-" + i).style.transform = Tr.jalur(lokal, { titik: [[150, 560], [350, 160], [800, 160], [1000, 520], [1100, 640], [1200, 400], [1150, 300]], mulai: 10, durasi: 90 }).transform;
+      var pu = Tr.animasi(lokal, { jenis: "denyut", mulai: 30, durasi: 24, profil: P });
+      var gt = Tr.animasi(lokal, { jenis: "getar", mulai: 60, durasi: 20, profil: P });
+      d.querySelector("#kartu-" + i).style.transform = gabungTransform(pu.transform, gt.transform);
+    } else {
+      // animasi lain: pudar, kabur, tirai, kilatSorot, bersama, grain diam
+      var jenisChip = ["pudar", "kabur", "tirai", "kilatSorot"];
+      for (var c = 0; c < 4; c++) {
+        var chip = d.querySelector("#c" + c + "-" + i);
+        var o = jenisChip[c] === "kilatSorot"
+          ? { jenis: "kilatSorot", mulai: 80, durasi: 24, profil: P }
+          : { jenis: jenisChip[c], mulai: 8, indeks: c, stagger: 8, durasi: 24, arah: "kiri", profil: P };
+        tulisGaya(chip, Tr.animasi(lokal, o));
+      }
+      var bs = Tr.bersama(lokal, { mulai: 42, durasi: 30, dari: { x: 64, y: 360, w: 260, h: 120, r: 20 }, ke: { x: 64, y: 340, w: 1152, h: 270, r: 36 }, profil: P });
+      var kotak = d.querySelector("#bs-" + i);
+      tulisGaya(kotak, bs.kotak);
+      tulisGaya(d.querySelector("#bsd-" + i), bs.isiDari);
+      tulisGaya(d.querySelector("#bsk-" + i), bs.isiKe);
+      // grain diam (hidup:0): murah dikompres; jenisVideo tidak diberi sehingga tidak diblokir
+      Tr.grain(d.querySelector("#gr-" + i), lokal, { hidup: 0, kekuatan: 0.07, seed: 5 });
+    }
+  }
+
+  bangun();
+  defineVideo({
+    width: W, height: H, fps: FPS,
+    durationInFrames: susun.total,
+    render: function (frame) {
+      var s = susun.pada(frame);
+      Tr.terapkan({ keluar: null, masuk: null, wadah: s.wadah, overlay: s.overlay, svg: s.svg }, { wadah: layar, overlay: ovEl });
+      s.adegan.forEach(function (a, i) {
+        tulisGaya(elAdegan[i], a.gaya);
+        if (a.tampil) isiAdegan(i, a.lokal, PROFIL);
+      });
+      var t = s.transisi;
+      hud.textContent = t
+        ? "transisi: " + t.jenisEfektif + "  " + t.durasi + " fr (" + Math.round(t.durasi * 1000 / FPS) + " ms)  p=" + t.progres.toFixed(2) + (PROFIL !== "standar" ? "  profil=" + PROFIL : "")
+        : "frame " + frame + (PROFIL !== "standar" ? "  profil=" + PROFIL : "");
+    },
+  });
+})();
+</script>
+</body>
+</html>

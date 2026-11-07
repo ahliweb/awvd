@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Baseline pedoman produksi: temuan literatur dan standar (pembelajaran multimedia, keterlibatan, caption, kenyaringan, area aman, kontras, kilatan, gerak, encoding) dipetakan ke fitur awvd yang sudah ada, dengan checklist komposisi dan bagian Rencana.`
+- Changeset: `Menyelaraskan batas cps Netflix Indonesia (subtitle 17/13, SDH 20/17) dan menghapus catatan kesenjangan cps; menambahkan butir visual (ukuran teks, buta warna, garis 2 px, efek dekoratif, audiens) beserta checklist dan rujukan ke visual-audiens.md.`
 
 Pedoman ini merangkum literatur ilmiah dan standar industri untuk video penjelasan, panduan, dan promo pendek berbasis motion graphics. Setiap butir diberi tingkat bukti dan dipetakan ke fitur awvd yang **sudah ada** (helper runtime, flag renderer, `bun run periksa`, SOP, klip dan audio, konsep), sehingga bisa diterapkan langsung di komposisi. Fitur yang belum ada hanya disebut di bagian [Rencana](#rencana), tanpa janji tanggal.
 
@@ -38,8 +38,8 @@ flowchart LR
 | --- | --- | --- |
 | Caption wajib untuk audio prarekam: ucapan, pembicara, dan bunyi bermakna. | [standar] WCAG 2.2 SC 1.2.2 (A) | `--subtitle` (trek lunak) dan burn-in lewat `captionAktif()` |
 | Caption memperbaiki pemahaman, atensi, dan memori. | [tinjauan, meta-analisis] Gernsbacher 2015; Montero Perez dkk. 2013 | Sediakan sidecar `.vtt` dan versi burn-in untuk media sosial (`caption.burnIn` di `konsep.json`) |
-| Maksimal 42 karakter per baris dan 2 baris. Untuk bahasa Indonesia: 17 cps untuk subtitle dan 20 cps untuk SDH (caption untuk tuli dan sulit dengar). Durasi cue 5/6 s sampai 7 s. | [pedoman industri] Netflix Timed Text Style Guide (bahasa Indonesia); [riset empiris] Szarkowska & Gerber-Moron 2018, Kruger dkk. 2022 | `pecahBaris()`, `durasiBaca()` (bawaan 17 cps, sesuai batas subtitle); `bun run periksa --subtitle` dengan `--cps 20` untuk SDH |
-| Anjuran TikTok "5-10 kata per detik" untuk teks layar bertabrakan dengan batas cps caption. | [pedoman industri] TikTok for Business | Perlakukan teks hook sebagai judul pendek, bukan caption ucapan; preset `sosial` memakai 20 cps (keputusan menunggu konfirmasi pemilik, [log-keputusan.md](log-keputusan.md)) |
+| Maksimal 42 karakter per baris dan 2 baris. Untuk bahasa Indonesia: subtitle 17 cps (dewasa) dan 13 cps (anak); SDH (caption untuk tuli dan sulit dengar) 20 cps (dewasa) dan 17 cps (anak). Durasi cue 5/6 s sampai 7 s. | [pedoman industri] Netflix Indonesian Timed Text Style Guide; [riset empiris] Szarkowska & Gerber-Moron 2018, Kruger dkk. 2022 | `pecahBaris()`, `durasiBaca()` (bawaan 17 cps, subtitle dewasa); `bun run periksa --subtitle` dengan `--cps 13` untuk anak atau `--cps 20` untuk SDH dewasa; profil audiens `anak` menurunkan `caption.cps` konsep ke 13 ([visual-audiens.md](visual-audiens.md)) |
+| Anjuran TikTok "5-10 kata per detik" untuk teks layar bertabrakan dengan batas cps caption. | [pedoman industri] TikTok for Business | Perlakukan teks hook sebagai judul pendek, bukan caption ucapan; preset `sosial` memakai 20 cps, batas SDH dewasa (keputusan menunggu konfirmasi pemilik, [log-keputusan.md](log-keputusan.md)) |
 
 ## 3. Visual
 
@@ -48,7 +48,11 @@ flowchart LR
 | Graphics safe 90% (margin 5% per sisi), action safe 93% (margin 3,5%). | [standar] EBU R 95 v1.1 (2017) | `areaAman(width, height)` |
 | Kontras teks >= 4,5:1, atau >= 3:1 untuk teks besar (>= 24 px, atau >= 18,5 px tebal), termasuk teks di atas gambar. | [standar] WCAG 2.2 SC 1.4.3 (AA) | `kontras()`, `pilihTeksKontras()`; preset jenis tidak boleh menurunkan kontras minimum di bawah 4,5:1; template SOP memeriksa semua pasangan warna saat dimuat |
 | Maksimal 3 kilatan per detik (perubahan luminans >= 10% dengan sisi gelap < 0,80); kilatan merah jenuh dihitung terpisah. | [standar] WCAG 2.2 SC 2.3.1 (A) | Pemeriksa kilatan di `bun run periksa` (penyaringan konservatif, bukan sertifikasi PEAT atau Harding) |
-| Ukuran teks minimum relatif tinggi frame. | *belum terverifikasi*; praktik 4-6% tinggi frame untuk subtitle | Uji di layar ponsel |
+| Ukuran teks minimum menurut sudut pandang: tinggi-x sekitar 0,2 derajat untuk pembaca normal, dikali pengali peran dan audiens; video 16:9 tersemat pada ponsel potret butuh teks sekitar 60% lebih besar. | [riset empiris] Legge & Bigelow 2011 (ukuran cetak kritis); [keputusan desain] geometri perangkat dan pengali audiens | `ukuranTeks()`; uji tetap di layar ponsel ([visual-audiens.md](visual-audiens.md#ukuran-teks)) |
+| Warna tidak boleh menjadi satu-satunya pembeda; palet harus terbedakan di bawah protanopia, deuteranopia, dan tritanopia; objek grafis berkontras >= 3:1. | [standar] WCAG 2.2 SC 1.4.1 dan 1.4.11; [riset empiris] Machado dkk. 2009; [keputusan desain] ambang delta E00 10 | `periksaPalet()`, `simulasiButaWarna()`, `bedaWarna()`, `paletOkabeIto` ([visual-audiens.md](visual-audiens.md#warna-dan-buta-warna)) |
+| Encode 4:2:0 melemahkan garis dan teks kecil berwarna jenuh; garis 1 px berwarna kehilangan sekitar 45% amplitudo kroma. | [riset empiris lokal] satu konten | Garis berwarna >= 2 px; teks kecil putih atau netral ([visual-audiens.md](visual-audiens.md#ketajaman-dan-encode)) |
+| Efek dekoratif (glow, partikel, parallax, vignette, grain) tidak membantu pemahaman dan bisa merugikan; grain menaikkan bitrate tajam. | [meta-analisis] Rey 2012; Sundararajan & Adesope 2020; [riset empiris lokal] bitrate | Matikan untuk edukasi, panduan, data, dan formal ([visual-audiens.md](visual-audiens.md#efek-dekoratif)) |
+| Audiens (anak, lansia, low vision) menuntut teks lebih besar, kontras lebih tinggi, tempo lebih lambat, dan elemen lebih sedikit. Arahnya didukung bukti; angkanya keputusan desain. | [pedoman industri] Netflix Indonesia, W3C WAI; [standar] WCAG 1.4.6; [keputusan desain] pengali | `data/audiens.json`, `bun run konsep -- baru --audiens` ([visual-audiens.md](visual-audiens.md#profil-audiens)) |
 
 ## 4. Gerak
 
@@ -94,7 +98,8 @@ flowchart LR
 - [ ] Kontras teks >= 4,5:1 (teks besar >= 3:1) terhadap latar efektif.
 - [ ] Teks layar hanya kata kunci, dekat objeknya, muncul bersamaan dengan narasi; elemen yang dibicarakan disorot.
 - [ ] Transisi 200-500 ms; ease-out untuk masuk; teks diam selama dibaca.
-- [ ] Caption lengkap: <= 42 karakter per baris, <= 2 baris, <= 17 cps (subtitle) atau <= 20 cps (SDH), durasi 5/6-7 s.
+- [ ] Caption lengkap: <= 42 karakter per baris, <= 2 baris, <= 17 cps (subtitle dewasa; 13 untuk anak) atau <= 20 cps (SDH dewasa), durasi 5/6-7 s.
+- [ ] Teks >= `ukuranTeks()` untuk audiens dan konteks tonton; palet lolos `periksaPalet()` dan informasi tidak hanya lewat warna; garis berwarna >= 2 px; efek dekoratif mati untuk edukasi, panduan, data, formal.
 - [ ] Musik sekitar 8-12 dB di bawah narasi; tanpa suara dekoratif.
 - [ ] `bun run periksa` lolos: kenyaringan sesuai target, tidak ada kilatan > 3 per detik, subtitle sesuai batas, encoding BT.709.
 - [ ] Bila ada klip tertanam: atribusi tampil di layar dan di deskripsi (`atribusi.txt`), dan lisensi sumber divalidasi `klip.mjs`.
@@ -107,7 +112,8 @@ Belum ada di awvd, sedang dalam pengerjaan atau pertimbangan, **tanpa janji tang
 - Caption yang sinkron dengan narasi rekaman atau TTS (saat ini caption dihitung dari teks, atau dibuat manual sebagai `.vtt`/`.srt`).
 - Pustaka transisi antaradegan.
 - Manajemen aset (pencatatan sumber, lisensi, dan pemakaian aset lintas template; saat ini hanya `templates/<nama>/ASET.md` dan atribusi klip).
-- Profil audiens yang menurunkan pilihan gaya, bahasa, dan aksesibilitas.
+- Pemeriksaan otomatis palet, ukuran teks dari DOM, dan kepadatan elemen di `bun run periksa` (helper dasarnya sudah ada, lihat [visual-audiens.md](visual-audiens.md#pemeriksaan-yang-ada-dan-yang-belum)).
+- Supersampling satu langkah di renderer (render pada skala lebih besar lalu diperkecil ke ukuran keluaran); saat ini hanya rekomendasi.
 
 ## Rujukan
 
@@ -137,11 +143,15 @@ Belum ada di awvd, sedang dalam pengerjaan atau pertimbangan, **tanpa janji tang
 
 ## Kesenjangan
 
-- Ukuran teks minimum relatif tinggi frame, kecepatan gerak teks dalam px/detik, dan durasi optimal video promo belum punya sumber primer.
+- Kecepatan gerak teks dalam px/detik dan durasi optimal video promo belum punya sumber primer. Ukuran teks memakai ukuran cetak kritis (Legge & Bigelow 2011), tetapi geometri perangkat dan pengali audiens adalah asumsi dan keputusan desain ([visual-audiens.md](visual-audiens.md#kesenjangan)).
 - AES TD1004/TD1008 dibaca lewat ringkasan sekunder; BBC Subtitle Guidelines, SMPTE ST 2046-1, dan teks ITU-R BS.1770/BT.709 belum dibaca langsung.
-- Rumusan batas cps (17 cps subtitle dan 20 cps SDH untuk bahasa Indonesia) di dokumen ini lebih baru daripada rumusan di [api-runtime.md](api-runtime.md) (`durasiBaca`), [pemeriksaan-mutu.md](pemeriksaan-mutu.md) (`--cps`), [konsep-jenis-alur.md](konsep-jenis-alur.md) dan `data/jenis-video.json`, yang masih menyebut "dewasa 20 cps, anak 17 cps". Angka bawaan kode (17) dan preset tidak berubah; penyelarasan teks tersebut menunggu PR terpisah.
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Batas cps bahasa Indonesia diselaraskan di seluruh dokumen dan `data/jenis-video.json`: subtitle 17 (dewasa) dan 13 (anak), SDH 20 dan 17; catatan kesenjangan cps dihapus.
+- Menambahkan butir visual (ukuran teks menurut sudut pandang, buta warna, garis 2 px, efek dekoratif, audiens) dan item checklist; bagian Rencana disesuaikan; rujukan ke [visual-audiens.md](visual-audiens.md).
 
 ### 2026-11-07 - v1.0.0
 

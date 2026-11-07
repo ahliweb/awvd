@@ -41,6 +41,14 @@
  *   areaAman(lebar, tinggi) -> { aksi: {x,y,w,h}, grafis: {x,y,w,h} }  (EBU R 95)
  *   luminansRelatif(warna), kontras(a, b), pilihTeksKontras(latar)     (WCAG 2.2 SC 1.4.3)
  *                                  warna = [r,g,b] 0..255 atau "#rgb"/"#rrggbb"
+ *   paletOkabeIto                  8 warna Okabe-Ito (array hex)
+ *   simulasiButaWarna(warna, jenis, keparahan = 1) -> [r,g,b]  (Machado 2009;
+ *                                  jenis: protanopia | deuteranopia | tritanopia)
+ *   keLab(warna) -> [L,a,b]; bedaLab(lab1, lab2), bedaWarna(a, b) -> delta E CIEDE2000
+ *   periksaPalet(palet, { ambang = 10, latar, kontrasMin = 3 })
+ *                                  -> { lolos, minPerKondisi, pasangan[], lemahKontras[] }
+ *   ukuranTeks(tinggiFrame, peran = "isi", audiens = "umum", konteks = "ponselLanskap")
+ *                                  -> { px, persenTinggi, tinggiXDerajat }
  *   durasiBaca(teks, { cps = 17, min = 5/6, maks = 7, fps }) -> { detik[, frame] }
  *   pecahBaris(teks, { maks = 42, baris = 2 }) -> array baris; properti .melebihi
  *   captionAktif(cues, frame, fps) -> cue aktif atau null
@@ -329,6 +337,208 @@
     return kontras(latar, "#000000") > kontras(latar, "#ffffff") ? "#000000" : "#ffffff";
   }
 
+  // ------------------------------------------------- warna: buta warna, beda warna
+  // Palet 8 warna Okabe & Ito (aman untuk buta warna merah-hijau pada pemakaian wajar).
+  // Nilai hex mengikuti praktik umum; belum diverifikasi dari teks primer (halaman jfly
+  // hanya memuat gambar palet). Urutan: hitam, jingga, biru muda, hijau kebiruan, kuning,
+  // biru, merah jingga (vermilion), ungu kemerahan.
+  var paletOkabeIto = ["#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
+    "#D55E00", "#CC79A7"];
+
+  // Machado, Oliveira & Fernandes (2009), IEEE TVCG 15(6):1291-1298; matriks keparahan 1,0
+  // (dikromasi) untuk RGB linear. Baris tiap matriks berjumlah 1, jadi putih tetap putih.
+  var MATRIKS_BUTA_WARNA = {
+    protanopia: [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]],
+    deuteranopia: [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.01182, 0.04294, 0.968881]],
+    tritanopia: [[1.255528, -0.076749, -0.178779], [-0.078411, 0.930809, 0.147602], [0.004733, 0.691367, 0.3039]],
+  };
+  var JENIS_BUTA_WARNA = ["protanopia", "deuteranopia", "tritanopia"];
+
+  function keSrgb(v) { // linier 0..1 -> sRGB 0..255
+    v = clampNum(v, 0, 1);
+    return 255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055);
+  }
+
+  // Simulasi buta warna: [r,g,b] 0..255 (float, tidak dibulatkan). `jenis`: "protanopia",
+  // "deuteranopia", atau "tritanopia". `keparahan` 0..1 (bawaan 1) diinterpolasi linear
+  // terhadap matriks identitas; pada 1 hasilnya persis model Machado. Pendekatan: paper
+  // menyediakan matriks tersendiri per 0,1, dan model ini hanya memodelkan dikromasi.
+  function simulasiButaWarna(warna, jenis, keparahan) {
+    var M = MATRIKS_BUTA_WARNA[jenis];
+    if (!M) throw new Error("simulasiButaWarna: 'jenis' harus salah satu dari " + JENIS_BUTA_WARNA.join(", "));
+    var s = keparahan == null ? 1 : keparahan;
+    if (typeof s !== "number" || !isFinite(s) || s < 0 || s > 1) {
+      throw new Error("simulasiButaWarna: 'keparahan' harus angka 0..1");
+    }
+    var c = uraiWarna(warna, "simulasiButaWarna").map(linierSrgb);
+    return M.map(function (baris, i) {
+      var v = 0;
+      for (var j = 0; j < 3; j++) v += ((1 - s) * (i === j ? 1 : 0) + s * baris[j]) * c[j];
+      return keSrgb(v);
+    });
+  }
+
+  // sRGB -> CIELAB (iluminan D65, titik putih 0,95047 / 1 / 1,08883): [L, a, b].
+  function keLab(warna) {
+    var c = uraiWarna(warna, "keLab").map(linierSrgb);
+    var x = 0.4124564 * c[0] + 0.3575761 * c[1] + 0.1804375 * c[2];
+    var y = 0.2126729 * c[0] + 0.7151522 * c[1] + 0.072175 * c[2];
+    var z = 0.0193339 * c[0] + 0.119192 * c[1] + 0.9503041 * c[2];
+    function f(t) { return t > 216 / 24389 ? Math.cbrt(t) : ((24389 / 27) * t + 16) / 116; }
+    var fx = f(x / 0.95047), fy = f(y), fz = f(z / 1.08883);
+    return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+  }
+
+  // CIEDE2000 antara dua warna Lab [L, a, b] (Sharma, Wu & Dalal 2005, Color Research &
+  // Application 30(1):21-30). Diuji terhadap data uji Sharma (scripts/uji-visual.mjs).
+  function bedaLab(lab1, lab2) {
+    function rad(d) { return (d * Math.PI) / 180; }
+    function der(r) { return (r * 180) / Math.PI; }
+    function sudut(b, a) { return b === 0 && a === 0 ? 0 : (der(Math.atan2(b, a)) + 360) % 360; }
+    var c25 = Math.pow(25, 7);
+    var C1 = Math.hypot(lab1[1], lab1[2]), C2 = Math.hypot(lab2[1], lab2[2]);
+    var Cb7 = Math.pow((C1 + C2) / 2, 7);
+    var G = 0.5 * (1 - Math.sqrt(Cb7 / (Cb7 + c25)));
+    var a1 = (1 + G) * lab1[1], a2 = (1 + G) * lab2[1];
+    var C1p = Math.hypot(a1, lab1[2]), C2p = Math.hypot(a2, lab2[2]);
+    var h1p = sudut(lab1[2], a1), h2p = sudut(lab2[2], a2);
+    var dL = lab2[0] - lab1[0], dC = C2p - C1p;
+    var dh = 0;
+    if (C1p * C2p !== 0) {
+      dh = h2p - h1p;
+      if (dh > 180) dh -= 360; else if (dh < -180) dh += 360;
+    }
+    var dH = 2 * Math.sqrt(C1p * C2p) * Math.sin(rad(dh / 2));
+    var Lb = (lab1[0] + lab2[0]) / 2, Cb = (C1p + C2p) / 2;
+    var hb = h1p + h2p;
+    if (C1p * C2p !== 0) {
+      hb = Math.abs(h1p - h2p) <= 180 ? hb / 2 : (hb + (hb < 360 ? 360 : -360)) / 2;
+    }
+    var T = 1 - 0.17 * Math.cos(rad(hb - 30)) + 0.24 * Math.cos(rad(2 * hb)) +
+      0.32 * Math.cos(rad(3 * hb + 6)) - 0.2 * Math.cos(rad(4 * hb - 63));
+    var dTheta = 30 * Math.exp(-Math.pow((hb - 275) / 25, 2));
+    var Cb7p = Math.pow(Cb, 7);
+    var Rc = 2 * Math.sqrt(Cb7p / (Cb7p + c25));
+    var Sl = 1 + (0.015 * Math.pow(Lb - 50, 2)) / Math.sqrt(20 + Math.pow(Lb - 50, 2));
+    var Sc = 1 + 0.045 * Cb, Sh = 1 + 0.015 * Cb * T;
+    var Rt = -Math.sin(rad(2 * dTheta)) * Rc;
+    var tl = dL / Sl, tc = dC / Sc, th = dH / Sh;
+    return Math.sqrt(tl * tl + tc * tc + th * th + Rt * tc * th);
+  }
+
+  // Selisih warna CIEDE2000 (delta E00) antara dua warna sRGB. 0 = identik; 1 kira-kira
+  // selisih nyaris terlihat; hitam-putih = 100.
+  function bedaWarna(a, b) {
+    return bedaLab(keLab(a), keLab(b));
+  }
+
+  // Memeriksa palet kategorikal. Untuk tiap pasangan warna, delta E00 dihitung dalam
+  // penglihatan normal dan di bawah simulasi protanopia, deuteranopia, dan tritanopia;
+  // pasangan dengan selisih < `ambang` dilaporkan. Bila `latar` diberikan, tiap warna juga
+  // harus berkontras >= `kontrasMin` terhadapnya (WCAG 2.2 SC 1.4.11 objek grafis: 3:1).
+  // `ambang` bawaan 10 adalah KEPUTUSAN DESAIN awvd, bukan standar; 3:1 adalah standar.
+  // Hasil: { lolos, minPerKondisi: {normal, protanopia, ...}, pasangan: [{a, b, warnaA,
+  // warnaB, kondisi, deltaE}], lemahKontras: [{i, warna, kontras}] }. Warna tidak boleh
+  // menjadi satu-satunya pembeda informasi (WCAG 1.4.1): tambahkan label, ikon, atau pola.
+  function periksaPalet(palet, opsi) {
+    opsi = opsi || {};
+    if (!Array.isArray(palet) || palet.length < 2) {
+      throw new Error("periksaPalet: 'palet' harus array berisi >= 2 warna");
+    }
+    var ambang = opsi.ambang == null ? 10 : opsi.ambang;
+    var kontrasMin = opsi.kontrasMin == null ? 3 : opsi.kontrasMin;
+    cekPositif("periksaPalet", "ambang", ambang);
+    cekPositif("periksaPalet", "kontrasMin", kontrasMin);
+    var kondisi = ["normal"].concat(JENIS_BUTA_WARNA);
+    var lab = {};
+    kondisi.forEach(function (k) {
+      lab[k] = palet.map(function (w) {
+        return keLab(k === "normal" ? uraiWarna(w, "periksaPalet") : simulasiButaWarna(w, k));
+      });
+    });
+    var minPer = {}, pasangan = [];
+    kondisi.forEach(function (k) { minPer[k] = Infinity; });
+    for (var i = 0; i < palet.length; i++) {
+      for (var j = i + 1; j < palet.length; j++) {
+        for (var n = 0; n < kondisi.length; n++) {
+          var k = kondisi[n];
+          var d = bedaLab(lab[k][i], lab[k][j]);
+          if (d < minPer[k]) minPer[k] = d;
+          if (d < ambang) {
+            pasangan.push({ a: i, b: j, warnaA: palet[i], warnaB: palet[j], kondisi: k, deltaE: Math.round(d * 10) / 10 });
+          }
+        }
+      }
+    }
+    var lemah = [];
+    if (opsi.latar != null) {
+      palet.forEach(function (w, i) {
+        var r = kontras(w, opsi.latar);
+        if (r < kontrasMin) lemah.push({ i: i, warna: w, kontras: Math.round(r * 100) / 100 });
+      });
+    }
+    kondisi.forEach(function (k) { minPer[k] = Math.round(minPer[k] * 10) / 10; });
+    return { lolos: pasangan.length === 0 && lemah.length === 0, minPerKondisi: minPer, pasangan: pasangan, lemahKontras: lemah };
+  }
+
+  // ------------------------------------------------------------- ukuran teks
+  // Ukuran teks minimum dari sudut pandang, bukan piksel tetap. Dasar: ukuran cetak kritis
+  // (critical print size) ~0,2 derajat tinggi-x untuk pembaca berpenglihatan normal
+  // (Legge & Bigelow 2011, J Vision 11(5):8). Geometri perangkat (ASUMSI tipikal) dan
+  // pengali audiens/peran (KEPUTUSAN DESAIN; arahnya didukung W3C WAI "older users" dan
+  // WCAG 1.4.6, besarnya tidak) harus dibaca sebagai titik awal, bukan temuan.
+  var CPS_DERAJAT = 0.2;
+  var RASIO_TINGGI_X = 0.52; // tinggi-x / ukuran font sans-serif umum (Arial ~0,519; Roboto ~0,528)
+  function sudutBingkai(tinggiCm, jarakCm) {
+    return (2 * Math.atan(tinggiCm / 2 / jarakCm) * 180) / Math.PI;
+  }
+  // Tinggi bingkai video pada layar dan jarak mata: tv = layar 3 tinggi layar (jarak
+  // rujukan VMAF 1080p); laptop = video 16:9 ~10 cm pada 55 cm; ponselLanskap = video
+  // 16:9 layar-penuh ~6,5 cm pada 35 cm; ponselVertikalPenuh = video 9:16 layar-penuh
+  // ~15 cm pada 33 cm; ponselPotret169 = video 16:9 tersemat lebar-penuh pada ponsel
+  // potret (~3,9 cm) pada 34 cm (jarak ponsel 32-36 cm: Bababekova dkk. 2011).
+  var KONTEKS_TONTON = {
+    tv: { sudut: sudutBingkai(1, 3), keterangan: "TV atau monitor, jarak 3 tinggi layar (asumsi)" },
+    laptop: { sudut: sudutBingkai(10, 55), keterangan: "video 16:9 ~10 cm tinggi pada 55 cm (asumsi)" },
+    ponselLanskap: { sudut: sudutBingkai(6.5, 35), keterangan: "ponsel layar-penuh lanskap (asumsi)" },
+    ponselVertikalPenuh: { sudut: sudutBingkai(15, 33), keterangan: "video 9:16 layar-penuh pada ponsel (asumsi)" },
+    ponselPotret169: { sudut: sudutBingkai(3.9, 34), keterangan: "video 16:9 tersemat pada ponsel potret (asumsi)" },
+  };
+  // Pengali terhadap tinggi-x minimum; sama dengan data/audiens.json (dijaga uji-visual.mjs).
+  var PENGALI_AUDIENS = { umum: 1, remaja: 1, anak: 1.2, lansia: 1.5, lowVision: 2 };
+  var PERAN_TEKS = { judul: 2.2, subjudul: 1.5, isi: 1.25, caption: 1.25, keterangan: 1 };
+
+  // ukuranTeks(tinggiFrame, peran = "isi", audiens = "umum", konteks = "ponselLanskap")
+  //   -> { px, persenTinggi, tinggiXDerajat }
+  // px = ukuran font minimum (dibulatkan) pada bingkai setinggi `tinggiFrame` piksel.
+  // `audiens` = nama profil (umum, remaja, anak, lansia, lowVision) atau pengali angka > 0.
+  // Teks yang lebih kecil dari ini tidak terbaca nyaman pada konteks tonton itu.
+  function ukuranTeks(tinggiFrame, peran, audiens, konteks) {
+    cekPositif("ukuranTeks", "tinggiFrame", tinggiFrame);
+    peran = peran == null ? "isi" : peran;
+    audiens = audiens == null ? "umum" : audiens;
+    konteks = konteks == null ? "ponselLanskap" : konteks;
+    var p = PERAN_TEKS[peran], k = KONTEKS_TONTON[konteks];
+    var a = typeof audiens === "number" ? audiens : PENGALI_AUDIENS[audiens];
+    if (p == null) throw new Error("ukuranTeks: 'peran' harus salah satu dari " + Object.keys(PERAN_TEKS).join(", "));
+    if (k == null) throw new Error("ukuranTeks: 'konteks' harus salah satu dari " + Object.keys(KONTEKS_TONTON).join(", "));
+    if (typeof a !== "number" || !isFinite(a) || a <= 0) {
+      throw new Error("ukuranTeks: 'audiens' harus salah satu dari " + Object.keys(PENGALI_AUDIENS).join(", ") + " atau pengali angka > 0");
+    }
+    var tinggiX = CPS_DERAJAT * a * p;
+    var pecahan = tinggiX / RASIO_TINGGI_X / k.sudut;
+    return {
+      px: Math.round(pecahan * tinggiFrame),
+      persenTinggi: Math.round(pecahan * 1000) / 10,
+      tinggiXDerajat: Math.round(tinggiX * 100) / 100,
+    };
+  }
+  ukuranTeks.konteks = KONTEKS_TONTON;
+  ukuranTeks.pengaliAudiens = PENGALI_AUDIENS;
+  ukuranTeks.peran = PERAN_TEKS;
+  ukuranTeks.cpsDerajat = CPS_DERAJAT;
+  ukuranTeks.rasioTinggiX = RASIO_TINGGI_X;
+
   // ------------------------------------------------------------ teks / caption
   // Karakter dihitung per code point; spasi berurutan dan pinggir dirapikan dulu.
   function rapikan(teks) {
@@ -340,8 +550,9 @@
 
   // Lama tampil caption dari kecepatan baca: karakter (termasuk spasi) / cps, dijepit ke
   // [min, maks] detik. Pedoman Netflix Timed Text Style Guide menghitung karakter dan
-  // membatasi 20 cps (dewasa) / 17 cps (anak); untuk bahasa Indonesia belum ada angka
-  // primer, jadi bawaan konservatif 17. Bila opsi.fps diberikan, hasil memuat `frame`.
+  // untuk bahasa Indonesia membatasi subtitle 17 cps (dewasa) dan 13 cps (anak); SDH
+  // (caption untuk tuli dan sulit dengar) 20 dan 17 cps. Bawaan 17 = subtitle dewasa.
+  // Bila opsi.fps diberikan, hasil memuat `frame`.
   function durasiBaca(teks, opsi) {
     opsi = opsi || {};
     var cps = opsi.cps == null ? 17 : opsi.cps;
@@ -897,6 +1108,13 @@
     luminansRelatif: luminansRelatif,
     kontras: kontras,
     pilihTeksKontras: pilihTeksKontras,
+    paletOkabeIto: paletOkabeIto,
+    simulasiButaWarna: simulasiButaWarna,
+    keLab: keLab,
+    bedaLab: bedaLab,
+    bedaWarna: bedaWarna,
+    periksaPalet: periksaPalet,
+    ukuranTeks: ukuranTeks,
     durasiBaca: durasiBaca,
     pecahBaris: pecahBaris,
     captionAktif: captionAktif,

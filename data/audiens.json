@@ -1,0 +1,183 @@
+{
+  "versi": 1,
+  "catatan": "Profil audiens untuk menyesuaikan ukuran teks, kontras, caption, tempo, dan kepadatan elemen. Ini titik awal yang dapat diuji dengan penonton, bukan klaim ilmiah: tidak ada riset yang menetapkan pengali numerik untuk video motion graphics. Arah penyesuaian (bukan besarnya) didukung bukti yang tertera di kolom bukti tiap nilai; angka pengali, ambang jumlah elemen, dan pengali tempo adalah keputusan desain awvd. Ringkasan sumber dan batasnya ada di docs/visual-audiens.md.",
+  "legendaBukti": {
+    "bukti": "Berbasis riset empiris atau meta-analisis yang rujukannya tercantum.",
+    "standar": "Standar teknis atau teks peraturan yang rujukannya tercantum.",
+    "pedoman-industri": "Pedoman platform, penyedia, atau praktik industri; bukan eksperimen dan sebagian data milik vendor.",
+    "keputusan-desain": "Usulan desain awvd tanpa sumber ilmiah; boleh diubah dengan alasan."
+  },
+  "aturanKomposisi": "Nilai efektif adalah nilai yang paling ketat dari preset jenis video (data/jenis-video.json) dan profil audiens: kontras = maksimum, cps = minimum, ukuran teks = pengali terbesar, elemen baru per adegan = minimum, kecepatan narasi = minimum, tempo adegan = pengali terbesar. Bila konsep menyebut beberapa profil, dipakai yang paling ketat dari semuanya.",
+  "atributAngka": {
+    "pengaliUkuranTeks": "terbesar",
+    "cps": "terkecil",
+    "pengaliTempoAdegan": "terbesar",
+    "kontrasTeksMin": "terbesar",
+    "kontrasNonTeksMin": "terbesar",
+    "maksElemenBaru": "terkecil",
+    "pengaliKecepatanNarasi": "terkecil"
+  },
+  "atributTeks": ["musik", "tempoPotongan", "animasi", "bahasa"],
+  "petaKonteksTonton": {
+    "catatan": "Memetakan isian audiens.konteksTonton di konsep.json ke konteks ukuranTeks() di runtime. Isian yang tidak ada di peta dilewati tanpa galat.",
+    "laptop": "laptop",
+    "laptop-kantor": "laptop",
+    "tv": "tv",
+    "ponsel": "ponselLanskap",
+    "ponsel-lanskap": "ponselLanskap",
+    "ponsel-potret": "ponselPotret169",
+    "ponsel-vertikal": "ponselVertikalPenuh"
+  },
+  "profil": {
+    "umum": {
+      "label": "Umum (dewasa)",
+      "deskripsi": "Dewasa tanpa kebutuhan khusus yang diketahui. Bawaan bila audiens tidak ditentukan.",
+      "nilai": {
+        "pengaliUkuranTeks": 1,
+        "cps": 17,
+        "pengaliTempoAdegan": 1,
+        "kontrasTeksMin": 4.5,
+        "kontrasNonTeksMin": 3,
+        "maksElemenBaru": 4,
+        "pengaliKecepatanNarasi": 1,
+        "musik": "Sesuai preset jenis video.",
+        "tempoPotongan": "Sesuai preset jenis video.",
+        "animasi": "Sesuai preset jenis video.",
+        "bahasa": "Formal atau percakapan sesuai nada konsep."
+      },
+      "bukti": {
+        "pengaliUkuranTeks": { "tingkat": "keputusan-desain", "rujukan": "Pengali dasar 1,0: ukuran minimum berasal dari ukuran cetak kritis ~0,2 derajat tinggi-x (Legge & Bigelow 2011, J Vision 11(5):8) dan geometri perangkat asumsi di runtime ukuranTeks()." },
+        "cps": { "tingkat": "pedoman-industri", "rujukan": "Netflix Indonesian Timed Text Style Guide (dibaca 2026-11-07): subtitle dewasa 17 cps (SDH dewasa 20 cps)." },
+        "pengaliTempoAdegan": { "tingkat": "keputusan-desain", "rujukan": "Pengali 1,0 = durasi baku preset jenis video dan durasiBaca(); tidak ada riset yang memberi angka." },
+        "kontrasTeksMin": { "tingkat": "standar", "rujukan": "WCAG 2.2 SC 1.4.3 (AA): 4,5:1 untuk teks." },
+        "kontrasNonTeksMin": { "tingkat": "standar", "rujukan": "WCAG 2.2 SC 1.4.11 (AA): 3:1 untuk objek grafis yang dibutuhkan memahami konten." },
+        "maksElemenBaru": { "tingkat": "keputusan-desain", "rujukan": "Arah: kapasitas memori kerja ~4 chunk (Cowan 2001, Behavioral and Brain Sciences 24(1):87-114); memetakannya ke elemen informatif per adegan adalah inferensi awvd." },
+        "pengaliKecepatanNarasi": { "tingkat": "keputusan-desain", "rujukan": "1,0 = kecepatan baku narasi (sop.mjs, 140 kata per menit); tidak ada angka per audiens dari riset." },
+        "musik": { "tingkat": "keputusan-desain", "rujukan": "Mengikuti preset jenis; lihat bukti selisih narasi-musik di data/jenis-video.json." },
+        "tempoPotongan": { "tingkat": "keputusan-desain", "rujukan": "Mengikuti preset jenis (detikPerAdegan)." },
+        "animasi": { "tingkat": "keputusan-desain", "rujukan": "Mengikuti preset jenis (transisi dan easing)." },
+        "bahasa": { "tingkat": "keputusan-desain", "rujukan": "Mengikuti nada di konsep.json." }
+      }
+    },
+    "remaja": {
+      "label": "Remaja",
+      "deskripsi": "Sekitar 13 sampai 17 tahun; terbiasa dengan tempo cepat dan teks pendek.",
+      "nilai": {
+        "pengaliUkuranTeks": 1,
+        "cps": 17,
+        "pengaliTempoAdegan": 0.9,
+        "kontrasTeksMin": 4.5,
+        "kontrasNonTeksMin": 3,
+        "maksElemenBaru": 4,
+        "pengaliKecepatanNarasi": 1,
+        "musik": "Sedang diperbolehkan; selisih narasi-musik tetap mengikuti preset.",
+        "tempoPotongan": "Potongan cepat diperbolehkan.",
+        "animasi": "Bebas dalam batas kilatan 3 per detik.",
+        "bahasa": "Santai; istilah tetap dijelaskan sebelum dipakai."
+      },
+      "bukti": {
+        "pengaliUkuranTeks": { "tingkat": "keputusan-desain", "rujukan": "Tidak ada bukti yang membedakan dari dewasa; sama dengan umum." },
+        "cps": { "tingkat": "keputusan-desain", "rujukan": "Panduan Netflix tidak memisahkan remaja; dipakai batas subtitle dewasa 17 cps (konservatif)." },
+        "pengaliTempoAdegan": { "tingkat": "keputusan-desain", "rujukan": "Pengali 0,9 adalah usulan; tidak ada riset yang menetapkan tempo remaja." },
+        "kontrasTeksMin": { "tingkat": "standar", "rujukan": "WCAG 2.2 SC 1.4.3 (AA): 4,5:1." },
+        "kontrasNonTeksMin": { "tingkat": "standar", "rujukan": "WCAG 2.2 SC 1.4.11 (AA): 3:1." },
+        "maksElemenBaru": { "tingkat": "keputusan-desain", "rujukan": "Sama dengan umum (Cowan 2001 sebagai arah)." },
+        "pengaliKecepatanNarasi": { "tingkat": "keputusan-desain", "rujukan": "Sama dengan profil umum; tidak ada bukti yang membedakan." },
+        "musik": { "tingkat": "keputusan-desain", "rujukan": "Usulan; tidak ada bukti per audiens." },
+        "tempoPotongan": { "tingkat": "keputusan-desain", "rujukan": "Usulan; tidak ada bukti per audiens." },
+        "animasi": { "tingkat": "keputusan-desain", "rujukan": "Batas kilatan: WCAG 2.2 SC 2.3.1 (standar); sisanya usulan." },
+        "bahasa": { "tingkat": "keputusan-desain", "rujukan": "Usulan; tidak ada bukti per audiens." }
+      }
+    },
+    "anak": {
+      "label": "Anak (12 tahun ke bawah)",
+      "deskripsi": "Anak-anak, termasuk pembaca pemula. Untuk anak kecil gunakan adegan lebih panjang dan sedikit elemen.",
+      "nilai": {
+        "pengaliUkuranTeks": 1.2,
+        "cps": 13,
+        "pengaliTempoAdegan": 1.3,
+        "kontrasTeksMin": 4.5,
+        "kontrasNonTeksMin": 3,
+        "maksElemenBaru": 3,
+        "pengaliKecepatanNarasi": 0.9,
+        "musik": "Rendah dan tanpa lirik; selisih narasi minus musik minimal 14 dB.",
+        "tempoPotongan": "Adegan minimal sekitar 8 sampai 10 detik untuk anak kecil; hindari pergantian adegan beruntun.",
+        "animasi": "Halus, tanpa kilatan; sediakan opsi gerak berkurang bila ada pratinjau interaktif.",
+        "bahasa": "Kalimat sekitar 10 kata atau kurang, kosakata sederhana."
+      },
+      "bukti": {
+        "pengaliUkuranTeks": { "tingkat": "keputusan-desain", "rujukan": "Tidak ada bukti ukuran teks untuk anak yang ditemukan; pengali 1,2 adalah usulan." },
+        "cps": { "tingkat": "pedoman-industri", "rujukan": "Netflix Indonesian Timed Text Style Guide (dibaca 2026-11-07): subtitle anak 13 cps (SDH anak 17 cps)." },
+        "pengaliTempoAdegan": { "tingkat": "keputusan-desain", "rujukan": "Arah: Lillard & Peterson 2011 (Pediatrics 128(4):644-649; n = 60, usia 4 tahun; efek sementara pada satu tayangan) menunjukkan tayangan bertempo cepat menurunkan fungsi eksekutif sesaat. Besar pengali adalah usulan." },
+        "kontrasTeksMin": { "tingkat": "standar", "rujukan": "WCAG 2.2 SC 1.4.3 (AA): 4,5:1." },
+        "kontrasNonTeksMin": { "tingkat": "standar", "rujukan": "WCAG 2.2 SC 1.4.11 (AA): 3:1." },
+        "maksElemenBaru": { "tingkat": "keputusan-desain", "rujukan": "Usulan: lebih sedikit daripada dewasa (arah Cowan 2001); tidak ada angka dari riset untuk anak." },
+        "pengaliKecepatanNarasi": { "tingkat": "keputusan-desain", "rujukan": "Usulan; tidak ada angka dari riset." },
+        "musik": { "tingkat": "keputusan-desain", "rujukan": "Usulan; selisih 14 dB mengikuti preset konservatif awvd (riset dialog-latar terbatas)." },
+        "tempoPotongan": { "tingkat": "keputusan-desain", "rujukan": "Usulan; arah dari Lillard & Peterson 2011 (lihat pengaliTempoAdegan)." },
+        "animasi": { "tingkat": "keputusan-desain", "rujukan": "Batas kilatan WCAG 2.2 SC 2.3.1 adalah standar; sisanya usulan." },
+        "bahasa": { "tingkat": "keputusan-desain", "rujukan": "Arah: literasi membaca rendah (PISA 2022 Indonesia, skor membaca 359 pada siswa 15 tahun, ringkasan sekunder; populasi bukan anak kecil)." }
+      }
+    },
+    "lansia": {
+      "label": "Lansia (60 tahun ke atas)",
+      "deskripsi": "Penonton lanjut usia: sensitivitas kontras dan pendengaran nada tinggi menurun, konsentrasi dan memori jangka pendek lebih rentan terganggu.",
+      "nilai": {
+        "pengaliUkuranTeks": 1.5,
+        "cps": 14,
+        "pengaliTempoAdegan": 1.4,
+        "kontrasTeksMin": 7,
+        "kontrasNonTeksMin": 4.5,
+        "maksElemenBaru": 3,
+        "pengaliKecepatanNarasi": 0.85,
+        "musik": "Tanpa musik, atau minimal 20 dB di bawah narasi.",
+        "tempoPotongan": "Lambat; potongan keras tetap lebih jelas daripada transisi berlapis.",
+        "animasi": "Minimal; tanpa gerak latar yang bersaing dengan teks.",
+        "bahasa": "Sederhana; istilah dijelaskan sebelum dipakai."
+      },
+      "bukti": {
+        "pengaliUkuranTeks": { "tingkat": "keputusan-desain", "rujukan": "Arah: W3C WAI 'Older Users and Web Accessibility' (dibaca) dan tinjauan Owsley 2011 (Vision Research 51(13):1610-1622, ringkasan sekunder) tentang penurunan sensitivitas kontras. Besar 1,5 adalah usulan." },
+        "cps": { "tingkat": "keputusan-desain", "rujukan": "Di bawah batas subtitle dewasa Netflix 17 cps; tidak ditemukan studi kecepatan subtitle khusus lansia. Pembaca lansia umumnya lebih lambat (Szarkowska & Krejtz 2014, slide konferensi, belum terverifikasi)." },
+        "pengaliTempoAdegan": { "tingkat": "keputusan-desain", "rujukan": "Arah: kecepatan pemrosesan menurun (Owsley 2011); besar pengali adalah usulan." },
+        "kontrasTeksMin": { "tingkat": "standar", "rujukan": "WCAG 2.2 SC 1.4.6 (AAA, dibaca): 7:1; rasional penglihatan 20/80 dan sensitivitas kontras berkurang pada usia lanjut." },
+        "kontrasNonTeksMin": { "tingkat": "keputusan-desain", "rujukan": "WCAG 2.2 SC 1.4.11 hanya mewajibkan 3:1; 4,5:1 adalah usulan sejalan dengan arah SC 1.4.6." },
+        "maksElemenBaru": { "tingkat": "keputusan-desain", "rujukan": "Usulan: konsentrasi dan memori jangka pendek rentan (W3C WAI older users); tanpa angka dari riset." },
+        "pengaliKecepatanNarasi": { "tingkat": "keputusan-desain", "rujukan": "Arah: ucapan cepat lebih sulit bagi pendengar lansia (Gordon-Salant & Fitzgibbons, ringkasan sekunder; hasil beragam). Besar pengali adalah usulan." },
+        "musik": { "tingkat": "keputusan-desain", "rujukan": "Arah: kesulitan memisahkan suara dari latar (W3C WAI older users); selisih 20 dB adalah usulan." },
+        "tempoPotongan": { "tingkat": "keputusan-desain", "rujukan": "Usulan; arah dari W3C WAI older users." },
+        "animasi": { "tingkat": "keputusan-desain", "rujukan": "Usulan; arah dari W3C WAI older users (mudah terdistraksi)." },
+        "bahasa": { "tingkat": "keputusan-desain", "rujukan": "Usulan; arah dari W3C WAI older users." }
+      }
+    },
+    "lowVision": {
+      "label": "Low vision",
+      "deskripsi": "Penonton dengan penglihatan terbatas yang tidak sepenuhnya terkoreksi; juga dipakai untuk layar luar ruangan atau ponsel di bawah cahaya terang.",
+      "nilai": {
+        "pengaliUkuranTeks": 2,
+        "cps": 13,
+        "pengaliTempoAdegan": 1.5,
+        "kontrasTeksMin": 7,
+        "kontrasNonTeksMin": 7,
+        "maksElemenBaru": 2,
+        "pengaliKecepatanNarasi": 0.85,
+        "musik": "Tanpa musik.",
+        "tempoPotongan": "Lambat.",
+        "animasi": "Tanpa gerak dekoratif.",
+        "bahasa": "Sederhana."
+      },
+      "bukti": {
+        "pengaliUkuranTeks": { "tingkat": "keputusan-desain", "rujukan": "Arah: WCAG 2.2 SC 1.4.6 (dibaca) menaikkan kontras untuk ketajaman 20/80; besar pengali 2,0 adalah usulan." },
+        "cps": { "tingkat": "keputusan-desain", "rujukan": "Disamakan dengan batas subtitle anak Netflix Indonesia (13 cps) agar waktu baca longgar; tidak ada studi khusus." },
+        "pengaliTempoAdegan": { "tingkat": "keputusan-desain", "rujukan": "Usulan; tidak ada riset yang memberi angka." },
+        "kontrasTeksMin": { "tingkat": "standar", "rujukan": "WCAG 2.2 SC 1.4.6 (AAA, dibaca): 7:1." },
+        "kontrasNonTeksMin": { "tingkat": "keputusan-desain", "rujukan": "Usulan: disamakan dengan teks (7:1); standar hanya mewajibkan 3:1 (SC 1.4.11)." },
+        "maksElemenBaru": { "tingkat": "keputusan-desain", "rujukan": "Usulan; tanpa angka dari riset." },
+        "pengaliKecepatanNarasi": { "tingkat": "keputusan-desain", "rujukan": "Usulan; narasi menjadi saluran utama bagi penonton yang sulit membaca layar." },
+        "musik": { "tingkat": "keputusan-desain", "rujukan": "Usulan; narasi harus jelas tanpa gangguan." },
+        "tempoPotongan": { "tingkat": "keputusan-desain", "rujukan": "Usulan; tanpa angka dari riset." },
+        "animasi": { "tingkat": "keputusan-desain", "rujukan": "Usulan; tanpa angka dari riset." },
+        "bahasa": { "tingkat": "keputusan-desain", "rujukan": "Usulan; tanpa angka dari riset." }
+      }
+    }
+  }
+}

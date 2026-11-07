@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Version: `v1.6.0`
+- Version: `v1.8.0`
 - Last updated: `2026-11-07`
 - Changeset: `Peta pemicu dan paralelisme memuat kebijakan kutipan wajar dan bun run pelajari (scripts/pelajari.mjs, scripts/kutipan.mjs, docs/pelajari-reaction.md); aturan 11 diperjelas: karya yang dikutip di template harus buatan sendiri.`
 
@@ -84,8 +84,8 @@ Aturan:
 
 ### Penerapan di awvd
 
-- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`; `scripts/kutipan.mjs` bersama `scripts/klip.mjs`, `scripts/audio.mjs`, dan `docs/pelajari-reaction.md`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
-- Perubahan pada determinisme, protokol `window.video`/`renderFrame`, atau pipa ffmpeg tergolong risiko tinggi: delegasikan ke `pelaksana-kompleks` dengan effort `high`, atau kerjakan langsung oleh Opus.
+- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`; `scripts/transisi.js` bersama `docs/transisi-animasi.md` dan `scripts/uji-transisi.mjs`; `scripts/aset.mjs` bersama `scripts/aset-lib.js`, `scripts/aset-svg.js`, dan `docs/aset.md`; `scripts/kutipan.mjs` bersama `scripts/klip.mjs`, `scripts/audio.mjs`, dan `docs/pelajari-reaction.md`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
+- Perubahan pada determinisme, protokol `window.video`/`renderFrame`, pipa ffmpeg, pemblokiran jaringan atau pemuatan font di `render.mjs`, dan pemeriksa SVG (`scripts/aset-svg.js`) tergolong risiko tinggi: delegasikan ke `pelaksana-kompleks` dengan effort `high`, atau kerjakan langsung oleh Opus.
 - Perintah verifikasi yang wajib ada di setiap brief: `bun run uji`.
 - Papan koordinasi: belum ada (dicek 2026-11-07). Penggantinya `gh pr list --state open`; usulkan papan ke pemilik bila kontributor aktif lebih dari satu.
 
@@ -191,7 +191,10 @@ README akar hanya ringkasan dan indeks. Dokumentasi rinci ada di folder [`docs/`
 | Konsep video, jenis, alur, preset (`scripts/konsep.mjs`, `data/`) | `docs/konsep-jenis-alur.md`; `docs/pedoman-produksi.md` bila dasar riset berubah |
 | SOP (`scripts/sop.mjs`, `templates/sop/`) | `docs/sop.md` |
 | Klip tertanam atau timeline audio (`scripts/klip.mjs`, `scripts/audio.mjs`) | `docs/video-tertanam-audio.md` |
+| Aset (`scripts/aset.mjs`, `aset-lib.js`, `aset-svg.js`, `templates/aset-contoh/`), matriks lisensi aset | `docs/aset.md`; `docs/lisensi-kepatuhan.md` bila matriks lisensi berubah; `templates/<nama>/ASET.md` |
+| Pemblokiran jaringan atau pemuatan font di `render.mjs` | `docs/cli.md` §Jaringan dan font; `docs/arsitektur.md` §Protokol window.video dan renderFrame; `docs/batasan.md` |
 | Fitur aksesibilitas | `docs/aksesibilitas.md` |
+| Transisi, animasi elemen, profil audiens, `kurangiGerak` (`scripts/transisi.js`, `templates/transisi-galeri/`) | `docs/transisi-animasi.md`; `docs/aksesibilitas.md` bila aturan gerak atau kilatan berubah; komentar kepala `scripts/transisi.js` |
 | Mempelajari gaya video, kebijakan kutipan wajar, gerbang hukum GH, lisensi `KUTIPAN-WAJAR`, template `reaction` (`scripts/pelajari.mjs`, `scripts/kutipan.mjs`) | `docs/pelajari-reaction.md`; `docs/video-tertanam-audio.md` bila aturan sumber atau audio berubah; `docs/lisensi-kepatuhan.md`; `docs/log-keputusan.md` bila angka kebijakan berubah (angka hanya boleh diperketat tanpa keputusan pemilik) |
 | Template baru atau berubah | README §Struktur repo; `templates/<nama>/ASET.md` |
 | Uji atau CI | README §Perintah utama dan §Struktur repo (daftar uji dan opsi `bun run uji`); §Git dan PR bila check wajib berubah |
@@ -262,10 +265,18 @@ Template PR di `.github/pull_request_template.md` memuat checklist ini.
 
 ## Changelog
 
-### 2026-11-07 - v1.6.0
+### 2026-11-07 - v1.8.0
 
 - Peta pemicu: baris kebijakan kutipan wajar, `bun run pelajari`, dan template `reaction`; paralelisme: `scripts/kutipan.mjs` bersama `klip.mjs`, `audio.mjs`, dan `docs/pelajari-reaction.md`.
 - Aturan 11: karya yang dikutip di template harus buatan sendiri; karya pihak ketiga masuk lewat repo proyek.
+
+### 2026-11-07 - v1.7.0
+
+- Fitur aset: `scripts/aset.mjs` bersama `aset-lib.js`, `aset-svg.js`, dan `docs/aset.md` ditambahkan ke area yang tidak boleh paralel; peta pemicu memuat aset serta pemblokiran jaringan dan pemuatan font renderer; perubahan keduanya dan pemeriksa SVG tergolong risiko tinggi.
+
+### 2026-11-07 - v1.6.0
+
+- Peta pemicu memuat baris transisi dan animasi (`scripts/transisi.js`, `templates/transisi-galeri/`) ke `docs/transisi-animasi.md`; Penerapan di awvd menambahkan `scripts/transisi.js` bersama `docs/transisi-animasi.md` dan `scripts/uji-transisi.mjs` sebagai area yang tidak boleh dikerjakan paralel.
 
 ### 2026-11-07 - v1.5.0
 

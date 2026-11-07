@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.2.0`
 - Last updated: `2026-11-07`
-- Changeset: `Daftar perintah lain memuat bun run pelajari dan bun run kutipan, dan flag klip --draf; render.mjs tidak berubah.`
+- Changeset: `Menambahkan bun run pelajari, bun run kutipan, dan flag klip --draf ke tabel Perintah lain; bagian Jaringan dan font, flag --izinkan-jaringan, dan kode keluar 3 dari fitur aset dipertahankan.`
 
 Referensi CLI `scripts/render.mjs` (`bun run render`). Alur di balik perintah ini ada di [arsitektur.md](arsitektur.md).
 
@@ -27,6 +27,7 @@ bun scripts/render.mjs <komposisi.html|URL> --out hasil.mp4 [opsi]
 | `--bahasa KODE` | `ind` | Kode bahasa trek subtitle. |
 | `--still N` | - | Render satu frame N sebagai PNG, bukan video. |
 | `--browser PATH` | otomatis | Jalur Chromium. Tanpa ini: `PLAYWRIGHT_BROWSERS_PATH` atau `~/.cache/ms-playwright`, lalu `google-chrome`/`chromium` sistem. |
+| `--izinkan-jaringan` | mati | Mematikan pemblokiran jaringan (lihat [Jaringan dan font](#jaringan-dan-font)). Hanya untuk pratinjau; mencetak peringatan, dan hasil bisa tidak deterministik. |
 | `-h`, `--help` | - | Tampilkan petunjuk. |
 
 ## Laporan kenyaringan
@@ -39,7 +40,19 @@ Piksel PNG sRGB rentang penuh dari browser dikonversi eksplisit ke YUV 4:2:0 mat
 
 ## Kode keluar
 
-Kode keluar `0` bila berhasil, `2` untuk argumen tidak valid, `1` untuk galat saat render (termasuk halaman tanpa `window.video` setelah 15 detik).
+Kode keluar `0` bila berhasil, `2` untuk argumen tidak valid, `3` bila ada permintaan jaringan yang diblokir (lihat di bawah), `1` untuk galat saat render lainnya (termasuk halaman tanpa `window.video` setelah 15 detik dan `@font-face` yang gagal dimuat).
+
+## Jaringan dan font
+
+Render tidak boleh bergantung pada sumber luar. Secara bawaan Chromium dijalankan dengan semua permintaan selain `file:`, `data:`, `about:`, dan `blob:` dicegat dan dibatalkan: HTTP/HTTPS (gambar, CSS, skrip, font, `fetch`, `sendBeacon`, ...) lewat `context.route`, dan WebSocket lewat `routeWebSocket` (route biasa tidak menutup WebSocket). Setiap permintaan yang diblokir dicatat.
+
+- Render **gagal dengan kode keluar `3`** dan mencetak jumlah serta daftar URL yang diblokir (metode, URL, jenis sumber; maksimal 20 baris). Pemeriksaan berjalan setelah halaman dimuat, setelah setiap frame, dan sebelum encode selesai, jadi render berhenti segera dan keluaran setengah jadi (`.mp4`) dihapus; mode `--still` tidak menulis PNG. Bila ada galat lain yang menyertai, ia dicetak sebagai "galat yang menyertai".
+- **Komposisi yang dibuka lewat `http(s)://`** (mis. server pengembangan) hanya boleh meminta asalnya sendiri (host dan port yang sama, termasuk `ws:`); asal lain diblokir.
+- `--izinkan-jaringan` mematikan semua pemblokiran dengan peringatan. Pakai hanya untuk pratinjau; jangan untuk render rilis.
+- Aset harus berupa berkas lokal yang tercatat: lihat [aset.md](aset.md) dan `bun run aset`.
+- Batasan: yang dicegat adalah permintaan yang dikirim halaman lewat jaringan browser. Pra-koneksi (`<link rel="preconnect">`, DNS prefetch) tidak lewat mekanisme pencegat dan tidak dicatat (tidak ada data halaman yang terkirim lewatnya); perilaku pencegat pada `<iframe>`/`<object>` bersumber `file:` belum diuji.
+
+Sebelum frame pertama renderer memuat eksplisit setiap `@font-face` (`FontFace.load()` untuk semua `document.fonts`), baru menunggu `document.fonts.ready` dan semua gambar. `document.fonts.ready` saja tidak memuat face yang belum dipakai DOM awal, sehingga elemen berfont yang dibuat di dalam `render()` bisa diukur dengan font cadangan (terukur: lebar 168,6 px lalu 189,8 px). `@font-face` yang gagal dimuat (berkas hilang atau format tak didukung) menggagalkan render (kode keluar `1`, pesan `font gagal dimuat: ...`) alih-alih diam-diam memakai font cadangan. Sebagai jaring pengaman, setelah `renderFrame(n)` face yang baru ditambahkan di dalam `render()` (mis. `new FontFace(...)` + `document.fonts.add`) juga dimuat sebelum tangkapan; ukuran teks yang diukur di dalam render yang sama tetap tanggung jawab komposisi (tunggu `face.load()` di `render` async).
 
 ## Perintah lain
 
@@ -52,13 +65,19 @@ Kode keluar `0` bila berhasil, `2` untuk argumen tidak valid, `1` untuk galat sa
 | `bun run pelajari <video-lokal> --sumber-sah CARA` | Statistik gaya dari video lokal yang sah dimiliki (ritme potongan, palet, kenyaringan, pola); laporan JSON/Markdown | [pelajari-reaction.md](pelajari-reaction.md) |
 | `bun run kutipan -- periksa\|hash <sumber.json>` | Periksa kebijakan kutipan wajar; hitung hash gerbang hukum GH | [pelajari-reaction.md](pelajari-reaction.md#bun-run-kutipan) |
 | `bun run konsep -- <subperintah>` | Konsep video: jenis, alur, brief, persetujuan | [konsep-jenis-alur.md](konsep-jenis-alur.md) |
+| `bun run aset tambah\|impor\|periksa` | Aset (gambar, logo, ikon, SVG, font, audio): manifest `aset.json`, validasi, pembersih SVG, konversi sRGB, atribusi | [aset.md](aset.md) |
 | `bun run uji` | Seluruh uji otomatis | [README](../README.md#perintah-utama) |
 
 ## Changelog
 
+### 2026-11-07 - v1.2.0
+
+- Tabel Perintah lain: `bun run pelajari`, `bun run kutipan`, dan flag `--draf` pada `bun run klip`; `render.mjs` tidak berubah.
+
 ### 2026-11-07 - v1.1.0
 
-- Tabel Perintah lain: `bun run pelajari`, `bun run kutipan`, dan flag `--draf` pada `bun run klip`.
+- Menambahkan `--izinkan-jaringan`, kode keluar `3`, dan bagian Jaringan dan font: pemblokiran semua permintaan non-lokal (HTTP, HTTPS, WebSocket) secara bawaan, pemuatan eksplisit setiap `@font-face` sebelum frame pertama, dan galat jelas untuk font yang gagal dimuat.
+- Menambahkan `bun run aset` ke tabel Perintah lain.
 
 ### 2026-11-07 - v1.0.0
 

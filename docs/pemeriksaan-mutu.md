@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.0.1`
 - Last updated: `2026-11-07`
-- Changeset: `Dokumen baru dipindah dari README v1.10.0: alat QC periksa.mjs, flag termasuk --konsep, tabel pemeriksaan beserta ambang dan sumbernya, pemeriksa kilatan, dan batasannya.`
+- Changeset: `Koreksi batas cps: subtitle dewasa 17 dan anak 13, SDH dewasa 20 dan anak 17 (Netflix Indonesia); --cps 13 untuk anak.`
 
 Alat QC pasca-render `scripts/periksa.mjs`. Dasar riset ambang ada di [pedoman-produksi.md](pedoman-produksi.md); flag `--konsep` memakai `konsep.json` dari [konsep-jenis-alur.md](konsep-jenis-alur.md).
 
@@ -24,7 +24,7 @@ Alat QC pasca-render: memeriksa berkas MP4 hasil render dengan `ffprobe`/`ffmpeg
 | `--subtitle F` | - | `.vtt` atau `.srt`; mengaktifkan pemeriksaan subtitle. |
 | `--kenyaringan M` | `web` | Target kenyaringan: `web` atau `siaran`. |
 | `--jenis J` | - | `penjelasan` atau `promo`; menentukan penilaian durasi. |
-| `--cps N` | `17` | Batas karakter per detik subtitle (Netflix dewasa: 20). |
+| `--cps N` | `17` | Batas karakter per detik subtitle. Netflix Indonesia: subtitle dewasa 17 (bawaan) dan anak 13; SDH dewasa 20 dan anak 17. Dengan `--konsep`, nilai dari `caption.cps` konsep (profil audiens `anak` memberi 13, lihat [visual-audiens.md](visual-audiens.md)). |
 | `--konsep F` | - | `konsep.json` (lihat [konsep-jenis-alur.md](konsep-jenis-alur.md)): kenyaringan dan cps diambil dari konsep (flag eksplisit `--kenyaringan`/`--cps` menang), durasi dinilai terhadap durasi maks preset jenis (dengan `override`), rasio video dibandingkan dengan rasio konsep (`GAGAL` bila beda, wajib), dan harapan burn-in dicatat sebagai `INFO` (tidak bisa dideteksi otomatis). `--jenis` diabaikan bila `--konsep` dipakai. Konsep tidak valid: exit `2`. Tanpa flag ini perilaku tidak berubah. |
 | `--json` | mati | Cetak hasil sebagai JSON, bukan tabel. |
 
@@ -50,9 +50,14 @@ Aproksimasi area uji: WCAG menguji flash yang luasnya lebih dari sekitar 0,006 s
 
 ## Batasan
 
-Batasan lain: encoding hanya memeriksa trek video pertama; subtitle dinilai dari berkas `.vtt`/`.srt`, bukan trek `mov_text` di dalam MP4; waktu kilatan mengasumsikan fps konstan. Contoh waktu: video 6 detik 1280x720 selesai dalam sekitar 0,3 detik.
+Batasan lain: `periksa` belum memeriksa palet buta warna, ukuran teks, kepadatan elemen, atau efek dekoratif (helper `periksaPalet` dan `ukuranTeks` ada di runtime, lihat [visual-audiens.md](visual-audiens.md#pemeriksaan-yang-ada-dan-yang-belum)); encoding hanya memeriksa trek video pertama; subtitle dinilai dari berkas `.vtt`/`.srt`, bukan trek `mov_text` di dalam MP4; waktu kilatan mengasumsikan fps konstan. Contoh waktu: video 6 detik 1280x720 selesai dalam sekitar 0,3 detik.
 
 ## Changelog
+
+### 2026-11-07 - v1.0.1
+
+- Koreksi batas cps: subtitle dewasa 17 dan anak 13, SDH dewasa 20 dan anak 17 (Netflix Indonesia), menggantikan rumusan "dewasa 20"; penjelasan `--cps` dengan `--konsep` dan profil audiens.
+- Batasan: pemeriksaan palet dan ukuran teks belum ada di `periksa`.
 
 ### 2026-11-07 - v1.0.0
 
