@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.2.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan lisensi KUTIPAN-WAJAR di tabel aturan sumber, flag --draf, kunci kutipan dan draf di klip-props.json, serta aturan audio musik sumber kutipan (wajib bisu) di audio.mjs; rinciannya di pelajari-reaction.md.`
+- Changeset: `Menambahkan kunci efek di klip[] (LUT .cube dan koreksi warna saat ekstraksi, rinci di olah-klip.md), efek dalam kunci cache, dan contoh sumber-warna.json di templat klip-tertanam.`
 
-Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md).
+Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md). Efek warna klip (LUT `.cube`, kecerahan, kontras, saturasi, gamma, keseimbangan warna) yang diterapkan saat ekstraksi ada di [olah-klip.md](olah-klip.md).
 
 ## Video di dalam video
 
@@ -68,7 +68,7 @@ Jalur `berkas` dan `bukti` relatif terhadap folder manifest. Contoh lengkap: [`t
 | --- | --- |
 | `proyek` | `tujuan` (wajib), `lisensiKeluaran` (wajib bila ada sumber ShareAlike). |
 | `sumber[]` | `id`, `berkas`, `sha256`, `judul` (atau `tanpaJudul`), `pencipta` (atau `penciptaAnonim`), `sumberUrl` (URL asli, jangan dipendekkan), `lisensi` (kode beserta versi), `perubahan`, opsional `urlLisensi` (bawaan dari kode lisensi) dan `bukti` (wajib untuk `STOK:`). |
-| `klip[]` | `id`, `sumber`, `lebar` dan `tinggi` (piksel, ukuran tampil dikali skala render; rasio berbeda dari sumber memberi peringatan), `dari` dan `panjang` (detik; bawaan 0 dan sampai akhir), `format` (`jpg` bawaan, atau `png` lossless untuk tangkapan layar dan grafik), `kualitas` (JPEG `q:v` 1..31, bawaan 2). Satu sumber boleh dipakai beberapa klip. |
+| `klip[]` | `id`, `sumber`, `lebar` dan `tinggi` (piksel, ukuran tampil dikali skala render; rasio berbeda dari sumber memberi peringatan), `dari` dan `panjang` (detik; bawaan 0 dan sampai akhir), `format` (`jpg` bawaan, atau `png` lossless untuk tangkapan layar dan grafik), `kualitas` (JPEG `q:v` 1..31, bawaan 2). Satu sumber boleh dipakai beberapa klip. `efek` (opsional): array efek warna yang diterapkan saat ekstraksi, rinci di [olah-klip.md](olah-klip.md). |
 
 ### `scripts/klip.mjs`
 
@@ -86,7 +86,7 @@ bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung pr
 
 Keluaran di `--out`: `<kunci>/` (frame `000000.jpg`..., `audio.wav` bila sumber beraudio, `meta.json` berisi hash seluruh frame), `klip-props.json` (daftar `klip[]`: `id`, `akar` URL `file://` folder cache, `folder`, `ekstensi`, `digit`, `jumlah`, `fps`, `lebar`, `tinggi`, `audio`, `atribusi`), `atribusi.txt` (format TASL siap tempel di deskripsi), dan `props-gabungan.json` bila `--gabung`. Untuk sumber dalam cakupan kebijakan kutipan, tiap klip di `klip-props.json` memuat `kutipan: { isiAudio, musikDibahas }` (dipakai `audio.mjs`). Kode keluar: `0` berhasil, `2` manifest atau argumen tidak valid (tidak ada ekstraksi), `1` galat ffmpeg.
 
-**Cache.** Kunci = sha256 dari {hash berkas sumber, fps, lebar, tinggi, dari, panjang, matriks warna, rentang, format, kualitas, versi ffmpeg}. Cache hit tidak menjalankan ffmpeg. Ekstraksi dua kali menghasilkan frame identik byte demi byte (diuji lewat `framesSha256`). Cache tidak dibersihkan otomatis; hapus `.cache/awvd/klip` bila perlu. Ekstraksi memakai `-flags +bitexact` agar JPEG tidak memuat tag versi ffmpeg.
+**Cache.** Kunci = sha256 dari {hash berkas sumber, fps, lebar, tinggi, dari, panjang, matriks warna, rentang, format, kualitas, versi ffmpeg, dan efek kanonik beserta sha256 berkas LUT bila klip berefek}. Cache hit tidak menjalankan ffmpeg. Ekstraksi dua kali menghasilkan frame identik byte demi byte (diuji lewat `framesSha256`). Cache tidak dibersihkan otomatis; hapus `.cache/awvd/klip` bila perlu. Ekstraksi memakai `-flags +bitexact` agar JPEG tidak memuat tag versi ffmpeg.
 
 **Warna.** Chromium mendekode video tak bertag dengan matriks BT.709 sedangkan ffmpeg bawaannya BT.601; pada uji riset PSNR frame yang sama 25,6 dB (bawaan) berbanding 46,1 dB (matriks eksplisit). Karena itu `klip.mjs` memberi matriks dan rentang eksplisit dari tag `ffprobe` (`color_space`, `color_range`); sumber tak bertag dianggap `bt709` (juga untuk resolusi SD; konvensi SD = BT.601 belum diverifikasi), rentang tak bertag dianggap `tv` (`pc` untuk `yuvj*`). Sumber HDR (`smpte2084`, `arib-std-b67`) ditolak. SAR non-persegi dikoreksi, rotasi mengikuti autorotate ffmpeg. Frame JPEG disimpan `yuvj444p`; frame PNG `rgb24`.
 
@@ -129,7 +129,7 @@ bun scripts/render.mjs templates/klip-tertanam/index.html \
 bun run periksa out/klip-tertanam.mp4
 ```
 
-Jadwal klip ada di dua tempat (`props.json` untuk komposisi dan `rencana-audio.json` untuk audio); `scripts/uji-klip.mjs` memastikan keduanya sama.
+Jadwal klip ada di dua tempat (`props.json` untuk komposisi dan `rencana-audio.json` untuk audio); `scripts/uji-klip.mjs` memastikan keduanya sama. Contoh efek warna (`sumber-warna.json`, `lut/`, `buat-lut.mjs`) ada di [olah-klip.md](olah-klip.md#templat).
 
 ### Batasan
 
@@ -211,6 +211,10 @@ Dasar dan batas bukti. Ucapan simultan saling mengganggu (Salamé & Baddeley 198
 awvd tidak membundel mesin TTS. Antarmuka narasi adalah **berkas WAV beku**: hasil rekaman atau TTS dibekukan sebagai berkas, dihash, dicatat (mesin, versi, model, lisensi) di repo proyek, dan hanya berkas itu yang dipakai saat render (TTS saraf bisa tidak deterministik antar-run). Per 2026-11-07 riset tidak menemukan model TTS bahasa Indonesia berlisensi permisif dengan asal data yang jelas: Piper MIT sudah diarsipkan dan penerusnya GPL-3.0; suara `id_ID-news_tts-medium` berlisensi MIT tetapi asal data pelatihannya tidak jelas; MMS-TTS berlisensi CC BY-NC. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.2.0
+
+- Kunci `efek` di `klip[]` (rinci di [olah-klip.md](olah-klip.md)), efek ikut kunci cache, dan contoh efek warna di templat `klip-tertanam`.
 
 ### 2026-11-07 - v1.1.0
 

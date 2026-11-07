@@ -11,8 +11,10 @@
  *      atribusi lengkap, sha256 cocok, lisensiKeluaran untuk ShareAlike.
  *   2. ffprobe: tag matriks warna dan rentang (tak bertag = bt709), sumber HDR ditolak.
  *   3. ffmpeg mengekstrak frame JPEG/PNG pada fps komposisi, satu berkas per nomor
- *      frame, ke cache berkunci (hash berkas + fps + ukuran + rentang + matriks + ...).
- *      Cache hit tidak mengekstrak ulang. Audio klip diekstrak ke audio.wav.
+ *      frame, ke cache berkunci (hash berkas + fps + ukuran + rentang + matriks + efek + ...).
+ *      Cache hit tidak mengekstrak ulang. Audio klip diekstrak ke audio.wav (tanpa efek).
+ *      Efek klip (`klip[].efek`, mis. LUT .cube dan koreksi warna) diterapkan sekali di tahap
+ *      ini, bukan per frame di Chromium; registri efek: lihat EFEK di bawah.
  *   3b. Sumber berlisensi KUTIPAN-WAJAR atau berblok `kutipan` diperiksa kebijakan kutipan
  *      wajar (scripts/kutipan.mjs: batas durasi, proporsi, komentar aktif) dan gerbang hukum
  *      GH; gerbang belum disetujui = kode keluar 2, atau tanda draf dengan --draf.
@@ -26,10 +28,10 @@
 import { parseArgs } from "node:util";
 import { createHash } from "node:crypto";
 import {
-  createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync,
-  statSync, writeFileSync,
+  copyFileSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync,
+  rmSync, statSync, writeFileSync,
 } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { barisRingkasan, dalamCakupan, periksaKutipan } from "./kutipan.mjs";
 
@@ -105,6 +107,224 @@ export function kreditLengkap(a) {
   b.push(`Lisensi: ${namaLisensi(a.lisensi)}${a.urlLisensi ? ` (${a.urlLisensi})` : ""}`);
   if (perubahan) b.push(`Diubah: ${perubahan}`);
   return `${b.join(". ")}.`;
+}
+
+// ------------------------------------------------------------------------ efek
+/**
+ * Registri efek klip (`klip[].efek`, array; urutan array = urutan penerapan). Tiap jenis efek
+ * mendaftarkan: `kunci` (kunci yang sah di manifest), `periksa(e, konteks)` -> pesan galat,
+ * `kanonik(e, konteks)` -> objek kanonik untuk kunci cache (null bila efek netral, dibuang dari
+ * rantai), dan `saring(kanonik, indeks)` -> { saring: string[] (filter ffmpeg), berkas: [{ nama,
+ * sumber }] (berkas yang disalin ke folder kerja ffmpeg supaya jalur tak perlu di-escape) }.
+ * `tahap` menentukan di rantai mana efek dipasang. Tahap yang ada: "warna" (setelah penskalaan,
+ * di RGB 8 bit; semua efek warna). Menambah jenis efek (chroma key, stabilisasi) = satu entri di
+ * EFEK; tahap baru (mis. "pra" sebelum skala untuk stabilisasi, "alfa" untuk chroma key, yang
+ * juga mengharuskan format PNG beralfa) = satu entri di TAHAP dan satu slot di argsEkstrak.
+ */
+const TAHAP = ["warna"];
+const INTERPOLASI_LUT = ["nearest", "trilinear", "tetrahedral", "pyramid", "prism"];
+const BATAS_EFEK = 16;
+const POLA_HEX64 = /^[0-9a-f]{64}$/i;
+const adaKunci = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+const angkaDalam = (v, min, maks) => typeof v === "number" && Number.isFinite(v) && v >= min && v <= maks;
+const fmt = (x) => String(Number(x.toFixed(6)));
+
+/**
+ * Mengurai berkas LUT .cube (Adobe/Resolve) 3D. Fail-closed seperti ffmpeg: kata kunci tak
+ * dikenal, 1D LUT, dan jumlah baris data yang salah ditolak. Mengembalikan { ukuran } atau { galat }.
+ */
+export function uraiCube(teks) {
+  let ukuran = null, data = 0;
+  for (const [i, mentah] of teks.split(/\r?\n/).entries()) {
+    const baris = mentah.trim();
+    if (baris === "" || baris.startsWith("#")) continue;
+    const nomor = `baris ${i + 1}`;
+    if (/^[-+.\d]/.test(baris)) {
+      const bagian = baris.split(/\s+/);
+      if (bagian.length !== 3 || bagian.some((x) => !Number.isFinite(Number(x)))) return { galat: `${nomor}: baris data harus tiga bilangan` };
+      data++;
+      continue;
+    }
+    const [kata, ...sisa] = baris.split(/\s+/);
+    if (kata === "TITLE") continue;
+    if (kata === "LUT_1D_SIZE") return { galat: "LUT 1D tidak didukung; pakai LUT 3D (LUT_3D_SIZE)" };
+    if (kata === "LUT_3D_SIZE") {
+      const n = Number(sisa[0]);
+      if (sisa.length !== 1 || !Number.isInteger(n) || n < 2 || n > 256) return { galat: `${nomor}: LUT_3D_SIZE harus bilangan bulat 2..256` };
+      if (ukuran !== null) return { galat: `${nomor}: LUT_3D_SIZE ganda` };
+      ukuran = n;
+      continue;
+    }
+    if (kata === "DOMAIN_MIN" || kata === "DOMAIN_MAX") {
+      if (sisa.length !== 3 || sisa.some((x) => !Number.isFinite(Number(x)))) return { galat: `${nomor}: ${kata} harus tiga bilangan` };
+      continue;
+    }
+    return { galat: `${nomor}: kata kunci "${kata}" tidak dikenal` };
+  }
+  if (ukuran === null) return { galat: "LUT_3D_SIZE tidak ditemukan" };
+  if (data !== ukuran ** 3) return { galat: `LUT_3D_SIZE ${ukuran} butuh ${ukuran ** 3} baris data, berkas memuat ${data}` };
+  return { ukuran };
+}
+
+const infoLut = new Map(); // jalur mutlak -> { galat } | { ukuran, sha256 } (satu proses, berkas dibaca sekali)
+function bacaLut(jalur) {
+  let r = infoLut.get(jalur);
+  if (!r) {
+    const isi = readFileSync(jalur);
+    const u = uraiCube(isi.toString("utf8"));
+    r = u.galat ? { galat: u.galat } : { ukuran: u.ukuran, sha256: createHash("sha256").update(isi).digest("hex") };
+    infoLut.set(jalur, r);
+  }
+  return r;
+}
+
+function periksaTriplet(nilai, nama) {
+  if (!Array.isArray(nilai) || nilai.length !== 3 || !nilai.every((x) => angkaDalam(x, -1, 1))) {
+    return [`${nama} harus array [merah, hijau, biru] berisi tiga angka -1..1`];
+  }
+  return [];
+}
+
+// Matriks saturasi di ruang RGB ber-gamma: s*I + (1-s)*luma Rec.709 (s=0 = abu-abu murni, s=1 = netral).
+const LUMA = [0.2126, 0.7152, 0.0722];
+function mixerSaturasi(s) {
+  const t = [];
+  for (let b = 0; b < 3; b++) for (let k = 0; k < 3; k++) t.push(`${"rgb"[b]}${"rgb"[k]}=${fmt(LUMA[k] * (1 - s) + (b === k ? s : 0))}`);
+  return `colorchannelmixer=${t.join(":")}`;
+}
+
+const EFEK = {
+  /** LUT 3D .cube lewat lut3d. */
+  lut: {
+    tahap: "warna",
+    kunci: ["jenis", "berkas", "sha256", "interpolasi"],
+    periksa(e, { dirManifest }) {
+      const g = [];
+      if (!adaTeks(e.berkas)) return ['"berkas" (jalur .cube) wajib'];
+      if (extname(e.berkas).toLowerCase() !== ".cube") g.push(`"berkas" harus berekstensi .cube: ${e.berkas}`);
+      if (e.sha256 !== undefined && !(typeof e.sha256 === "string" && POLA_HEX64.test(e.sha256))) g.push('"sha256" harus 64 digit heksadesimal');
+      if (e.interpolasi !== undefined && !INTERPOLASI_LUT.includes(e.interpolasi)) g.push(`"interpolasi" harus salah satu dari ${INTERPOLASI_LUT.join(", ")}`);
+      if (g.length) return g;
+      const jalur = mutlak(dirManifest, e.berkas);
+      if (!existsSync(jalur) || !statSync(jalur).isFile()) return [`berkas LUT tidak ditemukan: ${e.berkas}`];
+      const r = bacaLut(jalur);
+      if (r.galat) return [`LUT ${e.berkas} tidak valid: ${r.galat}`];
+      if (e.sha256 !== undefined && r.sha256 !== e.sha256.toLowerCase()) {
+        return [`hash LUT tidak cocok: sha256 ${e.berkas} adalah ${r.sha256}, manifest menulis ${e.sha256.toLowerCase()}`];
+      }
+      return [];
+    },
+    kanonik(e, { dirManifest }) {
+      const jalur = mutlak(dirManifest, e.berkas);
+      return { jenis: "lut", sha256: bacaLut(jalur).sha256, interpolasi: e.interpolasi ?? "tetrahedral", jalur };
+    },
+    saring(c, i) {
+      const nama = `lut${i}.cube`;
+      return { saring: [`lut3d=file=${nama}:interp=${c.interpolasi}`], berkas: [{ nama, sumber: c.jalur }] };
+    },
+  },
+
+  /** Kecerahan, kontras, saturasi, gamma; matematika RGB 8 bit (lutrgb dan colorchannelmixer). */
+  warna: {
+    tahap: "warna",
+    kunci: ["jenis", "kecerahan", "kontras", "saturasi", "gamma"],
+    periksa(e) {
+      const g = [];
+      if (e.kecerahan !== undefined && !angkaDalam(e.kecerahan, -1, 1)) g.push('"kecerahan" harus angka -1..1 (bawaan 0)');
+      if (e.kontras !== undefined && !angkaDalam(e.kontras, 0, 4)) g.push('"kontras" harus angka 0..4 (bawaan 1)');
+      if (e.saturasi !== undefined && !angkaDalam(e.saturasi, 0, 4)) g.push('"saturasi" harus angka 0..4 (bawaan 1; 0 = abu-abu)');
+      if (e.gamma !== undefined && !angkaDalam(e.gamma, 0.1, 10)) g.push('"gamma" harus angka 0.1..10 (bawaan 1; >1 mencerahkan tengah)');
+      if (e.kecerahan === undefined && e.kontras === undefined && e.saturasi === undefined && e.gamma === undefined) {
+        g.push('efek "warna" butuh sedikitnya satu dari kecerahan, kontras, saturasi, gamma');
+      }
+      return g;
+    },
+    kanonik(e) {
+      const c = { jenis: "warna", kecerahan: e.kecerahan ?? 0, kontras: e.kontras ?? 1, saturasi: e.saturasi ?? 1, gamma: e.gamma ?? 1 };
+      return c.kecerahan === 0 && c.kontras === 1 && c.saturasi === 1 && c.gamma === 1 ? null : c;
+    },
+    saring(c) {
+      const saring = [];
+      if (c.kecerahan !== 0 || c.kontras !== 1 || c.gamma !== 1) {
+        // gamma, lalu kontras terhadap abu-abu tengah, lalu kecerahan; nilai dijepit ke 0..1
+        let x = "val/maxval";
+        if (c.gamma !== 1) x = `pow(${x},${fmt(1 / c.gamma)})`;
+        if (c.kontras !== 1) x = `(${x}-0.5)*${fmt(c.kontras)}+0.5`;
+        if (c.kecerahan !== 0) x = `${x}+${fmt(c.kecerahan)}`;
+        const ekspresi = `'clip(${x},0,1)*maxval'`;
+        saring.push(`lutrgb=r=${ekspresi}:g=${ekspresi}:b=${ekspresi}`);
+      }
+      if (c.saturasi !== 1) saring.push(mixerSaturasi(c.saturasi));
+      return { saring, berkas: [] };
+    },
+  },
+
+  /** Keseimbangan warna bayangan/tengah/sorotan lewat colorbalance. */
+  keseimbangan: {
+    tahap: "warna",
+    kunci: ["jenis", "bayangan", "tengah", "sorotan", "jagaTerang"],
+    periksa(e) {
+      const g = [];
+      for (const k of ["bayangan", "tengah", "sorotan"]) if (e[k] !== undefined) g.push(...periksaTriplet(e[k], `"${k}"`));
+      if (e.jagaTerang !== undefined && typeof e.jagaTerang !== "boolean") g.push('"jagaTerang" harus true atau false');
+      if (e.bayangan === undefined && e.tengah === undefined && e.sorotan === undefined) {
+        g.push('efek "keseimbangan" butuh sedikitnya satu dari bayangan, tengah, sorotan');
+      }
+      return g;
+    },
+    kanonik(e) {
+      const c = {
+        jenis: "keseimbangan", bayangan: e.bayangan ?? [0, 0, 0], tengah: e.tengah ?? [0, 0, 0],
+        sorotan: e.sorotan ?? [0, 0, 0], jagaTerang: e.jagaTerang === true,
+      };
+      return [...c.bayangan, ...c.tengah, ...c.sorotan].every((x) => x === 0) ? null : c;
+    },
+    saring(c) {
+      const t = [];
+      for (const [kunci, awal] of [["bayangan", "s"], ["tengah", "m"], ["sorotan", "h"]]) {
+        c[kunci].forEach((x, i) => { if (x !== 0) t.push(`${"rgb"[i]}${awal}=${fmt(x)}`); });
+      }
+      if (c.jagaTerang) t.push("pl=1");
+      return { saring: [`colorbalance=${t.join(":")}`], berkas: [] };
+    },
+  },
+};
+
+/** Pesan galat untuk `klip[].efek` (tanpa ffmpeg; berkas LUT dibaca dan diurai). */
+export function periksaEfek(efek, dirManifest) {
+  if (!Array.isArray(efek)) return ['"efek" harus array objek'];
+  const galat = [];
+  if (efek.length > BATAS_EFEK) galat.push(`"efek" maksimal ${BATAS_EFEK} butir (dapat ${efek.length})`);
+  for (const [i, e] of efek.entries()) {
+    if (e === null || typeof e !== "object" || Array.isArray(e)) { galat.push(`efek[${i}]: harus objek`); continue; }
+    const def = adaKunci(EFEK, e.jenis) ? EFEK[e.jenis] : null;
+    if (!def) { galat.push(`efek[${i}]: jenis ${JSON.stringify(e.jenis)} tidak dikenal; yang ada: ${Object.keys(EFEK).join(", ")}`); continue; }
+    const nama = `efek[${i}] (${e.jenis})`;
+    const asing = Object.keys(e).filter((k) => !def.kunci.includes(k));
+    if (asing.length) { galat.push(`${nama}: kunci tidak dikenal: ${asing.join(", ")} (sah: ${def.kunci.join(", ")})`); continue; }
+    for (const p of def.periksa(e, { dirManifest })) galat.push(`${nama}: ${p}`);
+  }
+  return galat;
+}
+
+/**
+ * Efek klip yang sudah lolos periksaEfek -> { kanonik[] (untuk kunci cache), warna[] (filter),
+ * berkas[] }. Efek netral dibuang; urutan antar-tahap mengikuti TAHAP, dalam tahap mengikuti array.
+ */
+export function rakitEfek(efek, dirManifest) {
+  const hasil = { kanonik: [], warna: [], berkas: [] };
+  const urut = (efek ?? []).map((e, i) => ({ e, i })).sort((a, b) => TAHAP.indexOf(EFEK[a.e.jenis].tahap) - TAHAP.indexOf(EFEK[b.e.jenis].tahap) || a.i - b.i);
+  for (const { e } of urut) {
+    const def = EFEK[e.jenis];
+    const c = def.kanonik(e, { dirManifest });
+    if (!c) continue;
+    const { saring, berkas } = def.saring(c, hasil.berkas.length);
+    hasil.warna.push(...saring);
+    hasil.berkas.push(...berkas);
+    const { jalur, ...bersih } = c; // jalur mutlak tidak ikut kunci cache; isinya diwakili sha256
+    hasil.kanonik.push(bersih);
+  }
+  return hasil;
 }
 
 // ---------------------------------------------------------------- validasi
@@ -243,14 +463,15 @@ export async function validasiManifest(manifest, dirManifest) {
     if (k.panjang !== undefined && !(typeof k.panjang === "number" && k.panjang > 0)) g("panjang (detik) harus angka > 0");
     if (k.format !== undefined && !JENIS_FORMAT.includes(k.format)) g(`format harus salah satu dari ${JENIS_FORMAT.join(", ")}`);
     if (k.kualitas !== undefined && !(Number.isInteger(k.kualitas) && k.kualitas >= 1 && k.kualitas <= 31)) g("kualitas (q:v JPEG, 1 terbaik) harus bilangan bulat 1..31");
+    if (k.efek !== undefined) for (const pesan of periksaEfek(k.efek, dirManifest)) g(pesan);
   }
   for (const id of idSumber) if (!dipakai.has(id) && klip && klip.length) peringatan.push(`sumber "${id}" tidak dipakai klip mana pun`);
   return { galat, peringatan, hash };
 }
 
 // --------------------------------------------------------------- ffprobe/ffmpeg
-async function jalankan(cmd) {
-  const p = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
+async function jalankan(cmd, cwd) {
+  const p = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe", ...(cwd ? { cwd } : {}) });
   const [out, err, kode] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
   return { out, err, kode };
 }
@@ -297,13 +518,15 @@ function matriksRentang(info) {
   return { matriks, rentang };
 }
 
-function argsEkstrak({ berkas, dir, fps, k, info, m }) {
+function argsEkstrak({ berkas, dir, fps, k, info, m, efek }) {
   const format = k.format ?? "jpg";
   const rantai = [`fps=${fps}`];
   if (Math.abs(info.sar - 1) > 1e-6) rantai.push("scale=trunc(iw*sar):ih", "setsar=1");
   let skala = `scale=${k.lebar}:${k.tinggi}:flags=bicubic`;
   if (m.matriks !== "rgb") skala += `:in_color_matrix=${m.matriks}:in_range=${m.rentang}:out_range=full`;
   rantai.push(skala, "format=rgb24");
+  // efek tahap "warna": di RGB planar 8 bit (konversi rgb24 <-> gbrp tanpa kehilangan)
+  if (efek.warna.length) rantai.push("format=gbrp", ...efek.warna, "format=rgb24");
   const a = ["-hide_banner", "-loglevel", "error", "-y"];
   if (k.dari) a.push("-ss", String(k.dari));
   a.push("-i", berkas);
@@ -353,12 +576,14 @@ async function hashFrame(dir, daftar) {
 }
 
 /** Ekstrak satu klip ke cache (atau cache hit). Mengembalikan { dir, kunci, meta, hit }. */
-async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, paksa, versi }) {
+async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, paksa, versi, dirManifest }) {
   const format = k.format ?? "jpg";
+  const efek = rakitEfek(k.efek, dirManifest);
   const params = {
     skema: VERSI_SKEMA, sha256, fps, lebar: k.lebar, tinggi: k.tinggi, dari: k.dari ?? 0,
     panjang: k.panjang ?? null, matriks: m.matriks, rentang: m.rentang, format,
     kualitas: format === "jpg" ? (k.kualitas ?? 2) : null, ffmpeg: versi,
+    ...(efek.kanonik.length ? { efek: efek.kanonik } : {}), // kunci lama tak berubah untuk klip tanpa efek
   };
   const kunci = kunciCache(params);
   const dir = join(keluar, kunci);
@@ -369,7 +594,9 @@ async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, pa
   const tmp = join(keluar, `.tmp-${kunci}-${process.pid}`);
   rmSync(tmp, { recursive: true, force: true });
   mkdirSync(tmp, { recursive: true });
-  const r = await jalankan(["ffmpeg", ...argsEkstrak({ berkas, dir: tmp, fps, k, info, m })]);
+  for (const b of efek.berkas) copyFileSync(b.sumber, join(tmp, b.nama)); // ffmpeg berjalan di tmp: nama berkas aman tanpa escape
+  const r = await jalankan(["ffmpeg", ...argsEkstrak({ berkas, dir: tmp, fps, k, info, m, efek })], tmp);
+  for (const b of efek.berkas) rmSync(join(tmp, b.nama), { force: true });
   if (r.kode !== 0) {
     rmSync(tmp, { recursive: true, force: true });
     throw new Error(`ffmpeg gagal mengekstrak frame klip "${k.id}" (exit ${r.kode}):\n${r.err.trim()}`);
@@ -407,7 +634,7 @@ function gagal(pesan, kode = 1) {
 const PETUNJUK = `Pemakaian:
   bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung props.json] [--paksa] [--draf]
 Keluaran di --out: klip-props.json, atribusi.txt, <kunci>/ (frame + audio.wav + meta.json),
-dan props-gabungan.json bila --gabung. Kode keluar 2 untuk manifest/argumen tidak valid.
+dan props-gabungan.json bila --gabung. klip[].efek (lut, warna, keseimbangan) diterapkan saat ekstraksi. Kode keluar 2 untuk manifest/argumen tidak valid.
 --draf: izinkan sumber KUTIPAN-WAJAR yang gerbang hukum GH-nya belum disetujui; props memuat
 "draf": true (komposisi wajib menampilkan tanda draf). Pelanggaran angka kutipan tidak bisa dilewati.`;
 
@@ -546,13 +773,13 @@ async function utama() {
     let hasil;
     try {
       hasil = await ekstrakKlip({
-        k, sumber: s.id, berkas: mutlak(dirManifest, s.berkas), sha256: v.hash[s.id], info, m, fps, keluar, paksa: o.paksa, versi,
+        k, sumber: s.id, berkas: mutlak(dirManifest, s.berkas), sha256: v.hash[s.id], info, m, fps, keluar, paksa: o.paksa, versi, dirManifest,
       });
     } catch (e) {
       gagal(e.message);
     }
     const { meta, kunci, hit } = hasil;
-    console.log(`klip "${k.id}": ${hit ? "cache hit" : "ekstraksi"} ${meta.jumlah} frame ${k.lebar}x${k.tinggi} @ ${fps} fps (matriks ${m.matriks}, rentang ${m.rentang}) -> ${kunci}`);
+    console.log(`klip "${k.id}": ${hit ? "cache hit" : "ekstraksi"} ${meta.jumlah} frame ${k.lebar}x${k.tinggi} @ ${fps} fps (matriks ${m.matriks}, rentang ${m.rentang}${meta.efek ? `, efek ${meta.efek.map((x) => x.jenis).join("+")}` : ""}) -> ${kunci}`);
     props.push({
       id: k.id, sumber: s.id, akar, folder: kunci, ekstensi: meta.ekstensi, digit: meta.digit,
       jumlah: meta.jumlah, fps, lebar: k.lebar, tinggi: k.tinggi,

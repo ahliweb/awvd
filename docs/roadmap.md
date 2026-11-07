@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.0.1`
+- Version: `v1.1.0`
 - Last updated: `2026-11-07`
-- Changeset: `Baris paritas Logo, ikon, aset berlisensi diperbarui: helper runtime aset (F1/04) selesai; uji-tayang per frame dan Lottie masih belum.`
+- Changeset: `Paritas Filter dan LUT warna menjadi ada (F3/01, olah-klip.md). Sebelumnya: baseline roadmap: enam fase menuju paritas fitur dengan penyunting video konsumen (fondasi produksi, timeline deklaratif, pemrosesan klip, kinerja render, fitur cerdas lokal, penyunting pratinjau), dipetakan ke milestone dan issue GitHub.`
 
 ## Visi
 
@@ -85,7 +85,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Timeline multitrack | belum | F2 |
 | Trim, speed, reverse, freeze | sebagian (pemetaan frame manual) | F2/04 |
 | Keyframe generik | sebagian (`interpolasi`, `urutan`) | F2/06 |
-| Filter dan LUT warna | belum | F3/01 |
+| Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
 | Chroma key | belum | F3/02 |
 | Stabilisasi | belum | F3/03 |
 | Peredam bising, pengubah suara | belum | F3/04 |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-07 - v1.1.0
+
+- Paritas "Filter dan LUT warna" diubah menjadi ada (F3/01: `klip[].efek` jenis `lut`, `warna`, `keseimbangan`).
 
 ### 2026-11-07 - v1.0.1
 
