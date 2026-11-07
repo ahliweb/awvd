@@ -66,6 +66,10 @@
  *   digambar per nomor frame; elemen <video> tidak dipakai):
  *   gambarKosong                   data: URI GIF 1x1 transparan (src awal <img>)
  *   indeksFrameKlip(klip, frameLokal, { ulang = false, kecepatan = 1 }) -> indeks | -1
+ *                                  atau, dengan { waktu, durasi, dari }, pemetaan trim/speed/ramp/reverse/freeze
+ *   petaWaktuKlip(waktu, durasi) -> number[]  offset frame sumber tiap frame lokal 0..durasi-1
+ *   frameSumber(waktu, frameLokal, { durasi, dari = 0 }) -> dari + offset  (satu frame; murni, bilangan bulat)
+ *   kecepatanPermil(x) -> bilangan bulat permil (1,5 -> 1500); galat bila > 3 desimal
  *   jalurFrameKlip(klip, frameLokal, opsi) -> URL frame, atau null bila belum mulai
  *   klipGambar(canvas|img, klip, frameLokal, opsi) -> Promise<boolean> (menunggu decode lalu menggambar)
  *   kreditKlip(klip, { ringkas = true }) -> teks atribusi TASL
@@ -1234,12 +1238,15 @@
   // (belum mulai). Lewat akhir: ditahan di frame terakhir, atau diulang bila ulang:true.
   // kecepatan memetakan frame lokal ke frame sumber (frame diekstrak pada fps komposisi,
   // jadi kecepatan <> 1 menduplikasi atau melewati frame, tanpa interpolasi).
+  // Dengan opsi.waktu, pemetaan memakai frameSumber (lihat di bawah) dan habis dari
+  // waktu.habis; tanpa opsi.waktu perilakunya tidak berubah.
   function indeksFrameKlip(klip, frameLokal, opsi) {
     opsi = opsi || {};
     var jumlah = klip && klip.jumlah;
     if (typeof jumlah !== "number" || !(jumlah >= 1) || jumlah % 1 !== 0) {
       throw new Error("indeksFrameKlip: klip.jumlah harus bilangan bulat >= 1");
     }
+    if (opsi.waktu != null) return indeksFrameKlipWaktu(klip, jumlah, frameLokal, opsi);
     var kecepatan = opsi.kecepatan == null ? 1 : opsi.kecepatan;
     if (typeof kecepatan !== "number" || !(kecepatan > 0) || !isFinite(kecepatan)) {
       throw new Error("indeksFrameKlip: kecepatan harus angka positif");
@@ -1250,6 +1257,190 @@
     if (frameLokal < 0) return -1;
     var i = Math.floor(frameLokal * kecepatan);
     return opsi.ulang ? i % jumlah : Math.min(i, jumlah - 1);
+  }
+
+  // ------------------------------------------------- pemetaan waktu klip
+  // Memetakan frame lokal butir ke offset frame sumber untuk trim (dari), speed konstan,
+  // speed ramp, reverse, dan freeze. Semua aritmetika memakai bilangan bulat; kecepatan
+  // dalam permil (1,5x = 1500) supaya tidak ada galat floating-point di batas lantai
+  // (Math.floor(100 * 0.29) bernilai 28, padahal hasil yang benar 29).
+  //   posisi(0) = 0, posisi(f + 1) = posisi(f) + v(f)      (v dalam permil)
+  //   offset(f) = lantai(posisi(f) / 1000)
+  //   kecepatan konstan S: offset(f) = lantai(f * S / 1000), sama dengan indeksFrameKlip
+  //   reverse: offset_balik(f) = offset(durasi - 1 - f)    (deret maju dibalik)
+  //   freeze:  offset(f) = 0                               (frame `dari` ditahan)
+  // Tidak ada keadaan antar-frame: hasil satu frame hanya bergantung pada argumennya,
+  // sehingga render rentang (--dari) dan render penuh menghasilkan indeks yang sama.
+  // Frame sumber yang dibaca = dari + offset(f). Tanpa interpolasi gerak (optical flow).
+  var WAKTU_KUNCI = { kecepatan: 1, balik: 1, bekukan: 1, habis: 1 };
+  var BATAS_KECEPATAN = 1000; // x; menjaga f * S tetap bilangan bulat aman
+
+  function bagiBulat(a, b) { return (a - (a % b)) / b; } // lantai(a / b), a >= 0, b > 0
+
+  function kecepatanPermil(x, fn) {
+    fn = fn || "kecepatanPermil";
+    if (typeof x !== "number" || !isFinite(x) || !(x > 0) || x > BATAS_KECEPATAN) {
+      throw new Error(fn + ": kecepatan harus angka > 0 dan <= " + BATAS_KECEPATAN);
+    }
+    var m = Math.round(x * 1000);
+    if (m < 1 || m / 1000 !== x) throw new Error(fn + ": kecepatan " + x + " maksimal 3 desimal");
+    return m;
+  }
+
+  function easingKecepatan(e, fn) {
+    if (e == null) return null;
+    if (typeof e === "function") return e;
+    if (typeof e === "string") {
+      if (e !== "bezier" && typeof easing[e] === "function") return e === "linear" ? null : easing[e];
+      throw new Error(fn + ": easing '" + e + "' tidak dikenal");
+    }
+    if (Array.isArray(e) && e.length === 4 && e.every(function (v) { return typeof v === "number" && isFinite(v); })) {
+      return easing.bezier(e[0], e[1], e[2], e[3]);
+    }
+    throw new Error(fn + ": easing harus nama easing, [x1, y1, x2, y2], atau fungsi");
+  }
+
+  // Keyframe kecepatan [{ pada, nilai, easing? }] -> [{ pada, m (permil), ease }].
+  function siapkanRamp(kf, fn) {
+    if (kf.length < 2) throw new Error(fn + ": ramp kecepatan butuh >= 2 keyframe");
+    return kf.map(function (k, i) {
+      if (!k || typeof k !== "object") throw new Error(fn + ": keyframe kecepatan [" + i + "] harus objek { pada, nilai }");
+      if (typeof k.pada !== "number" || k.pada % 1 !== 0 || k.pada < 0) {
+        throw new Error(fn + ": keyframe kecepatan [" + i + "].pada harus bilangan bulat >= 0");
+      }
+      if (i > 0 && !(k.pada > kf[i - 1].pada)) throw new Error(fn + ": keyframe kecepatan harus naik tegas menurut pada");
+      if (i === kf.length - 1 && k.easing != null) throw new Error(fn + ": keyframe terakhir tidak boleh punya easing");
+      return { pada: k.pada, m: kecepatanPermil(k.nilai, fn), ease: easingKecepatan(k.easing, fn) };
+    });
+  }
+
+  // v(j) dalam permil. Linear dihitung eksak dengan bilangan bulat (pembulatan setengah ke
+  // atas); easing selain linear memakai nilai float lalu dibulatkan ke permil terdekat.
+  function kecepatanRamp(j, kf, fn) {
+    var v;
+    var akhir = kf[kf.length - 1];
+    if (j <= kf[0].pada) v = kf[0].m;
+    else if (j >= akhir.pada) v = akhir.m;
+    else {
+      var i = 0;
+      while (kf[i + 1].pada <= j) i++;
+      var a = kf[i], b = kf[i + 1];
+      var n = b.pada - a.pada, k = j - a.pada;
+      if (!a.ease) {
+        // a.m * (n - k) + b.m * k > 0, jadi pembagian bulat aman
+        v = bagiBulat(2 * (a.m * (n - k) + b.m * k) + n, 2 * n);
+      } else {
+        v = Math.round(a.m + (b.m - a.m) * a.ease(k / n));
+      }
+    }
+    if (!(v >= 1)) throw new Error(fn + ": kecepatan harus > 0 di setiap frame (frame " + j + ")");
+    return v;
+  }
+
+  // Validasi objek waktu -> { balik, bekukan, habis, kf | S }.
+  function normalWaktu(waktu, fn) {
+    if (waktu == null) waktu = {};
+    if (typeof waktu !== "object" || Array.isArray(waktu)) throw new Error(fn + ": waktu harus objek");
+    Object.keys(waktu).forEach(function (k) {
+      if (!WAKTU_KUNCI[k]) throw new Error(fn + ": bidang waktu tidak dikenal: '" + k + "'");
+    });
+    var habis = waktu.habis == null ? "tolak" : waktu.habis;
+    if (habis !== "tolak" && habis !== "tahan" && habis !== "ulang") {
+      throw new Error(fn + ": waktu.habis harus 'tolak', 'tahan', atau 'ulang'");
+    }
+    ["balik", "bekukan"].forEach(function (k) {
+      if (waktu[k] != null && typeof waktu[k] !== "boolean") throw new Error(fn + ": waktu." + k + " harus boolean");
+    });
+    var r = { balik: !!waktu.balik, bekukan: !!waktu.bekukan, habis: habis, S: 1000, kf: null };
+    if (r.bekukan && r.balik) throw new Error(fn + ": bekukan dan balik tidak dapat digabung");
+    if (r.bekukan) return r; // kecepatan diabaikan
+    if (Array.isArray(waktu.kecepatan)) r.kf = siapkanRamp(waktu.kecepatan, fn);
+    else if (waktu.kecepatan != null) r.S = kecepatanPermil(waktu.kecepatan, fn);
+    return r;
+  }
+
+  function cekDurasiWaktu(durasi, fn) {
+    if (typeof durasi !== "number" || !isFinite(durasi) || durasi % 1 !== 0 || durasi < 1) {
+      throw new Error(fn + ": durasi harus bilangan bulat >= 1");
+    }
+  }
+
+  // Offset (0 = titik masuk) untuk frame maju g, tanpa memperhitungkan reverse.
+  function offsetMaju(w, g, fn) {
+    if (!w.kf) return bagiBulat(g * w.S, 1000);
+    var pos = 0;
+    for (var j = 0; j < g; j++) pos += kecepatanRamp(j, w.kf, fn);
+    return bagiBulat(pos, 1000);
+  }
+
+  // Offset frame sumber untuk tiap frame lokal 0..durasi-1 (larik panjang `durasi`).
+  //   waktu: { kecepatan = 1 | [{ pada, nilai, easing? }], balik = false, bekukan = false, habis }
+  //   (habis tidak dipakai di sini; lihat indeksFrameKlip). Hasil tidak pernah turun
+  //   kecuali bila waktu.balik, dan saat itu tidak pernah naik.
+  function petaWaktuKlip(waktu, durasi) {
+    var fn = "petaWaktuKlip";
+    cekDurasiWaktu(durasi, fn);
+    var w = normalWaktu(waktu, fn);
+    var maju = new Array(durasi);
+    if (w.bekukan) {
+      for (var z = 0; z < durasi; z++) maju[z] = 0;
+      return maju;
+    }
+    var pos = 0;
+    for (var f = 0; f < durasi; f++) {
+      maju[f] = bagiBulat(pos, 1000);
+      pos += w.kf ? kecepatanRamp(f, w.kf, fn) : w.S;
+    }
+    return w.balik ? maju.reverse() : maju;
+  }
+
+  // Satu frame sumber: dari + offset(frameLokal). frameLokal bilangan bulat 0..durasi-1.
+  // `durasi` (frame butir) wajib bila waktu.balik; bila diberikan, frameLokal >= durasi
+  // ditolak. Ramp dihitung dari frame 0 tiap panggilan (O(frameLokal)); untuk banyak frame
+  // hitung sekali dengan petaWaktuKlip. Tidak menerapkan waktu.habis (lihat indeksFrameKlip).
+  function frameSumber(waktu, frameLokal, opsi) {
+    var fn = "frameSumber";
+    opsi = opsi || {};
+    var w = normalWaktu(waktu, fn);
+    if (typeof frameLokal !== "number" || !isFinite(frameLokal) || frameLokal % 1 !== 0 || frameLokal < 0) {
+      throw new Error(fn + ": frameLokal harus bilangan bulat >= 0");
+    }
+    var dari = opsi.dari == null ? 0 : opsi.dari;
+    if (typeof dari !== "number" || !isFinite(dari) || dari % 1 !== 0 || dari < 0) {
+      throw new Error(fn + ": dari harus bilangan bulat >= 0");
+    }
+    var durasi = opsi.durasi;
+    if (durasi != null) {
+      cekDurasiWaktu(durasi, fn);
+      if (frameLokal >= durasi) throw new Error(fn + ": frameLokal " + frameLokal + " di luar durasi " + durasi);
+    } else if (w.balik) {
+      throw new Error(fn + ": durasi wajib bila waktu.balik");
+    }
+    if (w.bekukan) return dari;
+    var g = w.balik ? durasi - 1 - frameLokal : frameLokal;
+    return dari + offsetMaju(w, g, fn);
+  }
+
+  function indeksFrameKlipWaktu(klip, jumlah, frameLokal, opsi) {
+    var fn = "indeksFrameKlip";
+    if (opsi.kecepatan != null || opsi.ulang) {
+      throw new Error(fn + ": opsi.waktu tidak dapat digabung dengan opsi.kecepatan atau opsi.ulang (pakai waktu.kecepatan dan waktu.habis)");
+    }
+    if (typeof frameLokal !== "number" || !isFinite(frameLokal) || frameLokal % 1 !== 0) {
+      throw new Error(fn + ": frameLokal harus bilangan bulat bila opsi.waktu dipakai");
+    }
+    if (frameLokal < 0) return -1;
+    var i;
+    try {
+      i = frameSumber(opsi.waktu, frameLokal, { durasi: opsi.durasi, dari: opsi.dari });
+    } catch (e) {
+      throw new Error(fn + ": " + String(e.message).replace(/^frameSumber: /, ""));
+    }
+    var habis = opsi.waktu.habis == null ? "tolak" : opsi.waktu.habis;
+    if (i < jumlah) return i;
+    if (habis === "tahan") return jumlah - 1;
+    if (habis === "ulang") return i % jumlah;
+    throw new Error(fn + ": frame sumber " + i + " melewati klip (" + jumlah + " frame); ubah dari, durasi, atau kecepatan, atau set waktu.habis");
   }
 
   // URL gambar frame untuk frame lokal klip; null bila klip belum mulai.
@@ -1982,6 +2173,9 @@
     captionHtml: captionHtml,
     gambarKosong: gambarKosong,
     indeksFrameKlip: indeksFrameKlip,
+    petaWaktuKlip: petaWaktuKlip,
+    frameSumber: frameSumber,
+    kecepatanPermil: kecepatanPermil,
     jalurFrameKlip: jalurFrameKlip,
     klipGambar: klipGambar,
     kreditKlip: kreditKlip,

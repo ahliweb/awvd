@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Version: `v1.7.0`
+- Version: `v1.8.0`
 - Last updated: `2026-11-07`
 - Changeset: `Paritas: sinkron ketukan musik berstatus sebagian (bun run ketukan; diuji pada sinyal sintetis, musik nyata dan tempo berubah belum diuji). Sebelumnya: text-to-speech berstatus ada sebagai adaptor opsional.`
 
@@ -83,7 +83,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Ducking, fade, kenyaringan | ada | — |
 | QC kenyaringan, kilatan, subtitle | ada ([pemeriksaan-mutu.md](pemeriksaan-mutu.md)) | — |
 | Timeline multitrack | belum | F2 |
-| Trim, speed, reverse, freeze | sebagian (pemetaan frame manual) | F2/04 |
+| Trim, speed, reverse, freeze | ada sebagai helper pemetaan frame ([api-runtime.md](api-runtime.md#pemetaan-waktu-klip); `petaWaktuKlip`, `frameSumber`, ramp kecepatan); tanpa interpolasi gerak, audio tidak ikut diregangkan | F2/04 (selesai) |
 | Keyframe generik | sebagian (`interpolasi`, `urutan`) | F2/06 |
 | Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
 | Chroma key | ada ([olah-klip.md](olah-klip.md); `kunciWarna`, keluaran PNG beralfa) | F3/02 (selesai) |
@@ -113,9 +113,13 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 
 ## Changelog
 
-### 2026-11-07 - v1.7.0
+### 2026-11-07 - v1.8.0
 
 - Paritas "Sinkron ketukan musik" diubah menjadi sebagian (deteksi ketukan F5/02; tempo tetap, bukti hanya sinyal sintetis).
+
+### 2026-11-07 - v1.7.0
+
+- Paritas "Trim, speed, reverse, freeze" diubah menjadi ada (helper pemetaan frame, F2/04).
 
 ### 2026-11-07 - v1.6.0
 
