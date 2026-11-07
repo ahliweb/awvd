@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.9.0`
+- Version: `v1.10.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan KP-041 sampai KP-042 (sementara): olah suara per trek di audio.mjs (afftdn bawaan, arnndn dengan model pengguna, rubberband dengan cadangan, tempo hanya narasi).`
+- Changeset: `Menambahkan KP-043 (chroma key kunciWarna, PNG beralfa, tahap alfa sebelum warna) dan KP-044 (stabilisasi vidstab dengan cadangan deshake, deteksi kemampuan ffmpeg); nomor definitif menyusul saat merge.`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -27,6 +27,8 @@ flowchart TD
     KP29 -->|belum disetujui<br/>= ditolak atau draf| KP31[KP-031 gerbang hukum GH]
     KP12 -->|efek di tahap ekstraksi| KPB1[KP-034 efek klip]
     KPB1 --> KPB2[KP-035 rumus warna RGB]
+    KPB1 --> KPB3[KP-043 chroma key PNG alfa]
+    KPB1 --> KPB4[KP-044 stabilisasi vidstab]
     KP15[KP-015 preset bertingkat bukti] -->|konflik lint caption| KP16[KP-016 preset sosial 20 cps]
     KP16 -->|alasan dikoreksi| KP19[KP-019 cps Netflix Indonesia]
     KP15 -->|bukti per atribut| KP20[KP-020 profil audiens dan helper visual]
@@ -76,8 +78,14 @@ flowchart TD
 | KP-040 | Preset transisi per jenis video tetap hanya di `scripts/transisi.js`; `konsep.mjs` memuatnya (`Transisi.presetJenisVideo`) untuk bagian Transisi dan gerak di `brief` dan untuk keluaran `preset`. Profil gerak konsep: `kurangiGerak: true` di `konsep.json` menang; bila tidak, profil audiens paling ketat (`lansia` > `anak` > `standar`; `umum`, `remaja`, `lowVision` = `standar`); bila tidak ada, bawaan preset. Profil dipilih lewat props (`profil` dan `transisi` di keluaran `preset`), tanpa flag baru di `render.mjs`. | 2026-11-07 | Berlaku | Satu sumber untuk preset menghindari salinan kedua di `data/jenis-video.json` yang bisa basi (token `transisi` di data tetap durasi kasar runtime). Props mengikuti KP-023 (tanpa flag `--gerak`) dan konvensi `props.profil` yang sudah dibaca galeri, sehingga komposisi yang ada tidak perlu diubah. `kurangiGerak` menggantikan, bukan menambah, pengali durasi `lansia`/`anak` agar perilakunya sama dengan `--props` eksplisit. Pemetaan audiens ke profil gerak adalah keputusan desain tanpa riset. | #65 |
 | KP-041 | Peredam bising per trek di `audio.mjs` memakai `afftdn` sebagai bawaan (parameter bawaan `nr` 12 dB, `nf` -40 dB, `lacak` aktif). `arnndn` hanya bila pengguna memberi berkas model sendiri; awvd tidak membundel model RNNoise, memvalidasi format berkasnya, dan menolak tanpa model. | 2026-11-07 | Berlaku | `afftdn` bawaan ffmpeg tanpa berkas tambahan, jadi tidak ada lisensi model yang harus dikelola. Pada sinus 440 Hz dengan derau putih ber-seed (SNR awal -0,7 dB), `afftdn` `nr` 20 menaikkan SNR sekitar 17,9 dB dan `lacak` menentukan (tanpa lacak hanya sekitar 2 dB). Kode RNNoise berlisensi BSD 3-Clause, tetapi lisensi model beragam dan tidak terverifikasi per model; model, TTS, dan mesin pihak ketiga bersifat opsional dan tidak dibundel. Bukti hanya dari derau putih stasioner, belum dari ucapan nyata. | #66 |
 | KP-042 | Pengubah nada dan tempo memakai `rubberband` bila ada di build ffmpeg, dengan cadangan `asetrate` + `atempo` (peringatan, mesin dapat dipaksa lewat `suara.mesin`); `tempo` hanya untuk narasi, ditolak pada klip. Level tiap trek diukur sesudah olah supaya kenyaringan tetap `ucapanLufs`. | 2026-11-07 | Berlaku | `rubberband` menjaga formant ucapan dan memisahkan nada dari tempo, tetapi berlisensi GPL-2.0-or-later dan tidak ada di semua build ffmpeg; cadangan tersedia di mana-mana namun menggeser formant. Hasil `otomatis` bergantung pada build, jadi `mesin` eksplisit dianjurkan untuk hasil identik antar mesin (uji: dua run identik byte demi byte pada kedua mesin). `tempo` pada klip akan membuat audio tidak sepanjang rentang frame dan lepas dari gambar. Cue caption `bun run narasi` tidak ikut bergeser oleh `tempo`. | #66 |
+| KP-043 | Chroma key adalah efek klip `kunciWarna` (`colorkey` untuk `rgb`, `chromakey` untuk `yuv`) di tahap `alfa`: setelah penskalaan dan **sebelum** efek warna, dengan keluaran PNG RGBA. Format klip menjadi `png` otomatis bila `format` tidak ditulis dan `jpg` eksplisit ditolak (exit 2); maksimal satu `kunciWarna` per klip; metode `yuv` hanya mengambil alfa dari salinan YUV 4:4:4 lalu `alphamerge` ke RGB asli. Despill dan penghalus matte tidak termasuk. | 2026-11-07 | Berlaku | Kunci sebelum koreksi warna supaya `warna` kunci mengacu ke warna sumber (menggeser warna dulu mengubah warna yang dikunci); alfa dibawa lewat `gbrap` melewati filter warna, yang diuji tidak mengubah alfa. Otomatis png menghindari konfigurasi yang pasti gagal tanpa memaksa penulis manifest menulis format, tetapi `jpg` eksplisit ditolak daripada diabaikan diam-diam. Dua kunci ditolak karena `colorkey` menimpa alfa sebelumnya, bukan menggabungkannya. `alphamerge` menjaga RGB subjek tidak berubah oleh konversi YUV. Kekurangan: PNG jauh lebih besar daripada JPEG; belum diuji pada rekaman layar hijau nyata. | #67 |
+| KP-044 | Stabilisasi adalah efek klip `stabil` di tahap `pra` (setelah `fps`, **sebelum** penskalaan): `vidstab` dua pass (`vidstabdetect` ke berkas jejak sementara di folder kerja, lalu `vidstabtransform`) bila build ffmpeg memilikinya, cadangan `deshake` satu pass. Kemampuan dideteksi lewat `ffmpeg -filters` hanya bila ada klip yang memakai `stabil`, sebelum ekstraksi apa pun; filter yang diminta tidak ada = exit 2 dengan pesan jelas, `otomatis` jatuh ke deshake dengan peringatan. Mesin terpilih ikut kunci cache dan `meta.json`. | 2026-11-07 | Berlaku | Gerak diperkirakan dan dikoreksi pada resolusi sumber, sebelum skala mengecilkannya; analisis dan transformasi memakai awalan rantai yang sama sehingga frame cocok. Gagal keras bila `vidstab` diminta tetapi tidak ada, karena hasil deshake berbeda nyata (pada kamera sintetis uji: goyangan turun ke sekitar 0,3 kali dengan vidstab; deshake lebih lemah dan bergantung tekstur) dan menggantinya diam-diam menyesatkan; `otomatis` boleh jatuh karena penulis tidak menyebut mesin. Mesin ikut kunci cache agar ekstraksi dari build berbeda tidak saling menimpa. Kekurangan: pass analisis menambah waktu ekstraksi; kualitas pada rekaman genggam nyata belum diverifikasi. | #67 |
 
 ## Changelog
+
+### 2026-11-07 - v1.10.0
+
+- Menambahkan KP-043 dan KP-044 (chroma key dan stabilisasi klip); nomor definitif dan rujukan PR menyusul.
 
 ### 2026-11-07 - v1.9.0
 

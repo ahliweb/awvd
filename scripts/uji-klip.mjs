@@ -4,14 +4,15 @@
  * Klip dan audio uji dibuat ffmpeg lavfi di folder sementara; tidak ada aset pihak ketiga.
  * Exit 0 bila semua lolos, 1 bila ada yang gagal.
  *
- *   bun scripts/uji-klip.mjs
+ *   bun scripts/uji-klip.mjs [potongan-nama]   (potongan nama menjalankan uji yang namanya memuatnya, mis. "(q)")
  */
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
-  kreditLengkap, namaLisensi, periksaEfek, sha256Berkas, uraiCube, validasiManifest,
+  deteksiKemampuan, kreditLengkap, namaLisensi, periksaEfek, periksaKemampuanEfek, pilihMesinStabil,
+  sha256Berkas, uraiCube, validasiManifest,
 } from "./klip.mjs";
 import { LUT, bangkitkanCube } from "../templates/klip-tertanam/buat-lut.mjs";
 import {
@@ -122,8 +123,8 @@ async function manifestDasar() {
     klip: [{ id: "k1", sumber: "pola", lebar: 320, tinggi: 180, dari: 0, panjang: 2 }],
   };
 }
-async function klipDengan(nama, ubah, ekstra = []) {
-  const m = await manifestDasar();
+async function klipDengan(nama, ubah, ekstra = [], dasar = manifestDasar) {
+  const m = await dasar();
   ubah?.(m);
   const berkas = j(`${nama}.json`);
   tulisJson(berkas, m);
@@ -588,7 +589,7 @@ daftar("(k) efek: skema ditolak dengan pesan tepat (jenis, kunci asing, rentang,
   const galat = (efek) => periksaEfek(efek, tmp).join("\n");
   memuat(galat("lut"), '"efek" harus array', "bukan array");
   memuat(galat(["x"]), "efek[0]: harus objek", "butir bukan objek");
-  memuat(galat([{ jenis: "kunci-krom" }]), 'jenis "kunci-krom" tidak dikenal; yang ada: lut, warna, keseimbangan', "jenis tak dikenal");
+  memuat(galat([{ jenis: "kunci-krom" }]), 'jenis "kunci-krom" tidak dikenal; yang ada: stabil, kunciWarna, lut, warna, keseimbangan', "jenis tak dikenal");
   memuat(galat([{ jenis: "warna", saturasi: 1, tajam: 3 }]), "kunci tidak dikenal: tajam", "kunci asing");
   memuat(galat([{ jenis: "warna", saturasi: 9 }]), '"saturasi" harus angka 0..4', "saturasi di luar rentang");
   memuat(galat([{ jenis: "warna", kecerahan: "terang" }]), '"kecerahan" harus angka -1..1', "kecerahan bukan angka");
@@ -775,11 +776,324 @@ daftar("(n) templat klip-tertanam: LUT contoh sama dengan keluaran buat-lut.mjs;
   tegas(p.b < 35, `klip hangat berbeda dari asli (b ${p.b} dB)`);
 });
 
+
+// ============================================================== (o) chroma key
+// klip hijau murni (latar) dengan kotak merah di tengah; dikodekan H.264 yuv420p seperti klip nyata
+const KOTAK = { x: 100, y: 60, l: 120, t: 60 }; // di klip 320x180
+let hijauJanji;
+function bahanHijau() {
+  hijauJanji ??= (async () => {
+    const warna = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"];
+    await ffmpeg("-f", "lavfi", "-i",
+      `color=c=0x00ff00:s=320x180:r=30:d=1,drawbox=x=${KOTAK.x}:y=${KOTAK.y}:w=${KOTAK.l}:h=${KOTAK.t}:color=red:t=fill,format=yuv420p`,
+      "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", ...warna, j("hijau.mp4"));
+    return { sha: await sha256Berkas(j("hijau.mp4")) };
+  })();
+  return hijauJanji;
+}
+async function manifestHijau() {
+  const m = await manifestDasar();
+  m.sumber[0].id = "hijau";
+  m.sumber[0].berkas = "hijau.mp4";
+  m.sumber[0].sha256 = (await bahanHijau()).sha;
+  m.klip = [{ id: "k1", sumber: "hijau", lebar: 320, tinggi: 180, dari: 0, panjang: 1 }];
+  return m;
+}
+const klipHijau = (nama, ubah, ekstra) => klipDengan(nama, ubah, ekstra, manifestHijau);
+// byte RGBA mentah satu PNG
+async function pikselRgba(png) {
+  const tujuan = `${png}.rgba`;
+  await ffmpeg("-i", png, "-f", "rawvideo", "-pix_fmt", "rgba", tujuan);
+  return readFileSync(tujuan);
+}
+const rgba = (d, x, y, w = 320) => [...d.subarray((y * w + x) * 4, (y * w + x) * 4 + 4)];
+// jumlah piksel latar (>= 8 px dari kotak) yang tidak transparan, dan piksel subjek (>= 8 px ke dalam) yang tidak buram
+function pelanggaranAlfa(d) {
+  let latarBuram = 0, subjekTembus = 0, latar = 0, subjek = 0;
+  for (let y = 0; y < 180; y++) {
+    for (let x = 0; x < 320; x++) {
+      const a = d[(y * 320 + x) * 4 + 3];
+      const jauh = x < KOTAK.x - 8 || x >= KOTAK.x + KOTAK.l + 8 || y < KOTAK.y - 8 || y >= KOTAK.y + KOTAK.t + 8;
+      const dalam = x >= KOTAK.x + 8 && x < KOTAK.x + KOTAK.l - 8 && y >= KOTAK.y + 8 && y < KOTAK.y + KOTAK.t - 8;
+      if (jauh) { latar++; if (a !== 0) latarBuram++; }
+      if (dalam) { subjek++; if (a !== 255) subjekTembus++; }
+    }
+  }
+  return { latarBuram, subjekTembus, latar, subjek };
+}
+const frame0 = (out, ext = "png") => join(out, folderKlip(out), `000000.${ext}`);
+
+daftar("(o) kunciWarna: skema ditolak dengan pesan tepat (warna, rentang, metode, kunci asing, ganda, format jpg)", async () => {
+  const galat = (efek) => periksaEfek(efek, tmp).join("\n");
+  memuat(galat([{ jenis: "kunciWarna" }]), 'efek[0] (kunciWarna): "warna" (warna latar, #rrggbb) wajib', "warna wajib");
+  memuat(galat([{ jenis: "kunciWarna", warna: "hijau" }]), '"warna" (warna latar, #rrggbb) wajib', "warna bukan heksa");
+  memuat(galat([{ jenis: "kunciWarna", warna: "#0f0" }]), '"warna" (warna latar, #rrggbb) wajib', "warna tiga digit");
+  memuat(galat([{ jenis: "kunciWarna", warna: "#00ff00", toleransi: 0 }]), '"toleransi" harus angka 0.01..1', "toleransi 0");
+  memuat(galat([{ jenis: "kunciWarna", warna: "#00ff00", toleransi: 2 }]), '"toleransi" harus angka 0.01..1', "toleransi 2");
+  memuat(galat([{ jenis: "kunciWarna", warna: "#00ff00", halus: -0.1 }]), '"halus" harus angka 0..1', "halus negatif");
+  memuat(galat([{ jenis: "kunciWarna", warna: "#00ff00", metode: "hsv" }]), '"metode" harus salah satu dari rgb, yuv', "metode asing");
+  memuat(galat([{ jenis: "kunciWarna", warna: "#00ff00", sama: 1 }]), "kunci tidak dikenal: sama", "kunci asing");
+  const dua = galat([{ jenis: "kunciWarna", warna: "#00ff00" }, { jenis: "kunciWarna", warna: "#0000ff" }]);
+  memuat(dua, "efek[1] (kunciWarna): maksimal 1 efek kunciWarna per klip", "dua kunci");
+  samaDengan(galat([{ jenis: "kunciWarna", warna: "#00FF00", toleransi: 0.01, halus: 0, metode: "yuv" }]), "", "parameter sah");
+  // format jpg eksplisit + efek beralfa ditolak sebelum ffmpeg (exit 2), folder keluaran tak dibuat
+  const r = await klipHijau("kunci-jpg", (m) => { m.klip[0].format = "jpg"; m.klip[0].efek = [{ jenis: "kunciWarna", warna: "#00ff00" }]; });
+  samaDengan(r.kode, 2, "jpg + alfa exit");
+  memuat(r.err, 'klip "k1": efek[0] (kunciWarna): menghasilkan kanal alfa, tetapi format "jpg" tidak mendukung alfa', "pesan format");
+  tegas(!existsSync(r.out), "folder keluaran tidak boleh dibuat saat efek ditolak");
+});
+
+daftar("(p) kunciWarna: latar hijau sintetis menjadi transparan (rgb dan yuv), subjek tetap buram dan tak berubah; format otomatis PNG", async () => {
+  for (const metode of ["rgb", "yuv"]) {
+    const r = await klipHijau(`kunci-${metode}`, (m) => { m.klip[0].efek = [{ jenis: "kunciWarna", warna: "#00ff00", toleransi: 0.3, halus: 0.1, metode }]; });
+    samaDengan(r.kode, 0, `${metode}: exit\n${r.err}`);
+    memuat(r.teks, "efek kunciWarna", `${metode}: log efek`);
+    const props = JSON.parse(readFileSync(join(r.out, "klip-props.json"), "utf8")).klip[0];
+    samaDengan(props.ekstensi, "png", `${metode}: format otomatis png`);
+    const d = await pikselRgba(frame0(r.out));
+    const v = pelanggaranAlfa(d);
+    samaDengan(v.latarBuram, 0, `${metode}: piksel latar yang tidak transparan (dari ${v.latar})`);
+    samaDengan(v.subjekTembus, 0, `${metode}: piksel subjek yang tidak buram (dari ${v.subjek})`);
+    const [rr, gg, bb, aa] = rgba(d, 160, 90);
+    tegas(aa === 255 && rr > 230 && gg < 40 && bb < 40, `${metode}: subjek harus tetap merah buram, dapat ${[rr, gg, bb, aa]}`);
+    tegas(rgba(d, 5, 5)[3] === 0 && rgba(d, 314, 174)[3] === 0, `${metode}: sudut harus transparan`);
+    const a = bacaMeta(r.out, props.folder);
+    samaDengan(a.efek[0].metode, metode, `${metode}: meta memuat efek kanonik`);
+    samaDengan(a.efek[0].warna, "#00ff00", `${metode}: warna kanonik`);
+  }
+  // tanpa kunci: PNG tidak muncul (jpg bawaan), jadi efek memang yang menghasilkan alfa
+  const polos = await klipHijau("kunci-polos");
+  samaDengan(JSON.parse(readFileSync(join(polos.out, "klip-props.json"), "utf8")).klip[0].ekstensi, "jpg", "tanpa efek: jpg bawaan");
+});
+
+daftar("(p2) kunciWarna: PNG eksplisit, urutan sebelum efek warna (alfa terbawa), warna kunci beda tidak membuang subjek, cache dan determinisme", async () => {
+  const kunci = { jenis: "kunciWarna", warna: "#00ff00", toleransi: 0.3, halus: 0.1 };
+  const a = await klipHijau("kp-a", (m) => { m.klip[0].format = "png"; m.klip[0].efek = [salin(kunci)]; });
+  samaDengan(a.kode, 0, `png eksplisit: exit\n${a.err}`);
+  const fa = folderKlip(a.out);
+  // efek warna sesudahnya (saturasi 0 dan kontras) tidak menghapus alfa; subjek menjadi abu-abu
+  const g = await klipHijau("kp-g", (m) => { m.klip[0].efek = [{ jenis: "warna", saturasi: 0 }, salin(kunci)]; }); // urutan array dibalik: tetap alfa lebih dulu
+  samaDengan(g.kode, 0, `kunci + warna: exit\n${g.err}`);
+  const d = await pikselRgba(frame0(g.out));
+  const v = pelanggaranAlfa(d);
+  samaDengan(v.latarBuram + v.subjekTembus, 0, "alfa terbawa melewati efek warna");
+  const [rr, gg, bb] = rgba(d, 160, 90);
+  tegas(rr === gg && gg === bb && rr > 20 && rr < 120, `subjek harus abu-abu setelah saturasi 0, dapat ${[rr, gg, bb]}`);
+  memuat(g.teks, "efek kunciWarna+warna", "log efek berurutan (alfa lebih dulu dari warna)");
+  // kunci bukan hijau (merah): latar hijau tetap buram, kotak merah hilang
+  const m = await klipHijau("kp-merah", (x) => { x.klip[0].efek = [{ jenis: "kunciWarna", warna: "#ff0000", toleransi: 0.3 }]; });
+  const dm = await pikselRgba(frame0(m.out));
+  samaDengan(rgba(dm, 5, 5)[3], 255, "latar hijau buram saat kunci merah");
+  samaDengan(rgba(dm, 160, 90)[3], 0, "kotak merah transparan saat kunci merah");
+  // cache: sama -> hit; toleransi lain -> kunci cache lain; --paksa -> hasil identik byte demi byte
+  const b = await klipHijau("kp-a", (x) => { x.klip[0].format = "png"; x.klip[0].efek = [salin(kunci)]; }, ["--paksa"]);
+  samaDengan(b.kode, 0, "paksa: exit");
+  samaDengan(bacaMeta(b.out, fa).framesSha256, bacaMeta(a.out, fa).framesSha256, "ekstraksi ulang identik (determinisme)");
+  const lain = await klipHijau("kp-t", (x) => { x.klip[0].efek = [{ ...kunci, toleransi: 0.5 }]; });
+  tegas(folderKlip(lain.out) !== fa, "toleransi lain = kunci cache lain");
+  const tanpa = await klipHijau("kp-tanpa", (x) => { x.klip[0].format = "png"; });
+  tegas(folderKlip(tanpa.out) !== fa, "dengan efek = kunci cache lain daripada tanpa efek");
+  const ulang = await bun(klipMjs, a.berkas, "--fps", "30", "--out", a.out);
+  memuat(ulang.out, "cache hit", "cache hit dengan kunciWarna");
+});
+
+// ================================================================ (q) stabilisasi
+function mulberry32(seed) { // mulberry32 (Tommy Ettinger, domain publik); sama dengan acak() di runtime.js
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const N_GOYANG = 50;
+let goyangJanji;
+// Tekstur statis (jumlah sinus, deterministik) dipotong 560x316 dari kanvas 640x360 dengan offset
+// acak ber-seed per frame (+-12 px): kamera genggam sintetis dengan gerak tahu persis.
+function bahanGoyang() {
+  goyangJanji ??= (async () => {
+    const acak = mulberry32(7);
+    const xs = [], ys = [];
+    for (let i = 0; i < N_GOYANG; i++) { xs.push(Math.round(40 + (acak() * 2 - 1) * 12)); ys.push(Math.round(22 + (acak() * 2 - 1) * 12)); }
+    const tabel = (v) => v.reduceRight((a, x, i) => `if(eq(n,${i}),${x},${a})`, "40");
+    const tekstur = "128+40*sin(X/5.3+Y/11.7)+40*sin(X/9.1-Y/6.3)+30*sin(X/17.3)*sin(Y/13.1)+25*sin(X*Y/900)";
+    const warna = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"];
+    await ffmpeg("-f", "lavfi", "-i",
+      `nullsrc=s=640x360:r=30,geq=lum='${tekstur}':cb=128:cr=128,trim=end_frame=1,loop=loop=-1:size=1,` +
+      `crop=560:316:x='${tabel(xs)}':y='${tabel(ys)}',trim=end_frame=${N_GOYANG},format=yuv420p`,
+      "-c:v", "libx264", "-crf", "14", ...warna, j("goyang.mp4"));
+    return { sha: await sha256Berkas(j("goyang.mp4")) };
+  })();
+  return goyangJanji;
+}
+async function manifestGoyang() {
+  const m = await manifestDasar();
+  m.sumber[0].id = "goyang";
+  m.sumber[0].berkas = "goyang.mp4";
+  m.sumber[0].sha256 = (await bahanGoyang()).sha;
+  m.klip = [{ id: "k1", sumber: "goyang", lebar: 560, tinggi: 316, dari: 0 }];
+  return m;
+}
+const klipGoyang = (nama, ubah, ekstra) => klipDengan(nama, ubah, ekstra, manifestGoyang);
+/**
+ * Ukuran goyangan: rata-rata |geseran antar-frame| (x dan y, piksel pada skala 1/2) dari pencocokan
+ * blok (SAD, geseran bulat +-12) pada jendela tengah frame berurutan. Tanpa goyangan nilainya ~0;
+ * sumber uji ~8.
+ */
+async function ukurGoyangan(folder) {
+  const W = 280, H = 158, R = 12, cx0 = 70, cy0 = 40, cw = 140, ch = 78;
+  // stdout dibaca sebagai byte mentah (jalankan() membacanya sebagai teks)
+  const p = Bun.spawn(["ffmpeg", "-v", "error", "-i", join(folder, "%06d.jpg"), "-vf", `scale=${W}:${H},format=gray`, "-f", "rawvideo", "-"], { stdout: "pipe", stderr: "pipe" });
+  const b = new Uint8Array(await new Response(p.stdout).arrayBuffer());
+  await p.exited;
+  const n = Math.floor(b.length / (W * H));
+  tegas(n >= N_GOYANG - 1, `frame terukur ${n}`);
+  const fr = (i) => b.subarray(i * W * H, (i + 1) * W * H);
+  let total = 0;
+  for (let i = 1; i < n; i++) {
+    const a = fr(i - 1), c = fr(i);
+    let terbaik = Infinity, bx = 0, by = 0;
+    for (let dy = -R; dy <= R; dy++) {
+      for (let dx = -R; dx <= R; dx++) {
+        let s = 0;
+        for (let y = cy0; y < cy0 + ch; y += 2) {
+          const ra = y * W, rc = (y + dy) * W;
+          for (let x = cx0; x < cx0 + cw; x += 2) s += Math.abs(a[ra + x] - c[rc + x + dx]);
+        }
+        if (s < terbaik) { terbaik = s; bx = dx; by = dy; }
+      }
+    }
+    total += Math.abs(bx) + Math.abs(by);
+  }
+  return total / (n - 1);
+}
+const folderFrame = (out) => join(out, folderKlip(out));
+
+daftar("(q) stabil: skema ditolak; pilihMesinStabil dan periksaKemampuanEfek memberi pesan jelas bila filter tidak tersedia", async () => {
+  const galat = (efek) => periksaEfek(efek, tmp).join("\n");
+  memuat(galat([{ jenis: "stabil", mesin: "x" }]), '"mesin" harus salah satu dari otomatis, vidstab, deshake', "mesin asing");
+  memuat(galat([{ jenis: "stabil", goyangan: 0 }]), '"goyangan" harus bilangan bulat 1..10', "goyangan 0");
+  memuat(galat([{ jenis: "stabil", goyangan: 2.5 }]), '"goyangan" harus bilangan bulat 1..10', "goyangan pecahan");
+  memuat(galat([{ jenis: "stabil", halus: 0 }]), '"halus" harus bilangan bulat 1..100', "halus 0");
+  memuat(galat([{ jenis: "stabil", mesin: "deshake", halus: 10 }]), '"halus" hanya berlaku untuk mesin vidstab', "halus + deshake");
+  memuat(galat([{ jenis: "stabil", x: 1 }]), "kunci tidak dikenal: x", "kunci asing");
+  memuat(galat([{ jenis: "stabil" }, { jenis: "stabil" }]), "efek[1] (stabil): maksimal 1 efek stabil per klip", "dua stabil");
+  samaDengan(galat([{ jenis: "stabil" }]), "", "efek stabil tanpa parameter sah");
+  samaDengan(galat([{ jenis: "stabil", mesin: "vidstab", goyangan: 10, halus: 100 }]), "", "parameter batas sah");
+
+  const semua = new Set(["vidstabdetect", "vidstabtransform", "deshake"]);
+  const tanpaVidstab = new Set(["deshake"]);
+  const separuh = new Set(["vidstabdetect", "deshake"]); // transform hilang: vidstab dianggap tidak ada
+  samaDengan(pilihMesinStabil("otomatis", semua).mesin, "vidstab", "otomatis memilih vidstab");
+  samaDengan(pilihMesinStabil("otomatis", tanpaVidstab).mesin, "deshake", "otomatis cadangan deshake");
+  memuat(pilihMesinStabil("otomatis", tanpaVidstab).cadangan, "vidstab", "cadangan menyebut vidstab");
+  samaDengan(pilihMesinStabil("otomatis", separuh).mesin, "deshake", "vidstab setengah = tidak ada");
+  samaDengan(pilihMesinStabil("deshake", semua).mesin, "deshake", "deshake eksplisit");
+  const v = pilihMesinStabil("vidstab", tanpaVidstab).galat;
+  memuat(v, "filter vidstab (vidstabdetect dan vidstabtransform) tidak tersedia", "pesan vidstab hilang");
+  memuat(v, "libvidstab", "pesan menyebut libvidstab");
+  memuat(v, '"mesin": "deshake"', "pesan menyarankan deshake");
+  memuat(pilihMesinStabil("otomatis", new Set()).galat, "stabilisasi tidak tersedia", "tanpa keduanya");
+  memuat(pilihMesinStabil("deshake", new Set(["vidstabdetect", "vidstabtransform"])).galat, "deshake tidak tersedia", "deshake hilang");
+
+  const manifest = { klip: [{ id: "k1", efek: [{ jenis: "stabil", mesin: "vidstab" }] }, { id: "k2", efek: [{ jenis: "stabil" }] }, { id: "k3" }] };
+  const kk = periksaKemampuanEfek(manifest, tanpaVidstab);
+  samaDengan(kk.galat.length, 1, "satu galat (k1)");
+  memuat(kk.galat[0], 'klip "k1": efek[0] (stabil): filter vidstab', "galat menyebut klip dan butir");
+  samaDengan(kk.peringatan.length, 1, "satu peringatan (k2 memakai cadangan)");
+  memuat(kk.peringatan[0], 'klip "k2": efek[0] (stabil): filter vidstab', "peringatan menyebut klip");
+  const ok = periksaKemampuanEfek(manifest, semua);
+  samaDengan(ok.galat.length + ok.peringatan.length, 0, "semua tersedia: bersih");
+});
+
+// build ffmpeg yang kehilangan filter tertentu: pembungkus PATH yang menyaring keluaran `ffmpeg -filters`
+let ffmpegAsli;
+function ffmpegTanpa(filter) {
+  ffmpegAsli ??= Bun.which("ffmpeg");
+  const dir = j(`shim-${filter.replace(/\W/g, "")}`);
+  Bun.spawnSync(["mkdir", "-p", dir]);
+  writeFileSync(join(dir, "ffmpeg"),
+    `#!/bin/sh\nif [ "$1" = "-hide_banner" ] && [ "$2" = "-filters" ]; then "${ffmpegAsli}" "$@" | grep -v -E "${filter}"; else exec "${ffmpegAsli}" "$@"; fi\n`, { mode: 0o755 });
+  return { PATH: `${dir}:${process.env.PATH}` };
+}
+async function bunDenganEnv(env, ...a) {
+  const p = Bun.spawn(["bun", ...a], { stdout: "pipe", stderr: "pipe", env: { ...process.env, ...env } });
+  const [out, err, kode] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
+  return { out, err, kode };
+}
+async function klipGoyangEnv(nama, env, efek) {
+  const m = await manifestGoyang();
+  m.klip[0].efek = efek;
+  const berkas = j(`${nama}.json`);
+  tulisJson(berkas, m);
+  const out = j(`out-${nama}`);
+  const r = await bunDenganEnv(env, klipMjs, berkas, "--fps", "30", "--out", out);
+  return { ...r, teks: r.out, out };
+}
+
+daftar("(q2) stabil: build ffmpeg tanpa vidstab -> pesan jelas (exit 2, tanpa ekstraksi); otomatis memakai deshake dengan peringatan", async () => {
+  const env = ffmpegTanpa("vidstab");
+  const eksplisit = await klipGoyangEnv("st-tanpa-vidstab", env, [{ jenis: "stabil", mesin: "vidstab" }]);
+  samaDengan(eksplisit.kode, 2, "vidstab eksplisit tanpa filter: exit");
+  memuat(eksplisit.err, 'klip "k1": efek[0] (stabil): filter vidstab (vidstabdetect dan vidstabtransform) tidak tersedia di build ffmpeg ini', "pesan jelas");
+  memuat(eksplisit.err, "tidak ada ekstraksi dan tidak ada render", "tanpa ekstraksi");
+  tegas(!existsSync(eksplisit.out) || !existsSync(join(eksplisit.out, "klip-props.json")), "tidak boleh menulis klip-props.json");
+  const oto = await klipGoyangEnv("st-oto-deshake", env, [{ jenis: "stabil" }]);
+  samaDengan(oto.kode, 0, `otomatis cadangan deshake: exit\n${oto.err}`);
+  memuat(oto.err, "peringatan: klip \"k1\": efek[0] (stabil): filter vidstab", "peringatan cadangan");
+  memuat(oto.teks, "efek stabil(deshake)", "log menyebut mesin deshake");
+  const meta = bacaMeta(oto.out, folderKlip(oto.out));
+  samaDengan(meta.efek[0].mesin, "deshake", "meta memuat mesin terpilih");
+  samaDengan(meta.efek[0].halus, undefined, "deshake tanpa halus di kunci cache");
+  const tanpaSemua = await klipGoyangEnv("st-tanpa-semua", ffmpegTanpa("vidstab|deshake"), [{ jenis: "stabil" }]);
+  samaDengan(tanpaSemua.kode, 2, "tanpa vidstab dan deshake: exit");
+  memuat(tanpaSemua.err, "stabilisasi tidak tersedia", "pesan tanpa keduanya");
+});
+
+daftar("(r) stabil: goyangan sintetis ber-seed berkurang terukur (vidstab dan deshake); cache menyertakan mesin; deterministik", async () => {
+  const asli = await klipGoyang("goy-asli");
+  samaDengan(asli.kode, 0, `klip asli: exit\n${asli.err}`);
+  const g0 = await ukurGoyangan(folderFrame(asli.out));
+  tegas(g0 > 5, `sumber uji harus bergoyang jelas (ukuran ${g0.toFixed(2)})`);
+  const kemampuan = await deteksiKemampuan();
+  const hasil = [`asli ${g0.toFixed(2)}`];
+  let kunciVidstab = null;
+  for (const mesin of ["vidstab", "deshake"]) {
+    if (!pilihMesinStabil(mesin, kemampuan).mesin) { console.log(`       (r) ${mesin} tidak tersedia di ffmpeg ini: dilewati`); continue; }
+    const s = await klipGoyang(`goy-${mesin}`, (m) => { m.klip[0].efek = [{ jenis: "stabil", mesin }]; });
+    samaDengan(s.kode, 0, `${mesin}: exit\n${s.err}`);
+    memuat(s.teks, `efek stabil(${mesin})`, `${mesin}: log`);
+    const g1 = await ukurGoyangan(folderFrame(s.out));
+    hasil.push(`${mesin} ${g1.toFixed(2)}`);
+    tegas(g1 < g0 * 0.5, `${mesin}: goyangan harus turun >= 50% (asli ${g0.toFixed(2)}, hasil ${g1.toFixed(2)})`);
+    tegas(!existsSync(join(folderFrame(s.out), "stabil.trf")), `${mesin}: berkas jejak gerak tidak boleh tersisa di cache`);
+    samaDengan(bacaMeta(s.out, folderKlip(s.out)).efek[0].mesin, mesin, `${mesin}: meta`);
+    if (mesin === "vidstab") {
+      kunciVidstab = folderKlip(s.out);
+      // determinisme: ekstraksi ulang (--paksa) menghasilkan frame identik byte demi byte
+      const ulang = await klipGoyang("goy-vidstab", (m) => { m.klip[0].efek = [{ jenis: "stabil", mesin }]; }, ["--paksa"]);
+      samaDengan(ulang.kode, 0, "vidstab paksa: exit");
+      samaDengan(bacaMeta(ulang.out, kunciVidstab).framesSha256, bacaMeta(s.out, kunciVidstab).framesSha256, "vidstab: ekstraksi ulang identik");
+    }
+  }
+  console.log(`       (r) goyangan terukur (rata-rata |geseran antar-frame|, px skala 1/2): ${hasil.join(", ")}`);
+  // "otomatis" memilih mesin yang sama dengan "vidstab" bila tersedia: kunci cache sama
+  if (kunciVidstab) {
+    const oto = await klipGoyang("goy-oto", (m) => { m.klip[0].efek = [{ jenis: "stabil" }]; });
+    samaDengan(folderKlip(oto.out), kunciVidstab, "otomatis = vidstab: kunci cache sama");
+  }
+  tegas(folderKlip(asli.out) !== kunciVidstab, "stabilisasi mengubah kunci cache");
+});
+
 // ------------------------------------------------------------------ jalankan
 let gagalCount = 0;
 const t0 = Date.now();
 try {
+  const saring = process.argv[2];
   for (const [nama, fn] of uji) {
+    if (saring && !nama.includes(saring)) continue;
     const t = Date.now();
     try {
       await fn();
@@ -792,5 +1106,6 @@ try {
 } finally {
   rmSync(tmp, { recursive: true, force: true });
 }
-console.log(`\n${uji.length - gagalCount}/${uji.length} uji klip lolos (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
+const jumlahUji = process.argv[2] ? uji.filter(([n]) => n.includes(process.argv[2])).length : uji.length;
+console.log(`\n${jumlahUji - gagalCount}/${jumlahUji} uji klip lolos (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(gagalCount ? 1 : 0);

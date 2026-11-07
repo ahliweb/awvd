@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- Version: `v1.4.0`
+- Version: `v1.5.0`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan olah suara per trek di audio.mjs (bagian Olah suara per trek): peredam bising afftdn dan arnndn, pengubah nada dan tempo rubberband dengan cadangan asetrate + atempo, kunci bersih dan suara di rencana audio, serta uji audio.`
+- Changeset: `Format klip menjadi png otomatis bila ada efek beralfa (kunciWarna); efek klip kini mencakup stabilisasi dan chroma key.`
 
-Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md). Efek warna klip (LUT `.cube`, kecerahan, kontras, saturasi, gamma, keseimbangan warna) yang diterapkan saat ekstraksi ada di [olah-klip.md](olah-klip.md). Peredam bising dan pengubah nada/tempo suara ada di [§Olah suara per trek](#olah-suara-per-trek).
+Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md). Efek klip (stabilisasi, chroma key, LUT `.cube`, kecerahan, kontras, saturasi, gamma, keseimbangan warna) yang diterapkan saat ekstraksi ada di [olah-klip.md](olah-klip.md). Peredam bising dan pengubah nada/tempo suara ada di [§Olah suara per trek](#olah-suara-per-trek).
 
 ## Video di dalam video
 
@@ -68,7 +68,7 @@ Jalur `berkas` dan `bukti` relatif terhadap folder manifest. Contoh lengkap: [`t
 | --- | --- |
 | `proyek` | `tujuan` (wajib), `lisensiKeluaran` (wajib bila ada sumber ShareAlike). |
 | `sumber[]` | `id`, `berkas`, `sha256`, `judul` (atau `tanpaJudul`), `pencipta` (atau `penciptaAnonim`), `sumberUrl` (URL asli, jangan dipendekkan), `lisensi` (kode beserta versi), `perubahan`, opsional `urlLisensi` (bawaan dari kode lisensi) dan `bukti` (wajib untuk `STOK:`). |
-| `klip[]` | `id`, `sumber`, `lebar` dan `tinggi` (piksel, ukuran tampil dikali skala render; rasio berbeda dari sumber memberi peringatan), `dari` dan `panjang` (detik; bawaan 0 dan sampai akhir), `format` (`jpg` bawaan, atau `png` lossless untuk tangkapan layar dan grafik), `kualitas` (JPEG `q:v` 1..31, bawaan 2). Satu sumber boleh dipakai beberapa klip. `efek` (opsional): array efek warna yang diterapkan saat ekstraksi, rinci di [olah-klip.md](olah-klip.md). |
+| `klip[]` | `id`, `sumber`, `lebar` dan `tinggi` (piksel, ukuran tampil dikali skala render; rasio berbeda dari sumber memberi peringatan), `dari` dan `panjang` (detik; bawaan 0 dan sampai akhir), `format` (`jpg` bawaan, atau `png` lossless untuk tangkapan layar dan grafik; klip dengan efek beralfa `kunciWarna` otomatis `png` dan menolak `jpg`), `kualitas` (JPEG `q:v` 1..31, bawaan 2). Satu sumber boleh dipakai beberapa klip. `efek` (opsional): array efek (stabilisasi, chroma key, warna) yang diterapkan saat ekstraksi, rinci di [olah-klip.md](olah-klip.md). |
 
 ### `scripts/klip.mjs`
 
@@ -252,6 +252,10 @@ Lisensi `arnndn`: kode RNNoise (xiph.org) berlisensi BSD 3-Clause (terverifikasi
 awvd tidak membundel mesin TTS. Antarmuka narasi adalah **berkas WAV beku**: hasil rekaman atau TTS dibekukan sebagai berkas, dihash, dicatat (mesin, versi, model, lisensi) di repo proyek, dan hanya berkas itu yang dipakai saat render (TTS saraf bisa tidak deterministik antar-run). Per 2026-11-07 riset tidak menemukan model TTS bahasa Indonesia berlisensi permisif dengan asal data yang jelas: Piper MIT sudah diarsipkan dan penerusnya GPL-3.0; suara `id_ID-news_tts-medium` berlisensi MIT tetapi asal data pelatihannya tidak jelas; MMS-TTS berlisensi CC BY-NC. TTS daring hanya untuk konten publik (DL-037).
 
 ## Changelog
+
+### 2026-11-07 - v1.5.0
+
+- Format klip otomatis `png` bila ada efek beralfa dan `jpg` eksplisit ditolak; penunjuk efek klip mencakup stabilisasi dan chroma key (rinci di `olah-klip.md`).
 
 ### 2026-11-07 - v1.4.0
 
