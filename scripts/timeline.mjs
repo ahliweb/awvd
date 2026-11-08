@@ -358,6 +358,24 @@ export async function muatKonteks(t, dir, { klipProps } = {}) {
 }
 
 /**
+ * Frame akhir (eksklusif) audio butir video: audio butir keluar berakhir di awal transisi butir
+ * berikutnya di track yang sama (aturan A-3). Dipakai validator (R11) dan perakit rencana audio
+ * (`audio.mjs --timeline`) agar keduanya memakai satu aturan.
+ * @param {number} akhir mulai + durasi butir; @param {object|undefined} berikut butir berikutnya di track
+ */
+export function akhirAudioButir(akhir, berikut) {
+  return berikut?.transisi && berikut.mulai < akhir ? berikut.mulai : akhir;
+}
+
+/** Peta id butir -> butir berikutnya di track (urut mulai, lalu urutan di berkas); sama dengan yang dipakai R04. */
+export function butirBerikutnya(track) {
+  const urut = track.butir.map((b, j) => ({ b, j })).sort((p, q) => p.b.mulai - q.b.mulai || p.j - q.j);
+  const peta = new Map();
+  for (let n = 1; n < urut.length; n++) peta.set(urut[n - 1].b.id, urut[n].b);
+  return peta;
+}
+
+/**
  * Pasangan [a, b] dengan rentang [mulai, akhir) yang saling tumpang tindih, a dari A dan b dari B
  * (A === B: tiap pasangan sekali, tanpa pasangan dengan diri sendiri). Sapuan O((n + m) log) agar
  * ribuan butir audio tidak membuat pemeriksaan kuadratis; dibatasi `maks` pasangan.
@@ -574,9 +592,7 @@ export function periksaAturan(t, konteks, { draf = false } = {}) {
         else G("R09", `${lok}/audio/mode`, `audio musik sumber kutipan "${sumberObj.id}" wajib "bisu" (musikDibahas false)`);
       }
       if (x.aktif) {
-        let akhir = x.akhir;
-        const berikut = sesudah.get(b.id);
-        if (berikut?.transisi && berikut.mulai < akhir) akhir = berikut.mulai; // A-3: audio butir keluar berakhir di awal transisi
+        const akhir = akhirAudioButir(x.akhir, sesudah.get(b.id)); // A-3
         suara.push({ id: b.id, mode, mulai: b.mulai, akhir, lok });
       }
     }

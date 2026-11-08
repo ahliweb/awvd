@@ -5,6 +5,10 @@
  *
  *   bun scripts/audio.mjs <rencana-audio.json> --fps N --out campuran.wav
  *        [--klip-props klip-props.json] [--ketat-campur]
+ *   bun scripts/audio.mjs --timeline timeline.json --out campuran.wav --klip-props klip-props.json
+ *        [--ketat-campur] [--draf] [--rencana-keluar rencana-audio.json]
+ *     Rencana diturunkan dari track audio dan audio.mode butir video di timeline.json
+ *     (rencanaDariTimeline; fail-closed: timeline diperiksa penuh seperti `timeline periksa`).
  *
  * WAV hasil (48 kHz stereo, float 32-bit, tanpa metadata versi) diberikan ke
  * `render.mjs --audio`, yang menormalisasi kenyaringan campuran (--kenyaringan).
@@ -31,13 +35,20 @@
  * Kode keluar 0 berhasil, 2 rencana/argumen tidak valid, 1 galat ffmpeg. Karya asli repo ini.
  */
 import { parseArgs } from "node:util";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, isAbsolute, resolve } from "node:path";
+import { jalurDalam } from "./aset-lib.js";
 import { periksaAudioKutipan } from "./kutipan.mjs";
+
+// pemetaan waktu klip: runtime.js adalah sumber tunggal (sama dengan validator timeline). Dimuat malas
+// (hanya jalur --timeline): require() runtime.js di tingkat modul membuat import ESM berikutnya
+// (mis. uji yang memasang window palsu) tidak mengeksekusi ulang IIFE-nya.
+const muatRuntime = () => createRequire(import.meta.url)("./runtime.js");
 
 export const SR = 48000;
 const MODE = ["bergantian", "campur", "bisu"];
-const BATAS = { fadeMs: [100, 300], turunDb: [8, 20], musikLevelDb: [-20, -8] };
+const BATAS = { fadeMs: [100, 300], turunDb: [8, 20], musikLevelDb: [-20, -8], gainDb: [-60, 12] };
 const GRANULARITAS = 480;
 const OLAH = {
   bersihAfftdn: { nr: [0.01, 97], nf: [-80, -20] }, // dB; rentang filter afftdn ffmpeg
@@ -309,10 +320,12 @@ export async function validasiRencana(r, dir, { fps, klipProps, ketatCampur = fa
     if (pa.galat) { g(`${nama}: ${pa.galat}`); continue; }
     const vo = validasiOlah(n, nama, dir, { izinTempo: true });
     if (vo.galat.length) { galat.push(...vo.galat); continue; }
+    const gainDbN = n.gainDb ?? 0;
+    if (!dalam(gainDbN, BATAS.gainDb)) { g(`${nama}: gainDb harus angka ${BATAS.gainDb[0]}..${BATAS.gainDb[1]} dB (dapat ${JSON.stringify(n.gainDb)})`); continue; }
     const durasi = pa.durasi / (vo.olah?.suara?.tempo ?? 1); // tempo mengubah durasi narasi
     const akhir = n.mulai + Math.ceil(durasi * fps - 1e-6);
     if (akhir > total) peringatan.push(`${nama}: berakhir di frame ${akhir - 1}, melewati durasiFrame (${total}); dipotong`);
-    narasi.push({ id, berkas, mulai: n.mulai, akhir: Math.min(akhir, total), kanal: pa.kanal, durasi, olah: vo.olah });
+    narasi.push({ id, berkas, mulai: n.mulai, akhir: Math.min(akhir, total), kanal: pa.kanal, durasi, olah: vo.olah, gainDb: gainDbN });
   }
   const idN = new Set();
   for (const n of narasi) { if (idN.has(n.id)) g(`narasi "${n.id}": id ganda`); idN.add(n.id); }
@@ -322,6 +335,8 @@ export async function validasiRencana(r, dir, { fps, klipProps, ketatCampur = fa
   if (r.musik !== undefined && r.musik !== null) {
     const m = r.musik;
     const levelDb = m.levelDb ?? -12, bebasDb = m.bebasDb ?? -6;
+    const gainDbM = m.gainDb ?? 0;
+    if (!dalam(gainDbM, BATAS.gainDb)) g(`musik.gainDb harus angka ${BATAS.gainDb[0]}..${BATAS.gainDb[1]} dB (dapat ${JSON.stringify(m.gainDb)})`);
     if (!adaTeks(m.berkas)) g("musik: berkas wajib");
     else if (!existsSync(mutlak(dir, m.berkas))) g(`musik: berkas tidak ditemukan: ${m.berkas}`);
     if (typeof levelDb !== "number" || levelDb < BATAS.musikLevelDb[0] || levelDb > BATAS.musikLevelDb[1]) {
@@ -334,7 +349,7 @@ export async function validasiRencana(r, dir, { fps, klipProps, ketatCampur = fa
       if (pa.galat) g(`musik: ${pa.galat}`);
       else {
         if (pa.durasi * fps < total - 1) peringatan.push(`musik lebih pendek (${pa.durasi.toFixed(2)} s) daripada video (${(total / fps).toFixed(2)} s); sisanya senyap`);
-        musik = { berkas, levelDb, bebasDb, kanal: pa.kanal };
+        musik = { berkas, levelDb, bebasDb, gainDb: gainDbM, kanal: pa.kanal };
       }
     }
   }
@@ -535,7 +550,7 @@ export function bangunGrafik(rencana) {
 
   for (const [i, n] of narasi.entries()) {
     const k = tambah(n.berkas);
-    baris.push(`[${k}:a]${rantaiMasuk(n.kanal)}${n.efek ? `,${n.efek}` : ""},volume=${n.gainEq.toFixed(4)}dB,adelay=${sam(n.mulai, fps)}S|${sam(n.mulai, fps)}S,apad=whole_len=${N},atrim=end_sample=${N}[n${i}]`);
+    baris.push(`[${k}:a]${rantaiMasuk(n.kanal)}${n.efek ? `,${n.efek}` : ""},volume=${(n.gainEq + (n.gainDb ?? 0)).toFixed(4)}dB,adelay=${sam(n.mulai, fps)}S|${sam(n.mulai, fps)}S,apad=whole_len=${N},atrim=end_sample=${N}[n${i}]`);
     label.push(`[n${i}]`);
   }
 
@@ -565,7 +580,7 @@ export function bangunGrafik(rencana) {
     const duck = dBkeLinear(musik.levelDb - musik.bebasDb);
     const T = per.map((p) => (p.kode === "musik" ? 1 : p.kode === "klip" ? 0 : duck));
     const e = ekspresiEnvelope(batasiKemiringan(T, fade), fps);
-    const rant = [`[${k}:a]${rantaiMasuk(musik.kanal)}`, `volume=${musik.gainEq.toFixed(4)}dB`,
+    const rant = [`[${k}:a]${rantaiMasuk(musik.kanal)}`, `volume=${(musik.gainEq + (musik.gainDb ?? 0)).toFixed(4)}dB`,
       `apad=whole_len=${N}`, `atrim=end_sample=${N}`];
     if (e) rant.push(`asetnsamples=n=${GRANULARITAS}:p=0`, `volume='${e}':eval=frame`);
     baris.push(`${rant.join(",")}[musik]`);
@@ -577,6 +592,104 @@ export function bangunGrafik(rencana) {
   return { inp, filter: baris.join(";"), sampel: N };
 }
 
+// ------------------------------------------------------- rencana audio dari timeline.json
+/**
+ * Menurunkan rencana audio (format rencana-audio.json) dari `timeline.json`. FAIL-CLOSED:
+ * timeline diperiksa penuh lebih dulu (`periksaTimeline`: skema, manifest nyata, R01-R17); satu
+ * galat saja berarti tidak ada rencana. Hasilnya lalu masih melewati `validasiRencana` (pertahanan
+ * berlapis: tumpang tindih pemegang suara, fade, ducking, kutipan).
+ *
+ * Pemetaan (semua waktu frame bilangan bulat pada proyek.fps):
+ *   - butir audio peran "narasi"  -> narasi[] (id butir, berkas aset, mulai; gainDb = track + butir)
+ *   - butir audio peran "musik"   -> musik (ducking.levelDb/bebasDb; gainDb = track + butir)
+ *   - butir video dengan audio.mode "bergantian" | "campur" | "bisu" -> klip[] (mulai, akhir =
+ *     mulai + durasi, atau awal transisi butir berikutnya bila butir ini keluar; dariDetik = dari/fps)
+ *   - track aktif:false dilewati (tetap divalidasi). Track video/overlay tanpa mode = bisu.
+ * Waktu klip dihitung dari `RT.petaWaktuKlip` (runtime.js): audio klip hanya sah untuk waktu
+ * identitas (offset frame ke-i = i), kalau tidak, galat A04 (audio.mjs tidak meregangkan waktu).
+ * Galat A (tambahan atas R01-R17): A01 audio klip tak dapat ditemukan, A02 musik tak sepanjang
+ * video atau dengan offset, A03 berkas audio, A04 waktu klip bukan identitas.
+ *
+ * @param {object} t timeline hasil JSON.parse
+ * @param {string} dir folder timeline.json (tempat manifes.* dirujuk)
+ * @param {{ klipProps?: {dok: object, dir: string}|null, ketat?: boolean, draf?: boolean }} opsi
+ * @returns {Promise<{ galat: {kode,lok,pesan}[], peringatan: {kode,lok,pesan}[], rencana: object|null, fps?: number }>}
+ */
+export async function rencanaDariTimeline(t, dir, { klipProps = null, ketat = false, draf = false } = {}) {
+  const TL = await import("./timeline.mjs");
+  const skema = TL.validasiSkema(t);
+  if (skema.length) return { galat: skema.map((x) => ({ kode: "SKEMA", ...x })), peringatan: [], rencana: null };
+  const konteks = await TL.muatKonteks(t, dir, { klipProps: klipProps?.dok });
+  const hasil = await TL.periksaTimeline(t, { dir, klipProps: klipProps?.dok, ketat, draf, konteks });
+  if (!hasil.lolos) return { galat: hasil.galat, peringatan: hasil.peringatan, rencana: null };
+
+  const galat = [], peringatan = [...hasil.peringatan];
+  const G = (kode, lok, pesan) => galat.push({ kode, lok, pesan });
+  const RT = muatRuntime();
+  const { fps, durasi: total } = t.proyek;
+  const asetPerId = new Map((konteks.aset?.manifest?.aset ?? []).map((a) => [a.id, a]));
+  const rencana = { fps, durasiFrame: total, fadeMs: t.audio?.fadeMs ?? 200, ucapanLufs: t.audio?.ucapanLufs ?? -16, narasi: [], klip: [] };
+  const klipPerId = new Map((klipProps?.dok?.klip ?? []).map((k) => [k.id, k]));
+  const kutipanCek = [];
+
+  t.track.forEach((tr, i) => {
+    if (tr.aktif === false) return;
+    const sesudah = tr.jenis === "video" || tr.jenis === "overlay" ? TL.butirBerikutnya(tr) : null;
+    tr.butir.forEach((b, j) => {
+      const lok = `/track/${i}/butir/${j}`;
+      if (tr.jenis === "audio" && b.jenis === "audio") {
+        const a = asetPerId.get(b.aset);
+        const peran = a?.audio?.peran;
+        const jb = jalurDalam(konteks.aset.dir, a?.berkas);
+        if (jb.galat) { G("A03", `${lok}/aset`, `aset "${b.aset}": ${jb.galat}`); return; }
+        const gainDb = (tr.gainDb ?? 0) + (b.gainDb ?? 0);
+        if (peran === "narasi") rencana.narasi.push({ id: b.id, berkas: jb.jalur, mulai: b.mulai, ...(gainDb !== 0 ? { gainDb } : {}) });
+        else if (peran === "musik") {
+          if ((b.dari ?? 0) !== 0 || b.mulai !== 0 || b.durasi !== total) {
+            G("A02", lok, `audio.mjs memutar musik sepanjang video dari awal berkas: mulai 0, dari 0, durasi ${total} (dapat mulai ${b.mulai}, dari ${b.dari ?? 0}, durasi ${b.durasi}); potongan atau offset musik belum didukung, siapkan berkas musik yang sudah dipotong`);
+            return;
+          }
+          rencana.musik = { berkas: jb.jalur, ...(b.ducking?.levelDb !== undefined ? { levelDb: b.ducking.levelDb } : {}), ...(b.ducking?.bebasDb !== undefined ? { bebasDb: b.ducking.bebasDb } : {}), ...(gainDb !== 0 ? { gainDb } : {}) };
+        }
+        return;
+      }
+      if (b.jenis !== "video") return;
+      const mode = b.audio?.mode ?? "bisu";
+      const akhir = TL.akhirAudioButir(b.mulai + b.durasi, sesudah?.get(b.id));
+      const e = { id: b.id, mulai: b.mulai, akhir, mode };
+      if (mode === "bisu") { rencana.klip.push(e); return; }
+      // pemetaan waktu dari runtime.js: audio mengikuti gambar hanya bila offset frame ke-i = i
+      let tabel;
+      try { tabel = RT.petaWaktuKlip(b.waktu ?? {}, b.durasi); } catch (err) { G("A04", `${lok}/waktu`, err.message); return; }
+      if (!tabel.every((v, n) => v === n)) {
+        G("A04", `${lok}/waktu`, `butir "${b.id}" bersuara (mode ${mode}) tetapi waktunya bukan identitas (speed, reverse, atau freeze); audio.mjs tidak meregangkan waktu, set audio.mode "bisu"`);
+        return;
+      }
+      e.dariDetik = RT.frameSumber(b.waktu ?? {}, 0, { durasi: b.durasi, dari: b.dari ?? 0 }) / fps;
+      if (b.audio?.gainDb !== undefined) e.gainDb = b.audio.gainDb;
+      if (b.audio?.turunDb !== undefined) e.turunDb = b.audio.turunDb;
+      const p = klipPerId.get(b.klip);
+      if (!klipProps) { G("A01", `${lok}/audio/mode`, `butir "${b.id}" bersuara (mode ${mode}) tetapi audio klip "${b.klip}" hanya ada di klip-props.json hasil klip.mjs; beri --klip-props, atau set audio.mode "bisu"`); return; }
+      if (!p?.audio) { G("A01", `${lok}/audio/mode`, `klip "${b.klip}" tidak punya audio di klip-props.json; set audio.mode "bisu" pada butir "${b.id}"`); return; }
+      const jk = jalurDalam(klipProps.dir, p.audio);
+      if (jk.galat) { G("A03", `${lok}/klip`, `audio klip "${b.klip}": ${jk.galat}`); return; }
+      e.berkas = jk.jalur;
+      kutipanCek.push({ id: b.klip, mode, mulai: b.mulai, akhir, lok });
+      rencana.klip.push(e);
+    });
+  });
+
+  if (kutipanCek.length) { // pertahanan kedua atas R09: kebijakan kutipan dengan id klip (bukan id butir)
+    for (const c of kutipanCek) {
+      const ak = periksaAudioKutipan([c], klipProps.dok.klip, fps);
+      for (const x of ak.galat) G("R09", `${c.lok}/audio/mode`, x);
+      for (const x of ak.peringatan) peringatan.push({ kode: "W08", lok: `${c.lok}/audio/mode`, pesan: x });
+    }
+  }
+  if (rencana.musik === undefined) delete rencana.musik;
+  return { galat, peringatan, rencana: galat.length ? null : rencana, fps };
+}
+
 // ------------------------------------------------------------------------ CLI
 function gagal(pesan, kode = 1) {
   console.error(`audio.mjs: ${pesan}`);
@@ -585,11 +698,17 @@ function gagal(pesan, kode = 1) {
 
 const PETUNJUK = `Pemakaian:
   bun scripts/audio.mjs <rencana-audio.json> --fps N --out campuran.wav [--klip-props klip-props.json] [--ketat-campur]
-Rencana: { durasiFrame, narasi:[{id?,berkas,mulai,bersih?,suara?}], musik?:{berkas,levelDb?,bebasDb?},
+  bun scripts/audio.mjs --timeline timeline.json --out campuran.wav --klip-props klip-props.json [--ketat-campur] [--draf]
+        [--rencana-keluar rencana-audio.json]
+Rencana: { durasiFrame, narasi:[{id?,berkas,mulai,gainDb?,bersih?,suara?}], musik?:{berkas,levelDb?,bebasDb?,gainDb?},
   klip:[{id,berkas?,mulai,akhir,mode?,gainDb?,turunDb?,dariDetik?,bersih?,suara?}], fadeMs?, ucapanLufs? }
 Olah per trek (narasi, klip bersuara): bersih:{metode:"afftdn",nr?,nf?,jenis?,lacak?} atau {metode:"arnndn",model,campur?};
   suara:{nadaSemiton?,tempo? (narasi),mesin?:"otomatis"|"rubberband"|"sederhana",formant?}
-Jalur berkas relatif terhadap folder rencana. Kode keluar 2 untuk rencana tidak valid.`;
+Jalur berkas relatif terhadap folder rencana. Kode keluar 2 untuk rencana tidak valid.
+--timeline menurunkan rencana dari track audio dan audio.mode butir video di timeline.json (fps dari timeline;
+  --fps bila diberikan harus sama). Timeline diperiksa penuh lebih dulu (seperti "timeline periksa"); satu galat
+  saja berarti tidak ada audio yang dirakit (exit 2). --rencana-keluar menyimpan rencana turunan; tanpa --out hanya itu
+  yang dilakukan (tidak merakit audio). Olah suara (bersih/suara) belum ada di timeline; pakai rencana-audio.json.`;
 
 async function utama() {
   let args;
@@ -601,6 +720,9 @@ async function utama() {
         out: { type: "string" },
         "klip-props": { type: "string" },
         "ketat-campur": { type: "boolean", default: false },
+        timeline: { type: "string" },
+        "rencana-keluar": { type: "string" },
+        draf: { type: "boolean", default: false },
         help: { type: "boolean", short: "h" },
       },
     });
@@ -612,17 +734,26 @@ async function utama() {
     console.log(PETUNJUK);
     return;
   }
-  if (positionals.length !== 1) gagal(`harus tepat satu rencana.\n${PETUNJUK}`, 2);
-  if (!o.out) gagal(`--out wajib.\n${PETUNJUK}`, 2);
-  const fps = Number(o.fps);
-  if (o.fps === undefined || !Number.isFinite(fps) || fps <= 0) gagal(`--fps wajib angka positif.\n${PETUNJUK}`, 2);
-  const berkasRencana = resolve(positionals[0]);
-  if (!existsSync(berkasRencana)) gagal(`rencana tidak ditemukan: ${positionals[0]}`, 2);
+  const modeTimeline = o.timeline !== undefined;
+  if (modeTimeline) {
+    if (positionals.length !== 0) gagal(`--timeline tidak bersama rencana posisional.\n${PETUNJUK}`, 2);
+    if (!o.out && !o["rencana-keluar"]) gagal(`--out (atau --rencana-keluar) wajib.\n${PETUNJUK}`, 2);
+  } else {
+    if (positionals.length !== 1) gagal(`harus tepat satu rencana.\n${PETUNJUK}`, 2);
+    if (!o.out) gagal(`--out wajib.\n${PETUNJUK}`, 2);
+    if (o["rencana-keluar"] || o.draf) gagal(`--rencana-keluar dan --draf hanya untuk --timeline.\n${PETUNJUK}`, 2);
+  }
+  let fps = Number(o.fps);
+  if (!modeTimeline && (o.fps === undefined || !Number.isFinite(fps) || fps <= 0)) gagal(`--fps wajib angka positif.\n${PETUNJUK}`, 2);
+  if (modeTimeline && o.fps !== undefined && (!Number.isFinite(fps) || fps <= 0)) gagal(`--fps harus angka positif.\n${PETUNJUK}`, 2);
+  const berkasRencana = resolve(modeTimeline ? o.timeline : positionals[0]);
+  const namaMasuk = modeTimeline ? o.timeline : positionals[0];
+  if (!existsSync(berkasRencana) || !statSync(berkasRencana).isFile()) gagal(`${modeTimeline ? "timeline" : "rencana"} tidak ditemukan: ${namaMasuk}`, 2);
   let rencanaJson;
   try {
     rencanaJson = JSON.parse(readFileSync(berkasRencana, "utf8"));
   } catch (e) {
-    gagal(`rencana bukan JSON valid: ${e.message}`, 2);
+    gagal(`${modeTimeline ? "timeline" : "rencana"} bukan JSON valid: ${e.message}`, 2);
   }
   let klipProps = null;
   if (o["klip-props"]) {
@@ -631,6 +762,33 @@ async function utama() {
     } catch (e) {
       gagal(`--klip-props tidak terbaca atau bukan JSON valid: ${e.message}`, 2);
     }
+    if (modeTimeline && (klipProps.dok === null || typeof klipProps.dok !== "object" || !Array.isArray(klipProps.dok.klip))) {
+      gagal('--klip-props harus objek dengan array "klip" (keluaran klip.mjs)', 2);
+    }
+  }
+  let ketatCampur = o["ketat-campur"];
+  if (modeTimeline) {
+    const d = await rencanaDariTimeline(rencanaJson, dirname(berkasRencana), { klipProps, ketat: false, draf: o.draf });
+    for (const p of d.peringatan) console.error(`peringatan [${p.kode}] ${p.lok === "" ? "(akar)" : p.lok}: ${p.pesan}`);
+    if (d.galat.length || !d.rencana) {
+      console.error(`audio.mjs: timeline ditolak (${d.galat.length} pelanggaran); tidak ada audio yang dirakit:`);
+      for (const g of d.galat) console.error(`  - [${g.kode}] ${g.lok === "" ? "(akar)" : g.lok}: ${g.pesan}`);
+      process.exit(2);
+    }
+    if (o.fps !== undefined && fps !== d.fps) gagal(`--fps (${fps}) berbeda dari proyek.fps timeline (${d.fps})`, 2);
+    fps = d.fps;
+    ketatCampur = ketatCampur || rencanaJson.audio?.ketatCampur === true;
+    rencanaJson = d.rencana;
+    if (o["rencana-keluar"]) {
+      try {
+        mkdirSync(dirname(resolve(o["rencana-keluar"])), { recursive: true });
+        writeFileSync(o["rencana-keluar"], `${JSON.stringify(rencanaJson, null, 2)}\n`);
+      } catch (e) {
+        gagal(`tidak bisa menulis --rencana-keluar: ${e.message}`, 2);
+      }
+      console.log(`rencana turunan: ${o["rencana-keluar"]}`);
+    }
+    if (!o.out) return;
   }
   try {
     mkdirSync(dirname(resolve(o.out)), { recursive: true });
@@ -638,7 +796,7 @@ async function utama() {
     gagal(`tidak bisa membuat folder keluaran untuk ${o.out}: ${e.message}`, 2);
   }
 
-  const v = await validasiRencana(rencanaJson, dirname(berkasRencana), { fps, klipProps, ketatCampur: o["ketat-campur"] });
+  const v = await validasiRencana(rencanaJson, dirname(berkasRencana), { fps, klipProps: modeTimeline ? null : klipProps, ketatCampur });
   for (const p of v.peringatan) console.error(`peringatan: ${p}`);
   if (v.galat.length) {
     console.error(`audio.mjs: rencana ditolak (${v.galat.length} pelanggaran); tidak ada audio yang dirakit:`);
