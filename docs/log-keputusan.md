@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.17.0`
+- Version: `v1.18.0`
 - Last updated: `2026-11-08`
-- Changeset: `Menambahkan KP-063 dan KP-064 (reframe: keyframe fokus manual sebagai sumber kebenaran, saran heuristik tanpa model; parameter heuristik saran). Sebelumnya: Mengisi rujukan PR KP-053 sampai KP-062 (#71, #72, #73).`
+- Changeset: `Menambahkan KP-065 sampai KP-067 (rencana audio dari timeline lewat audio.mjs, musik sepanjang video, urutan gainDb). Sebelumnya: Menambahkan KP-063 dan KP-064 (reframe: keyframe fokus manual sebagai sumber kebenaran, saran heuristik tanpa model; parameter heuristik saran).`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -111,8 +111,15 @@ flowchart TD
 | KP-062 | OpenTimelineIO bukan format asli awvd; konverter impor/ekspor opsional masuk backlog setelah F6. | 2026-11-07 | Berlaku | Skema belum teruji pemakaian nyata dan konversi menambah permukaan pemeliharaan; pustaka OTIO tidak bisa menjadi dependensi (Bun-only) dan sikap OTIO mengabaikan bidang tak dikenal bertentangan dengan fail-closed. Konsekuensinya tidak ada interoperabilitas dengan penyunting lain sampai backlog dikerjakan. Keputusan pemilik. | #30, #73 |
 | KP-063 | Reframe memakai keyframe fokus manual (pecahan 0..1 dan zoom) sebagai sumber kebenaran; saran fokus berupa heuristik gerak dan detail tanpa model dan selalu ditandai wajib ditinjau manusia. Deteksi wajah atau objek berbasis model ditunda sampai ada kebutuhan nyata dan lisensi kode serta bobot modelnya ditinjau; bila kelak ditambahkan harus lokal, tidak dibundel, dan fail-closed. | 2026-11-08 | Berlaku | Tanpa dependensi atau bobot model baru yang perlu ditinjau lisensinya; keyframe manual deterministik dan mudah diperiksa. Konsekuensinya mutu saran terbatas pada video nyata (baru diuji pada video sintetis). Keputusan desain implementasi; rincian di [reframe.md](reframe.md). | #50 |
 | KP-064 | Angka heuristik saran reframe (5 sampel per detik, lebar analisis 96 px, ambang gerak 8, bobot gerak 4, median 5, toleransi penyederhanaan keyframe 0,04) adalah parameter desain di `PARAMETER_SARAN`, bukan standar; boleh diubah dengan uji. | 2026-11-08 | Berlaku | Angka dipilih agar cepat dan stabil pada uji sintetis, tanpa dasar riset; dicatat agar tidak dianggap pedoman. | #50 |
+| KP-065 | Rencana audio timeline diturunkan oleh `audio.mjs --timeline`, bukan subperintah `bun run timeline audio`. | 2026-11-08 | Berlaku | Satu jalur perakitan audio dan `validasiRencana` tetap dipakai; dependensi satu arah (`audio.mjs` memuat `timeline.mjs` dan `runtime.js` secara malas hanya di jalur `--timeline`). Keputusan desain implementasi; rincian di [video-tertanam-audio.md](video-tertanam-audio.md#rencana-dari-timelinejson). | #34 |
+| KP-066 | Musik di timeline harus sepanjang video tanpa offset (galat A02) sampai `audio.mjs` mendukung potong dan offset musik. | 2026-11-08 | Berlaku | Menolak lebih aman daripada memutar musik diam-diam melewati durasi butir; sejalan dengan aturan R10 validator. Konsekuensinya musik pendek atau bermula di tengah harus disiapkan di luar timeline. | #34 |
+| KP-067 | `gainDb` pada narasi dan musik diterapkan setelah penyamaan level ke target ucapan; untuk musik, gain menggeser level bebas dan level ducking sekaligus. Nilai 0 tidak mengubah filter yang dihasilkan. | 2026-11-08 | Berlaku | Gain relatif terhadap level yang sudah disamakan lebih mudah diduga daripada gain sebelum normalisasi (yang akan dihapus normalisasi); rencana lama tetap identik. | #34 |
 
 ## Changelog
+
+### 2026-11-08 - v1.18.0
+
+- Menambahkan KP-065 sampai KP-067 tentang rencana audio dari `timeline.json`.
 
 ### 2026-11-08 - v1.17.0
 

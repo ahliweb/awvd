@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.12.0`
+- Version: `v1.13.0`
 - Last updated: `2026-11-08`
-- Changeset: `Paritas: reframe 16:9 ke 9:16 berstatus sebagian (crop berkeyframe manual, saran heuristik; F5/03). Sebelumnya: Paritas: keyframe generik berstatus ada (helper runtime keyframe, F2/06).`
+- Changeset: `Paritas: timeline multitrack memuat rencana audio turunan (F2/05 selesai). Sebelumnya: Paritas: reframe 16:9 ke 9:16 berstatus sebagian (crop berkeyframe manual, saran heuristik; F5/03).`
 
 ## Visi
 
@@ -82,7 +82,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Text-to-speech | ada sebagai adaptor opsional yang tidak dibundel ([narasi-caption.md](narasi-caption.md#tts-lokal-sherpa-onnx)); layanan daring dan suara kustom belum | F1/06C (selesai) |
 | Ducking, fade, kenyaringan | ada | — |
 | QC kenyaringan, kilatan, subtitle | ada ([pemeriksaan-mutu.md](pemeriksaan-mutu.md)) | — |
-| Timeline multitrack | sebagian: format `timeline.json`, validator `bun run timeline periksa`, dan contoh ada ([timeline.md](timeline.md)); render ke video menyusul | F2/02 (selesai), F2/03 |
+| Timeline multitrack | sebagian: format `timeline.json`, validator `bun run timeline periksa`, contoh, dan rencana audio turunan (`bun run audio -- --timeline`) ada ([timeline.md](timeline.md), [video-tertanam-audio.md](video-tertanam-audio.md#rencana-dari-timelinejson)); render ke video menyusul | F2/02 (selesai), F2/05 (selesai), F2/03 |
 | Trim, speed, reverse, freeze | ada sebagai helper pemetaan frame ([api-runtime.md](api-runtime.md#pemetaan-waktu-klip); `petaWaktuKlip`, `frameSumber`, ramp kecepatan); tanpa interpolasi gerak, audio tidak ikut diregangkan | F2/04 (selesai) |
 | Keyframe generik | ada (`keyframe`) | F2/06 |
 | Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-08 - v1.13.0
+
+- Paritas "Timeline multitrack": rencana audio turunan dari `timeline.json` ada (`bun run audio -- --timeline`, F2/05 selesai).
 
 ### 2026-11-08 - v1.12.0
 
