@@ -2,13 +2,13 @@
 
 ## Metadata
 
-- Version: `v1.2.0`
+- Version: `v1.3.0`
 - Last updated: `2026-11-08`
-- Changeset: `Aturan R09 dan bagian Rencana audio: audio klip ber-speed (konstan dan ramp) didukung dengan atempo (F3/05); reverse dan freeze tetap ditolak, kecepatan di luar 0,5..4x ditolak saat rakit (A04). Sebelumnya: Templat render generik templates/timeline (issue #32): penjadwal scripts/timeline.js, perakit props siapkan.mjs, bagian Templat render dan Rencana audio, uji uji-templat-timeline; status dan Batasan diperbarui (keyframe properti #35 dan rencana audio #34 sudah ada; dokumen penutup F2 #36 menyusul).`
+- Changeset: `Dokumen penutup F2 (issue #36): bagian Alur ujung ke ujung (tulis, periksa, siapkan, render, rakit audio, pasang audio) dengan diagram dan perintah yang dijalankan apa adanya terhadap templates/timeline-contoh, keluaran galat contoh diganti hasil nyata, catatan menyusul dan rujukan fitur yang sudah ada dibersihkan. Sebelumnya: audio klip ber-speed (F3/05).`
 
 `timeline.json` adalah rencana video yang bisa ditinjau sebagai data: daftar track berisi butir (klip video, gambar, warna, teks, kredit, audio) dengan posisi absolut dalam frame. Dokumen ini menjelaskan format dan validatornya, `bun run timeline periksa`, yang menolak timeline yang salah **sebelum Chromium diluncurkan**, dengan pola yang sama seperti `aset.json` dan `sumber.json`.
 
-> **Status.** Yang ada: skema, validator, dan contoh (issue #31), helper pemetaan waktu klip di `runtime.js` (#33) yang dipakai validator, keyframe properti generik di `runtime.js` (#35), rencana audio (#34), dan templat render generik `templates/timeline/` dengan penjadwal `scripts/timeline.js` (#32). Rencana audio turunan dibuat lewat `bun run audio -- --timeline` (#34, bagian Rencana audio). **Menyusul:** dokumen penutup F2 (#36).
+> **Status.** Yang ada: skema, validator, dan contoh (issue #31), helper pemetaan waktu klip di `runtime.js` (#33) yang dipakai validator, keyframe properti generik di `runtime.js` (#35), rencana audio (#34), dan templat render generik `templates/timeline/` dengan penjadwal `scripts/timeline.js` (#32). Rencana audio turunan dibuat lewat `bun run audio -- --timeline` (#34, bagian Rencana audio). Alur lengkap dari menulis sampai MP4 bersuara ada di bagian [Alur ujung ke ujung](#alur-ujung-ke-ujung); fase F2 selesai dengan dokumen ini (#36).
 
 ## Alur
 
@@ -90,12 +90,13 @@ bun run timeline periksa timeline.json --klip-props .cache/awvd/klip/klip-props.
 Kode keluar: `0` lolos; **`2`** timeline atau argumen tidak valid (galat skema, galat aturan, manifest cacat, berkas tidak ditemukan, JSON rusak); `1` galat tak terduga. Semua pelanggaran dikumpulkan sekaligus; lokasinya adalah [JSON pointer](https://www.rfc-editor.org/rfc/rfc6901) ke bidang bermasalah:
 
 ```text
-salah.json: 7 track, 11 butir, 1 transisi, 450 frame @ 30 fps (15.00 s)
+.cache/awvd/salah/timeline.json: 7 track, 11 butir, 1 transisi, 450 frame @ 30 fps (15.00 s)
   galat [R02] /track/2/butir/0/aset: aset "logo-hantu" tidak tercatat di aset.json (aset[].id)
-  galat [R05] /track/0/butir/1/transisi/durasi: transisi.durasi (10) harus sama dengan tumpang tindih dengan "adegan-1" (15 frame; mulai 75, akhir butir sebelumnya 90)
-  galat [R04] /track/3/butir/1: tumpang tindih 100 frame dengan "judul" di track "t-teks-1" tanpa transisi (butir yang bertumpuk wajib punya transisi.durasi = 100)
-GAGAL: 3 galat
+  galat [R05] /track/0/butir/2/transisi/durasi: transisi.durasi (10) harus sama dengan tumpang tindih dengan "adegan-2" (15 frame; mulai 140, akhir butir sebelumnya 155)
+GAGAL: 2 galat
 ```
+
+Keluaran di atas didapat dari salinan contoh yang sengaja dirusak (perintahnya ada di bagian [Contoh](#contoh)).
 
 Galat skema berkode `SKEMA` dan menghentikan pemeriksaan (aturan lintas-bidang mengandaikan bentuk yang sah). Galat dari manifest yang dirujuk berkode `R02` dengan lokasi nama berkas manifest (misalnya `aset.json`). Validator tidak menulis berkas apa pun; keluaran turunan: rencana audio lewat `audio.mjs` (bagian Rencana audio); `--gabung` belum ada.
 
@@ -158,7 +159,7 @@ Frame klip yang dibaca adalah `dari + offset(f)` dan harus kurang dari jumlah fr
 
 Timeline adalah sumber tunggal jadwal, jadi untuk sumber yang dalam cakupan kutipan (lisensi `KUTIPAN-WAJAR` atau memuat blok `kutipan`) validator **menurunkan** durasi video (`proyek.durasi / fps`), jendela komentar (butir narasi, serta teks berperan `caption` dan `anotasi`), serta posisi dan panjang tiap kutipan (durasi tampil butir, bukan jendela ekstraksi klip), lalu menjalankan `periksaKutipan` dari `kutipan.mjs` atas hasilnya: batas per klip, per sumber, proporsi terhadap video, komentar aktif, kutipan beruntun, dan isi blok. Gerbang hukum GH dinilai pada `sumber.json` apa adanya (hash mengikat manifest dan memo).
 
-Bidang manual di `sumber.json` (`proyek.durasiVideoDetik`, `proyek.komentar`, `klip[].mulaiVideo`) tidak diperlukan; bila ada dan **bertentangan** dengan timeline, hasilnya galat R17, sehingga dua sumber kebenaran tidak bisa diam-diam berbeda. Catatan: `bun run klip` sendiri masih menuntut bidang manual itu untuk sumber dalam cakupan kutipan; integrasinya menyusul bersama rencana audio (#34).
+Bidang manual di `sumber.json` (`proyek.durasiVideoDetik`, `proyek.komentar`, `klip[].mulaiVideo`) tidak diperlukan; bila ada dan **bertentangan** dengan timeline, hasilnya galat R17, sehingga dua sumber kebenaran tidak bisa diam-diam berbeda. Catatan: `bun run klip` yang dijalankan sendiri masih menuntut bidang manual itu untuk sumber dalam cakupan kutipan; ia belum menurunkannya dari timeline.
 
 ## Templat render
 
@@ -216,6 +217,51 @@ bun run audio -- --timeline timeline.json --klip-props klip-props.json --out cam
 
 Track audio (peran `narasi` dan `musik`, `gainDb` track dan butir, `ducking`) dan `audio.mode` butir video dipetakan ke rencana. Timeline diperiksa penuh lebih dulu seperti `timeline periksa`; satu galat saja berarti tidak ada audio yang dirakit (exit 2). Butir video bersuara dengan speed konstan atau ramp diteruskan ke rencana dan diregangkan dengan `atempo` sinkron dengan `petaWaktuKlip` ([Audio klip ber-speed](video-tertanam-audio.md#audio-klip-ber-speed-atempo)); reverse dan freeze ditolak (R09), dan kecepatan di luar 0,5..4x atau ramp yang tak dapat disinkronkan ditolak saat rakit (A04). Rincian pemetaan, aturan transisi, kode galat A01-A04, dan batas (musik sepanjang video, tanpa olah suara) ada di [video-tertanam-audio.md](video-tertanam-audio.md#rencana-dari-timelinejson).
 
+## Alur ujung ke ujung
+
+Dari berkas yang ditulis sampai MP4 bersuara, semuanya lewat CLI yang sudah ada; tiap langkah berhenti dengan kode keluar 2 bila masukannya ditolak, sebelum langkah mahal berikutnya.
+
+```mermaid
+flowchart TD
+    W[1. tulis timeline.json<br/>+ aset.json, sumber.json] --> P[2. bun run timeline periksa]
+    P -->|galat: exit 2| W
+    P --> SI[3. siapkan.mjs<br/>klip, periksa --ketat, aset]
+    SI --> PR[props.json]
+    PR --> R[4. render.mjs<br/>templates/timeline/index.html]
+    SI -->|klip/klip-props.json| AU[5. audio.mjs --timeline<br/>campuran.wav]
+    W --> AU
+    R --> V[video senyap.mp4]
+    AU --> M[6. render.mjs --audio<br/>MP4 bersuara]
+    PR --> M
+```
+
+Perintah berikut dijalankan apa adanya dari akar repo terhadap `templates/timeline-contoh` (keluaran ke `.cache/awvd/`, yang tidak ikut di-commit; ganti jalur sesuai proyek Anda):
+
+```bash
+# 1-2. tulis, lalu periksa (cepat, tanpa Chromium)
+bun run timeline periksa templates/timeline-contoh/timeline.json
+
+# 3. siapkan: ekstrak klip, periksa --ketat dengan jumlah frame pasti, periksa aset, tulis props.json
+bun templates/timeline/siapkan.mjs templates/timeline-contoh/timeline.json --out .cache/awvd/timeline
+
+# 4. (opsional) render video senyap; --dari/--sampai untuk rentang
+bun scripts/render.mjs templates/timeline/index.html --props-file .cache/awvd/timeline/props.json --out .cache/awvd/timeline/video.mp4
+
+# 5. rakit suara dari track audio dan audio.mode klip (memakai klip-props hasil langkah 3)
+bun run audio -- --timeline templates/timeline-contoh/timeline.json --klip-props .cache/awvd/timeline/klip/klip-props.json --out .cache/awvd/timeline/campuran.wav
+
+# 6. pasang suara: render ulang dengan --audio (--kenyaringan mati karena campuran sudah disamakan levelnya)
+bun scripts/render.mjs templates/timeline/index.html --props-file .cache/awvd/timeline/props.json --audio .cache/awvd/timeline/campuran.wav --kenyaringan mati --out .cache/awvd/timeline/video-suara.mp4
+```
+
+Hasil pada mesin pengembangan: langkah 1 dan 2 `LOLOS` (7 track, 11 butir, 2 transisi, 450 frame @ 30 fps); langkah 4 menghasilkan 450 frame 1280x720 (15,00 s); langkah 5 menghasilkan `campuran.wav` 15,00 s (720000 sampel, 48 kHz stereo); langkah 6 menghasilkan MP4 h264 dan aac sama-sama 15,00 s. Langkah 4 opsional: ia hanya berguna untuk pratinjau senyap, karena `klip-props.json` untuk langkah 5 berasal dari langkah 3, bukan dari render; bila hanya MP4 akhir yang diinginkan, lewati langkah 4 dan jalankan langkah 6 setelah 5.
+
+Ketentuan yang perlu diingat:
+
+- Timeline tidak memuat jalur media; ia merujuk id di `aset.json` dan `sumber.json` yang dicatat lisensinya ([aset.md](aset.md), [video-tertanam-audio.md](video-tertanam-audio.md)).
+- Untuk proyek sendiri, mulai dari `timeline-sederhana.json` (warna, logo, dua teks) dan tambahkan track sedikit demi sedikit sambil menjalankan langkah 2 setiap kali; `$schema` ke `data/skema-timeline.json` memberi saran di penyunting.
+- Timeline tanpa klip bersuara dan tanpa track audio tidak butuh langkah 5 dan 6.
+
 ## Contoh
 
 [`templates/timeline-contoh/`](../templates/timeline-contoh/), contoh yang juga dirender templat di atas, berisi `timeline.json` (multitrack), `timeline-sederhana.json` (warna, logo, dua teks), `aset.json`, `sumber.json`, dan media kecil buatan sendiri (catatan di [ASET.md](../templates/timeline-contoh/ASET.md)). Semua contoh lolos tanpa peringatan:
@@ -226,6 +272,14 @@ bun run timeline periksa templates/timeline-contoh/timeline-sederhana.json
 # jumlah frame klip yang pasti (ekstraksi dengan ffmpeg, tanpa Chromium):
 bun run klip templates/timeline-contoh/sumber.json --fps 30 --out .cache/awvd/timeline-contoh
 bun run timeline periksa templates/timeline-contoh/timeline.json --klip-props .cache/awvd/timeline-contoh/klip-props.json
+```
+
+Untuk melihat validator menolak timeline (kode keluar 2, keluaran seperti di bagian Validasi), rusak sebuah salinan: id aset logo diganti dan durasi transisi `adegan-3` (butir ketiga track pertama) tidak lagi sama dengan tumpang tindihnya:
+
+```bash
+cp -r templates/timeline-contoh .cache/awvd/salah
+bun -e 'const f=".cache/awvd/salah/timeline.json",t=JSON.parse(await Bun.file(f).text());t.track[2].butir[0].aset="logo-hantu";t.track[0].butir[2].transisi.durasi=10;await Bun.write(f,JSON.stringify(t,null,2))'
+bun run timeline periksa .cache/awvd/salah/timeline.json
 ```
 
 ## Keputusan
@@ -251,6 +305,10 @@ Dua pilihan implementasi yang menyertainya: validator ditulis tangan tanpa depen
 - Validator memeriksa kelengkapan catatan dan kepatuhan aturan teknis; ia tidak menjamin pemakaian yang sah secara hukum, dan kebijakan kutipan bukan nasihat hukum.
 
 ## Changelog
+
+### 2026-11-08 - v1.3.0
+
+- Dokumen penutup F2 (#36): bagian Alur ujung ke ujung (diagram dan enam langkah dari menulis sampai MP4 bersuara, dijalankan terhadap `templates/timeline-contoh`), contoh timeline salah yang dapat diulang dengan keluaran nyata, status tidak lagi menyebut dokumen ini sebagai "menyusul", dan catatan `bun run klip` untuk sumber kutipan dikoreksi.
 
 ### 2026-11-08 - v1.2.0
 
