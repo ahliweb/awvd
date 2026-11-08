@@ -16,7 +16,8 @@
  * frame -> pipa ke ffmpeg x264 video-saja (-threads 2) -> MPEG-TS. Segmen digabung dengan concat
  * demuxer `-c copy` ke MP4 (+faststart); jumlah frame dan PTS diverifikasi. Audio, subtitle, dan
  * kenyaringan (loudnorm dua-pass) dipasang di tahap akhir tunggal dengan `-c:v copy`, tanpa encode
- * video ulang. Keluaran MP4 sama persis untuk --paralel berapa pun (serial = satu pekerja).
+ * video ulang; durasi dikunci `-t` = frame/fps (bukan -shortest, agar subtitle pendek tidak memotong).
+ * Keluaran MP4 sama persis untuk --paralel berapa pun (serial = satu pekerja).
  * Tidak ada file sementara per frame; berkas sementara per render ada di folder unik dan dibersihkan.
  *
  * Jaringan: semua permintaan selain file:, data:, about:, dan blob: (HTTP, HTTPS,
@@ -206,7 +207,9 @@ async function ukurAkhir(file) {
 
 // Tahap akhir tunggal: pasang audio (AAC, kenyaringan) dan subtitle ke video hasil gabungan segmen.
 // Video disalin apa adanya (-c:v copy); tidak ada encode video ulang.
-function bangunFfmpegAkhir({ fps, dari, masuk, keluar, filterKenyaringan }) {
+// Durasi keluaran ditentukan oleh jumlah frame (-t = total/fps), bukan oleh trek terpendek: -shortest
+// ikut menghitung trek subtitle, sehingga subtitle yang berakhir lebih awal memotong video dan audio.
+function bangunFfmpegAkhir({ fps, dari, total, masuk, keluar, filterKenyaringan }) {
   const a = ["-i", masuk];
   const offsetDetik = (dari / fps).toFixed(6);
   let idx = 1;
@@ -226,15 +229,15 @@ function bangunFfmpegAkhir({ fps, dari, masuk, keluar, filterKenyaringan }) {
   if (idxSub >= 0) a.push("-map", `${idxSub}:s:0`);
   a.push("-c:v", "copy");
   if (idxAudio >= 0) {
-    // Normalisasi dulu, lalu apad: audio pendek diberi senyap setelah dinormalisasi,
-    // dan -shortest memotong audio panjang; durasi = video.
+    // Normalisasi dulu, lalu apad: audio pendek diberi senyap setelah dinormalisasi;
+    // audio panjang dipotong oleh -t di bawah.
     const rantai = [];
     if (filterKenyaringan) rantai.push(filterKenyaringan, "aresample=48000");
     rantai.push("apad");
-    a.push("-c:a", "aac", "-b:a", "384k", "-ar", "48000", "-ac", "2", "-af", rantai.join(","), "-shortest");
+    a.push("-c:a", "aac", "-b:a", "384k", "-ar", "48000", "-ac", "2", "-af", rantai.join(","));
   }
   if (idxSub >= 0) a.push("-c:s", "mov_text", "-metadata:s:s:0", `language=${o.bahasa}`);
-  a.push("-movflags", "+faststart", "-f", "mp4", keluar);
+  a.push("-t", (total / fps).toFixed(6), "-movflags", "+faststart", "-f", "mp4", keluar);
   return a;
 }
 
@@ -472,7 +475,7 @@ try {
         ...(adaTambahan ? [] : ["-movflags", "+faststart"]), "-f", "mp4", gabungan], "gabung segmen");
       await verifikasiGabungan(gabungan, total);
       if (adaTambahan) {
-        const pesan = await jalankanFfmpeg(bangunFfmpegAkhir({ fps: cfg.fps, dari, masuk: gabungan, keluar: keluarSementara, filterKenyaringan }), "tahap akhir (audio/subtitle)");
+        const pesan = await jalankanFfmpeg(bangunFfmpegAkhir({ fps: cfg.fps, dari, total, masuk: gabungan, keluar: keluarSementara, filterKenyaringan }), "tahap akhir (audio/subtitle)");
         if (pesan) console.error(pesan);
       }
       if (o["md5-tangkapan"]) {

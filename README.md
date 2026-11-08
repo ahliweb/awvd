@@ -4,7 +4,7 @@
 
 - Version: `v2.20.0`
 - Last updated: `2026-11-08`
-- Changeset: `§Perintah utama: audio klip ber-speed (konstan dan ramp, atempo) di `bun run audio` dan uji audio-waktu di `bun run uji`; §Struktur repo memuat uji audio-waktu; versi indeks dokumentasi (api-runtime v1.6.1, video-tertanam-audio v1.9.0, timeline v1.2.0, roadmap v1.16.0, log-keputusan v1.21.0). Sebelumnya: §Perintah utama: render timeline lewat templates/timeline (siapkan.mjs lalu render) dan uji templat-timeline; §Struktur repo memuat timeline.js dan templat timeline; versi docs/timeline.md v1.1.0. Sebelumnya: §Perintah utama: render selalu lewat segmen paralel (--paralel, --tangkap) dan uji render-paralel; §Struktur repo memuat render-sesi.mjs dan render-segmen.mjs; versi cli.md v1.8.0, arsitektur.md v1.2.0, batasan.md v1.8.0.`
+- Changeset: `§Perintah utama: audio klip ber-speed (konstan dan ramp, atempo) di `bun run audio` dan uji audio-waktu di `bun run uji`; §Struktur repo memuat uji audio-waktu; versi indeks dokumentasi (api-runtime v1.6.1, video-tertanam-audio v1.9.0, timeline v1.2.0, roadmap v1.16.0, log-keputusan v1.21.0). Sebelumnya: Indeks dokumentasi: versi cli.md dan batasan.md v1.8.1 (isu #79). Sebelumnya: §Perintah utama: render timeline lewat templates/timeline (siapkan.mjs lalu render) dan uji templat-timeline; §Struktur repo memuat timeline.js dan templat timeline; versi docs/timeline.md v1.1.0.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -75,7 +75,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.16.3` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.2.0` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.6.1` |
-| [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.8.0` |
+| [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.8.1` |
 | [docs/aset.md](docs/aset.md) | `bun run aset`: manifest `aset.json`, matriks lisensi, SVG, resolusi, sRGB, atribusi, helper runtime | `v1.1.0` |
 | [docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md) | `bun run periksa`: pemeriksaan, ambang, kilatan | `v1.0.1` |
 | [docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md) | `bun run konsep`: 13 jenis video, 5 alur, tingkat bukti, profil audiens | `v1.2.0` |
@@ -86,7 +86,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/visual-audiens.md](docs/visual-audiens.md) | Profil audiens, ukuran teks, buta warna, ketajaman, efek dekoratif | `v1.0.0` |
 | [docs/transisi-animasi.md](docs/transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, `kurangiGerak`, biaya kompresi | `v1.1.0` |
 | [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.7.0` |
-| [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.8.0` |
+| [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.8.1` |
 | [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab aset, matriks lisensi aset, video pihak ketiga | `v1.5.0` |
 | [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.1.0` |
 | [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.16.0` |
@@ -161,7 +161,11 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 
 ### 2026-11-08 - v2.20.0
 
-- §Perintah utama: `bun run audio` meregangkan audio klip ber-speed (konstan dan ramp) dengan `atempo` sinkron dengan pemetaan frame (F3/05, #42; jangkauan 0,5 sampai 4x, reverse dan freeze ditolak) dan `bun run uji` memuat uji audio-waktu (`bun run uji:audio-waktu`). §Struktur repo: daftar uji memuat audio-waktu. Indeks dokumentasi memperbarui versi `api-runtime.md` v1.6.1, `video-tertanam-audio.md` v1.9.0, `timeline.md` v1.2.0, `roadmap.md` v1.16.0, `log-keputusan.md` v1.21.0, dan `docs/README.md` v1.16.4.
+- §Perintah utama: `bun run audio` meregangkan audio klip ber-speed (konstan dan ramp) dengan `atempo` sinkron dengan pemetaan frame (F3/05, #42; jangkauan 0,5 sampai 4x, reverse dan freeze ditolak) dan `bun run uji` memuat uji audio-waktu (`bun run uji:audio-waktu`). §Struktur repo: daftar uji memuat audio-waktu. Indeks dokumentasi memperbarui versi `api-runtime.md` v1.6.1, `video-tertanam-audio.md` v1.9.0, `timeline.md` v1.2.0, `roadmap.md` v1.16.0, `log-keputusan.md` v1.21.0, dan `docs/README.md` v1.16.5.
+
+### 2026-11-08 - v2.19.1
+
+- Indeks dokumentasi memperbarui versi `cli.md` dan `batasan.md` menjadi v1.8.1 (durasi MP4 dikunci rentang frame, isu #79).
 
 ### 2026-11-08 - v2.19.0
 
