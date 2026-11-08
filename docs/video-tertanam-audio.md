@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.7.0`
-- Last updated: `2026-11-07`
-- Changeset: `Menambahkan bagian Trim, speed, reverse, dan freeze yang menunjuk pemetaan waktu klip di api-runtime.md, serta catatan batasan audio. Sebelumnya: penunjuk adaptor TTS lokal opsional.`
+- Version: `v1.8.0`
+- Last updated: `2026-11-08`
+- Changeset: `Menambahkan bagian Rencana dari timeline.json (audio.mjs --timeline: pemetaan track audio dan audio.mode butir video ke rencana, fail-closed, pemetaan waktu dari runtime.js, kode galat A01-A04, bukti uji) serta kunci gainDb opsional untuk narasi dan musik.`
 
 Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md). Efek klip (stabilisasi, chroma key, LUT `.cube`, kecerahan, kontras, saturasi, gamma, keseimbangan warna) yang diterapkan saat ekstraksi ada di [olah-klip.md](olah-klip.md). Peredam bising dan pengubah nada/tempo suara ada di [§Olah suara per trek](#olah-suara-per-trek).
 
@@ -181,8 +181,8 @@ Jalur berkas relatif terhadap folder rencana. Rentang frame setengah terbuka: `a
 | Kunci | Keterangan |
 | --- | --- |
 | `durasiFrame` | Wajib; jumlah frame komposisi. WAV hasil tepat sepanjang `durasiFrame / fps`. |
-| `narasi[]` | `berkas` (WAV atau MP3 beku), `mulai` (frame), `id` opsional, `bersih` dan `suara` opsional ([§Olah suara per trek](#olah-suara-per-trek)). Akhir segmen = `mulai + ceil(durasi x fps)` dari `ffprobe` (dibagi `suara.tempo` bila ada). |
-| `musik` | Opsional. `levelDb` (bawaan -12, rentang -20..-8): level musik di bawah ucapan saat ada suara. `bebasDb` (bawaan -6, antara `levelDb` dan 0): level saat tak ada suara. |
+| `narasi[]` | `berkas` (WAV atau MP3 beku), `mulai` (frame), `id` opsional, `gainDb` opsional (-60..12 dB, bawaan 0, setelah penyamaan level), `bersih` dan `suara` opsional ([§Olah suara per trek](#olah-suara-per-trek)). Akhir segmen = `mulai + ceil(durasi x fps)` dari `ffprobe` (dibagi `suara.tempo` bila ada). |
+| `musik` | Opsional. `levelDb` (bawaan -12, rentang -20..-8): level musik di bawah ucapan saat ada suara. `bebasDb` (bawaan -6, antara `levelDb` dan 0): level saat tak ada suara. `gainDb` (-60..12, bawaan 0): menggeser seluruh musik setelah penyamaan level. |
 | `klip[]` | `id`, `mulai`, `akhir`, `mode` (`bergantian` bawaan, `campur`, `bisu`), `berkas` audio (bisa dihilangkan bila ada `--klip-props`, diambil dari `audio.wav` hasil `klip.mjs`), `gainDb`, `turunDb` (hanya `campur`, bawaan 12, rentang 8..20), `dariDetik` (offset di berkas audio), `bersih` dan `suara` opsional (tanpa `tempo`; [§Olah suara per trek](#olah-suara-per-trek)). |
 | `fadeMs` | Bawaan 200, rentang 100..300. |
 | `ucapanLufs` | Level ucapan acuan, bawaan -16 LUFS. |
@@ -198,6 +198,49 @@ Jalur berkas relatif terhadap folder rencana. Rentang frame setengah terbuka: `a
 Klip dari sumber kutipan (`klip-props.json` memuat `kutipan`) punya aturan tambahan: audio bermusik (`isiAudio` `musik`, bawaan) wajib mode `bisu`, kecuali `musikDibahas` `true` dengan rentang paling lama 10 detik; audio ucapan memakai mode bergantian atau campur seperti biasa. Aturan ini hanya berlaku bila `audio.mjs` diberi `--klip-props`. Lihat [pelajari-reaction.md](pelajari-reaction.md#audio).
 
 Gagal juga bila: dua klip bersuara (bergantian atau campur) tumpang tindih; dua narasi tumpang tindih; `turunDb` di luar 8..20 atau `fadeMs` di luar 100..300; klip bermode bersuara tanpa berkas audio (gunakan `bisu`); berkas tidak ditemukan; rentang tidak valid. Contoh pesan: `narasi "n1" (frame 0..179) tumpang tindih audio klip "k" mode bergantian (frame 150..239) pada frame 150..179`. Setelah validasi, `audio.mjs` mencetak tabel pemegang suara per rentang frame (narasi, klip, campur, musik bebas, senyap).
+
+### Rencana dari timeline.json
+
+Selain rencana tulisan tangan, `audio.mjs` dapat **menurunkan rencana dari [`timeline.json`](timeline.md)** (track audio dan `audio.mode` butir video), supaya jadwal audio dan gambar bersumber dari satu berkas:
+
+```bash
+bun run klip templates/timeline-contoh/sumber.json --fps 30 --out .cache/awvd/klip
+bun run audio -- --timeline timeline.json --klip-props .cache/awvd/klip/klip-props.json --out campuran.wav \
+  [--rencana-keluar rencana-audio.json] [--ketat-campur] [--draf]
+```
+
+```mermaid
+flowchart TD
+    TL[timeline.json] --> P{periksaTimeline<br/>skema, manifest nyata, R01-R17}
+    P -->|satu galat saja: exit 2| X[tidak ada rencana,<br/>tidak ada WAV]
+    P --> M[pemetaan ke rencana<br/>rencanaDariTimeline]
+    KP[klip-props.json<br/>audio.wav klip] --> M
+    M --> VR{validasiRencana<br/>pemegang suara, ducking, kutipan}
+    VR -->|galat: exit 2| X
+    VR --> RAK[perakitan seperti rencana tulisan tangan]
+    RAK --> W[campuran.wav]
+```
+
+| Dari timeline | Ke rencana |
+| --- | --- |
+| Butir `audio` beraset peran `narasi` | `narasi[]`: `id` = id butir, `berkas` = `berkas` aset di `aset.json`, `mulai` (frame). `gainDb` = `gainDb` track + `gainDb` butir (0 tidak ditulis). |
+| Butir `audio` beraset peran `musik` | `musik`: `levelDb` dan `bebasDb` dari `ducking` (bila tak ditulis, bawaan rencana: -12 dan -6); `gainDb` = track + butir, menggeser seluruh musik (level bebas dan level ducking) setelah penyamaan level. |
+| Butir `video` dengan `audio.mode` `bergantian` atau `campur` | `klip[]`: `id` = id butir, `mulai`, `akhir` = `mulai + durasi`, `mode`, `gainDb` dan `turunDb` dari `audio`, `dariDetik` = `dari` / fps, `berkas` = `audio` klip itu di `klip-props.json` (wajib `--klip-props`). |
+| Butir `video` tanpa `audio` atau `bisu` | `klip[]` bermode `bisu` (tidak dimasukkan, hanya tampil di tabel). |
+| Track `aktif: false` | Dilewati (tetap divalidasi). |
+
+Aturan dan pengamannya:
+
+- **Fail-closed.** Timeline diperiksa penuh lebih dulu dengan pemeriksa yang sama dengan `bun run timeline periksa` (skema, manifest nyata, R01-R17). Satu galat berarti kode keluar 2, tanpa rencana dan tanpa WAV. Rencana turunan lalu masih melewati `validasiRencana` (pertahanan berlapis). Peringatan validator dicetak ke stderr.
+- **Klip tidak bertabrakan dengan audio utama.** Aturan pemegang suara sama dengan rencana tulisan tangan: narasi tidak boleh tumpang tindih klip `bergantian` (galat R11 di timeline), `campur` memberi peringatan W05 dan klip diturunkan `turunDb` selama narasi.
+- **Pemetaan waktu satu sumber.** Audio mengikuti gambar hanya bila waktu butir identitas. Itu diputuskan dengan `petaWaktuKlip` dari `runtime.js` (offset frame ke-i sama dengan i), dan `dariDetik` dari `frameSumber`, yaitu fungsi yang juga dipakai validator timeline dan render, jadi rumus waktu tidak diduplikasi. Speed, reverse, atau freeze pada butir bersuara ditolak (R09 di validator; A04 sebagai lapis kedua): set `audio.mode` `bisu`.
+- **Transisi.** Audio butir keluar berakhir di awal transisi ke butir berikutnya di track yang sama (aturan yang sama dengan R11, helper `akhirAudioButir` di `timeline.mjs`), sehingga dua klip `bergantian` yang bertransisi tidak bertumpuk.
+- **Kenyaringan.** Penyamaan level ke `audio.ucapanLufs` (bawaan -16) dan fade `audio.fadeMs` diambil dari timeline; kenyaringan akhir video tetap diatur `render.mjs --kenyaringan`.
+- **Batas.** Musik diputar sepanjang video dari awal berkas: butir musik harus `mulai` 0, `dari` 0, dan `durasi` sama dengan `proyek.durasi` (galat A02; siapkan berkas musik yang sudah dipotong). Peran `efek` belum didukung (R10). Olah suara (`bersih`, `suara`) belum ada di timeline; pakai `rencana-audio.json`. `--fps`, bila diberikan, harus sama dengan `proyek.fps`.
+
+Kode galat tambahan: `A01` audio klip tak ditemukan (tanpa `--klip-props`, atau klip tanpa audio), `A02` musik tak sepanjang video atau ber-offset, `A03` jalur berkas audio ditolak (keluar folder manifest), `A04` waktu klip bukan identitas. Galat dari pemeriksa timeline membawa kodenya (`SKEMA`, `R01`-`R17`).
+
+Bukti: `scripts/uji-audio-timeline.mjs` (`bun run uji:audio-timeline`, bagian dari `bun run uji`) memakai aset sintetis templat `timeline-contoh` (klip 1000 Hz dan 700 Hz, narasi 330 Hz, musik akor 220/277/330 Hz). Pada hasil rakitan: di rentang klip `bergantian` daya narasi dan musik turun lebih dari 50 dB di bawah klip; klip `campur` turun 12 dB (+-1,5) selama narasi; musik turun 6 dB saat narasi (+-1,5); kenyaringan klip dan narasi di dalam +-1,0 dan +-1,5 LU dari -16 LUFS, musik bebas dalam +-1,0 LU dari -22 LUFS; dua rakitan identik byte demi byte. Batas bukti: nada sintetis, bukan ucapan manusia.
 
 ### Gain dan perakitan
 
@@ -258,6 +301,11 @@ awvd tidak membundel mesin TTS. Antarmuka narasi adalah **berkas WAV beku**: has
 Yang disediakan adalah adaptor opsional `sherpa-onnx` di `bun run narasi` ([TTS lokal](narasi-caption.md#tts-lokal-sherpa-onnx)): pengguna memasang sherpa-onnx dan model sendiri (Supertonic 3 untuk Indonesia, Kokoro untuk Inggris; bobot Supertonic berlisensi OpenRAIL-M dengan syarat label suara sintetis dan larangan nasihat medis, lihat [lisensi-kepatuhan.md](lisensi-kepatuhan.md#model-tts-dan-openrail-m)), adaptor membekukan WAV di cache berhash dan menormalkan kenyaringannya, dan `rencana-audio.json` yang dihasilkan masuk ke `bun run audio` seperti biasa.
 
 ## Changelog
+
+### 2026-11-08 - v1.8.0
+
+- Bagian baru Rencana dari timeline.json: `audio.mjs --timeline` (opsi `--rencana-keluar`, `--draf`) menurunkan rencana audio dari `timeline.json` dengan pemeriksaan penuh lebih dulu (fail-closed), pemetaan waktu dari `runtime.js`, aturan transisi, kode galat A01-A04, dan bukti uji `uji-audio-timeline.mjs`.
+- Tabel rencana: `gainDb` opsional di `narasi[]` dan `musik`.
 
 ### 2026-11-07 - v1.7.0
 
