@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.7.0`
+- Version: `v1.8.0`
 - Last updated: `2026-11-08`
-- Changeset: `Semua render lewat jalur segmen dengan pekerja paralel: flag --paralel, --tangkap, --md5-tangkapan, bagian Render paralel dan segmen, pemanasan 2 frame, keluaran MP4 berubah satu kali. Sebelumnya: tabel Perintah lain memuat bun run timeline periksa.`
+- Changeset: `Semua render lewat jalur segmen dengan pekerja paralel: flag --paralel, --tangkap, --md5-tangkapan, bagian Render paralel dan segmen, pemanasan 2 frame, keluaran MP4 berubah satu kali. Sebelumnya: Tabel Perintah lain memuat bun run reframe periksa dan saran.`
 
 Referensi CLI `scripts/render.mjs` (`bun run render`). Alur di balik perintah ini ada di [arsitektur.md](arsitektur.md).
 
@@ -117,6 +117,7 @@ Sebelum frame pertama renderer memuat eksplisit setiap `@font-face` (`FontFace.l
 | `bun run narasi transkripsi <audio> --out DIR [--bahasa id] [--fps 30] [--audiens umum]` | Caption dari audio tanpa naskah lewat whisper.cpp lokal opsional; semua keluaran ditandai "hasil ASR, wajib ditinjau manusia" | [narasi-caption.md](narasi-caption.md#caption-dari-audio-tanpa-naskah) |
 | `bun run ketukan <audio> [--fps N] [--out ketukan.json]` | Deteksi onset dan ketukan musik (fluks spektral, tempo autokorelasi) menjadi `ketukan.json` berisi tempo, ketukan, dan onset dalam detik dan frame untuk sinkron potongan | [ketukan.md](ketukan.md) |
 | `bun run timeline periksa [timeline.json] [--klip-props F] [--ketat] [--json] [--draf]` | Validator `timeline.json` (skema 1) fail-closed: skema, rujukan ke `aset.json` dan `sumber.json` nyata, tumpang tindih dan transisi, waktu klip, audio, atribusi, kutipan; kode keluar 2 untuk timeline tidak valid. Tidak menulis berkas; render menyusul | [timeline.md](timeline.md) |
+| `bun run reframe periksa <reframe.json> [--durasi N]`, `bun run reframe saran <video> [--keluar 1080x1920] [--fps N] [--out reframe.json]` | Reframe 16:9 ke 9:16: validasi `reframe.json` (skema, teks sumber terpotong, teks keluaran di area aman 9:16) dan saran keyframe fokus heuristik tanpa model (opsional, wajib ditinjau) | [reframe.md](reframe.md) |
 | `bun run pelajari <video-lokal> --sumber-sah CARA` | Statistik gaya dari video lokal yang sah dimiliki (ritme potongan, palet, kenyaringan, pola); laporan JSON/Markdown | [pelajari-reaction.md](pelajari-reaction.md) |
 | `bun run kutipan -- periksa\|hash <sumber.json>` | Periksa kebijakan kutipan wajar; hitung hash gerbang hukum GH | [pelajari-reaction.md](pelajari-reaction.md#bun-run-kutipan) |
 | `bun run konsep -- <subperintah>` | Konsep video: jenis, alur, brief, persetujuan | [konsep-jenis-alur.md](konsep-jenis-alur.md) |
@@ -125,9 +126,13 @@ Sebelum frame pertama renderer memuat eksplisit setiap `@font-face` (`FontFace.l
 
 ## Changelog
 
-### 2026-11-08 - v1.7.0
+### 2026-11-08 - v1.8.0
 
 - Semua render video memakai jalur segmen (segmen tetap `4 x round(fps/2)` frame, tiap segmen satu proses Chromium dan encode video-saja, gabung `-c copy`, audio dan kenyaringan di tahap akhir `-c:v copy`); serial adalah `--paralel 1` dan keluaran MP4 sama untuk N berapa pun. Menambahkan flag `--paralel`, `--tangkap png|jpeg` (jpeg = draf), dan `--md5-tangkapan`, bagian Render paralel dan segmen, pemanasan 2 frame di semua mode, `-threads 2` x264, keluaran ditulis atomik (`.sementara`), dan kode keluar `130`/`143`. Byte MP4 berubah satu kali dibanding renderer lama (catatan migrasi di Encode video).
+
+### 2026-11-08 - v1.7.0
+
+- Tabel Perintah lain: `bun run reframe periksa|saran`; `render.mjs` tidak berubah.
 
 ### 2026-11-07 - v1.6.0
 

@@ -837,6 +837,54 @@ daftar("waktu klip: properti ber-seed untuk ramp bereasing: monoton dan rentang"
   }
 });
 
+daftar("keyframe: nilai tepat di titik, easing per segmen, larik, clamp, galat", () => {
+  const { keyframe } = api;
+  tegas(globalThis.window.keyframe === keyframe, "keyframe bukan global");
+  const kf = [
+    { pada: 0, nilai: 10, easing: "masukQuad" },
+    { pada: 10, nilai: 20 , easing: [0.2, 0, 0, 1] },
+    { pada: 30, nilai: 0, easing: "linear" },
+    { pada: 40, nilai: 100 },
+  ];
+  // tepat di setiap keyframe (termasuk easing yang tak persis 1 di ujung)
+  for (const k of kf) samaDengan(keyframe(k.pada, kf), k.nilai, `titik ${k.pada}`);
+  // di antara: easing segmen sendiri
+  dekat(keyframe(5, kf), 10 + 10 * easing.masukQuad(0.5), 1e-12, "seg0 masukQuad");
+  dekat(keyframe(20, kf), 20 + (0 - 20) * easing.bezier(0.2, 0, 0, 1)(0.5), 1e-12, "seg1 bezier");
+  dekat(keyframe(35, kf), 50, 1e-12, "seg2 linear");
+  // sama dengan interpolasi untuk satu segmen
+  dekat(keyframe(5, kf), interpolasi(5, [0, 10], [10, 20], { easing: easing.masukQuad }), 1e-12, "= interpolasi");
+  // easing bawaan opsi dipakai bila titik tak punya easing; easing titik menang
+  dekat(keyframe(5, [{ pada: 0, nilai: 0 }, { pada: 10, nilai: 1 }], { easing: "masukQuad" }), 0.25, 1e-12, "opsi.easing");
+  dekat(keyframe(5, [{ pada: 0, nilai: 0, easing: "linear" }, { pada: 10, nilai: 1 }], { easing: "masukQuad" }), 0.5, 1e-12, "easing titik > opsi");
+  dekat(keyframe(5, [{ pada: 0, nilai: 0, easing: (t) => t * t }, { pada: 10, nilai: 1 }]), 0.25, 1e-12, "easing fungsi");
+  // clamp
+  samaDengan(keyframe(-5, kf), 10, "clamp awal");
+  samaDengan(keyframe(99, kf), 100, "clamp akhir");
+  dekat(keyframe(50, kf, { clamp: false }), 200, 1e-12, "ekstrapolasi akhir linear");
+  dekat(keyframe(-10, [{ pada: 0, nilai: 0, easing: "masukQuad" }, { pada: 10, nilai: 10 }], { clamp: false }), -10, 1e-12, "ekstrapolasi awal linear");
+  // larik (vektor) dan pada pecahan; hasil salinan baru
+  const v = [{ pada: 0, nilai: [0, 100, 255] }, { pada: 4, nilai: [100, 0, 255] }];
+  samaDengan(keyframe(1, v), [25, 75, 255], "larik");
+  const awal = keyframe(0, v);
+  awal[0] = 999;
+  samaDengan(keyframe(0, v), [0, 100, 255], "salinan, bukan rujukan");
+  dekat(keyframe(0.5, [{ pada: 0.25, nilai: 0 }, { pada: 0.75, nilai: 4 }]), 2, 1e-12, "pada pecahan");
+  // deterministik dan murni
+  samaDengan(keyframe(17, kf), keyframe(17, kf), "deterministik");
+  // galat
+  melempar(() => keyframe(0, [{ pada: 0, nilai: 1 }]), "kurang dari 2 titik");
+  melempar(() => keyframe(0, "x"), "bukan larik");
+  melempar(() => keyframe(NaN, kf), "frame NaN");
+  melempar(() => keyframe(0, [{ pada: 5, nilai: 1 }, { pada: 5, nilai: 2 }]), "pada tak naik tegas");
+  melempar(() => keyframe(0, [{ pada: 0, nilai: 1 }, { pada: 1, nilai: [2] }]), "campur angka dan larik");
+  melempar(() => keyframe(0, [{ pada: 0, nilai: [1, 2] }, { pada: 1, nilai: [2] }]), "panjang larik beda");
+  melempar(() => keyframe(0, [{ pada: 0, nilai: "a" }, { pada: 1, nilai: 2 }]), "nilai bukan angka");
+  melempar(() => keyframe(0, [{ pada: 0, nilai: 1 }, { pada: 1, nilai: 2, easing: "linear" }]), "easing di titik terakhir");
+  melempar(() => keyframe(1, [{ pada: 0, nilai: 1, easing: "tidakAda" }, { pada: 4, nilai: 2 }]), "easing tak dikenal");
+  melempar(() => keyframe(1, [{ pada: 0, nilai: 1 }, { pada: 4, nilai: 2 }], { easing: "bezier" }), "opsi.easing tak sah");
+});
+
 const t0 = Date.now();
 let gagal = 0;
 for (const [nama, fn] of uji) {
