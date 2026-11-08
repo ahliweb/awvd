@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.16.0`
+- Version: `v1.17.0`
 - Last updated: `2026-11-08`
-- Changeset: `Speed ramp dengan audio atempo (F3/05) selesai: paritas trim, speed, reverse, freeze mencakup audio speed konstan dan ramp; status F3 selesai. Sebelumnya: Paritas timeline multitrack berstatus ada (templat render generik F2/03 dan rencana audio F2/05 selesai); status F2 berjalan. Sebelumnya: F4: syarat keluar didefinisikan ulang (MP4 byte-identik antar jumlah pekerja, KP-068) dan paritas render cepat berstatus ada (render paralel per segmen).`
+- Changeset: `Speed ramp dengan audio atempo (F3/05) selesai: paritas trim, speed, reverse, freeze mencakup audio speed konstan dan ramp; status F3 selesai. Sebelumnya: F6 berstatus berjalan: rancangan penyunting pratinjau (F6/01, #53) disetujui pemilik; paritas penyunting visual merujuk penyunting.md. Sebelumnya: Paritas timeline multitrack berstatus ada (templat render generik F2/03 dan rencana audio F2/05 selesai); status F2 berjalan.`
 
 ## Visi
 
@@ -47,7 +47,7 @@ Status memakai `rencana | berjalan | selesai | ditunda | dibatalkan`.
 | F3 | F3 Pemrosesan klip | Olah klip di tahap ekstraksi dengan cache | `klip.mjs` mendukung LUT/filter warna, chroma key, stabilisasi, peredam bising, dan speed ramp; uji lolos | selesai | [#37](https://github.com/ahliweb/awvd/issues/37) |
 | F4 | F4 Kinerja render | Render footage panjang dalam waktu layak | Render lewat segmen dengan MP4 byte-identik untuk jumlah pekerja berapa pun dan tangkapan PNG per frame identik dengan tangkapan serial (KP-068); percepatan terukur dan didokumentasikan | berjalan | [#43](https://github.com/ahliweb/awvd/issues/43) |
 | F5 | F5 Fitur cerdas lokal | Fitur cerdas lokal yang opsional | ASR whisper.cpp opsional, deteksi ketukan, reframe, dan hapus latar opsional dengan model berlisensi permisif yang tidak dibundel; masing-masing beruji dan terdokumentasi | rencana | [#47](https://github.com/ahliweb/awvd/issues/47) |
-| F6 | F6 Penyunting pratinjau | Alat bantu visual penyusun timeline | Halaman pratinjau lokal dengan scrubber dan daftar track yang mengekspor `timeline.json`; uji E2E Playwright lolos | rencana | [#52](https://github.com/ahliweb/awvd/issues/52) |
+| F6 | F6 Penyunting pratinjau | Alat bantu visual penyusun timeline | Halaman pratinjau lokal dengan scrubber dan daftar track yang mengekspor `timeline.json`; uji E2E Playwright lolos | berjalan (rancangan F6/01 disetujui, [penyunting.md](penyunting.md)) | [#52](https://github.com/ahliweb/awvd/issues/52) |
 
 ```mermaid
 flowchart LR
@@ -94,7 +94,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Sinkron ketukan musik | sebagian: deteksi ketukan dan tempo tetap dari audio lokal ke `ketukan.json` dengan helper komposisi ada ([ketukan.md](ketukan.md)); diuji pada sinyal sintetis, musik nyata dan tempo berubah belum diuji | F5/02 (selesai) |
 | Reframe 16:9 ke 9:16 | sebagian: crop berkeyframe manual deterministik dengan validasi teks terpotong dan area aman 9:16 (`window.Reframe`, `bun run reframe`) dan saran fokus heuristik tanpa model ([reframe.md](reframe.md)); diuji pada video sintetis, pelacakan wajah atau objek belum | F5/03 (selesai) |
 | Hapus latar tanpa layar hijau | belum | F5/04 |
-| Penyunting visual | belum (ada mode `?preview`) | F6 |
+| Penyunting visual | belum (ada mode `?preview`; rancangan disetujui di [penyunting.md](penyunting.md), implementasi #54 dan #55) | F6 |
 
 ## Label dan milestone
 
@@ -113,10 +113,14 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 
 ## Changelog
 
-### 2026-11-08 - v1.16.0
+### 2026-11-08 - v1.17.0
 
 - Paritas "Trim, speed, reverse, freeze": audio speed konstan dan ramp diregangkan dengan `atempo` (F3/05); reverse dan freeze tetap tanpa audio.
 - Status F3 menjadi selesai (F3/01 sampai F3/05); catatan urutan F3/05 diperbarui.
+
+### 2026-11-08 - v1.16.0
+
+- Status F6 menjadi berjalan: rancangan penyunting pratinjau F6/01 (#53) selesai dan disetujui pemilik (KP-074 sampai KP-076); paritas "Penyunting visual" merujuk [penyunting.md](penyunting.md).
 
 ### 2026-11-08 - v1.15.0
 

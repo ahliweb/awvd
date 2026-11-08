@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.21.0`
+- Version: `v1.22.0`
 - Last updated: `2026-11-08`
-- Changeset: `Menambahkan KP-077 (audio klip ber-speed: atempo sinkron dengan pemetaan frame, jangkauan 0,5..4x, reverse dan freeze ditolak). Sebelumnya: Menambahkan KP-071 sampai KP-073 (templat render timeline: dua lapis, siapkan.mjs, kurangiGerak). Sebelumnya: Menambahkan KP-068 sampai KP-070 (keputusan pemilik dari riset #44: render lewat segmen, pemanasan 2 frame, --tangkap jpeg draf).`
+- Changeset: `Menambahkan KP-077 (audio klip ber-speed: atempo sinkron dengan pemetaan frame, jangkauan 0,5..4x, reverse dan freeze ditolak). Sebelumnya: Menambahkan KP-074 sampai KP-076 (keputusan pemilik atas rancangan penyunting F6: server lokal, kebijakan tulis berkas, lingkup v1). Sebelumnya: Menambahkan KP-071 sampai KP-073 (templat render timeline: dua lapis, siapkan.mjs, kurangiGerak).`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -120,13 +120,20 @@ flowchart TD
 | KP-071 | Templat render timeline berlapis dua: `scripts/timeline.js` murni tanpa DOM (rencana, keadaan, sifat) dan `templates/timeline/index.html` hanya penempel DOM; tiap butir punya lapisan luar untuk transisi dan lapisan dalam untuk tata letak, properti keyframe, dan animasi. | 2026-11-08 | Berlaku | Satu sumber jadwal yang bisa diuji di Bun tanpa Chromium; transform transisi tidak bentrok dengan transform properti. Alternatif satu berkas browser ditolak karena tidak dapat diuji murni. Keputusan desain implementasi; rincian di [timeline.md](timeline.md#templat-render). | #32 |
 | KP-072 | Props templat timeline dirakit `templates/timeline/siapkan.mjs` dari CLI yang ada (klip, `timeline periksa --ketat`, aset), bukan dengan menambah `--gabung` di `timeline.mjs`. | 2026-11-08 | Berlaku | Validator tetap tidak berubah, dan timeline yang ditolak tidak pernah mencapai Chromium (fail-closed sebelum render). | #32 |
 | KP-073 | Profil `kurangiGerak` menahan Ken Burns di posisi awal; properti keyframe yang ditulis penulis timeline tidak diubah. | 2026-11-08 | Berlaku | Sejalan dengan pola "kamera mati" di `transisi.js`; keyframe adalah kehendak eksplisit penulis. Konsekuensinya penulis bertanggung jawab atas gerak keyframe untuk audiens peka gerak ([aksesibilitas.md](aksesibilitas.md)). | #32 |
+| KP-074 | Penyunting pratinjau F6 memvalidasi lewat server lokal `Bun.serve` (hanya `127.0.0.1`, token, cek `Host`/`Origin`, rute daftar putih, CSP) yang memanggil validator `timeline.mjs`; unduhan peramban hanya cadangan. | 2026-11-08 | Berlaku | Validator tetap sumber tunggal dan umpan balik galat berlokasi langsung di UI. Alternatif ekspor lalu `timeline periksa` manual ditolak karena kehilangan jaminan "lolos validator". Keputusan pemilik atas rekomendasi riset; rincian di [penyunting.md](penyunting.md). | #53 |
+| KP-075 | Penyunting menulis bawaan ke `<nama>.sunting.json`; menimpa sumber hanya dengan `--timpa` eksplisit; ekspor hanya bila validator lolos; penulisan atomik. | 2026-11-08 | Berlaku | Mencegah kehilangan berkas sumber dan keluaran tidak valid. Keputusan pemilik. | #53 |
+| KP-076 | Lingkup v1 penyunting: pindah, potong (hanya butir tanpa `waktu`, `properti`, `animasi`, `kenBurns`, dan bukan `audio`), ubah durasi; tanpa menambah butir atau media, tanpa audio, tanpa riwayat urungkan lintas muat ulang. | 2026-11-08 | Berlaku | Menjaga #54 dan #55 tetap ukuran M; fitur lain tetap lewat penyuntingan JSON dan diusulkan sebagai issue lanjutan. Keputusan pemilik. | #53 |
 | KP-077 | Audio klip ber-speed memakai `atempo` yang diturunkan dari `RT.petaWaktuKlip` (sumber tunggal pemetaan frame; `audio.mjs` tidak menghitung ulang rumus kecepatan): speed konstan satu potongan, ramp dipotong per segmen (maks 250 ms; potongan dipendekkan sampai garis lurus berbeda <= 1 frame dari tabel runtime), tiap potongan dipaksa tepat `sam(f1) - sam(f0)` sampel (`apad` lalu `atrim`) agar tidak ada drift. Jangkauan tempo 0,5..4x; di luar itu, reverse, dan freeze ditolak fail-closed (A04, R09), bukan didekati. `rencanaWaktuAudio` diekspor dari `audio.mjs`; `klip[]` rencana memuat `waktu` dan `durasi`. Aturan R09 timeline dilonggarkan untuk speed konstan dan ramp. | 2026-11-08 | Berlaku | Audio harus berada pada posisi yang sama dengan frame yang tampil (kriteria #42: tanpa drift > 1 frame). Diukur dengan bip sintetis: selisih maksimum 0,68 frame (konstan) dan 0,53 frame (ramp). Di bawah 0,5x `atempo` menggeser awal bunyi lebih dari 1 frame (3 frame pada 0,3x) dan di atas 4x bunyi pendek hilang, sehingga ditolak daripada diam-diam meleset. `rubberband` tidak dipakai karena tidak selalu tersedia di build ffmpeg, sedangkan `atempo` ada di semua build dan deterministik. Reverse dan freeze tidak punya pemetaan audio yang benar, sehingga tetap bisu. | #42 |
 
 ## Changelog
 
-### 2026-11-08 - v1.21.0
+### 2026-11-08 - v1.22.0
 
 - Menambahkan KP-077 (audio klip ber-speed dengan `atempo`, F3/05). Catatan di KP-052 diberi penunjuk ke KP-077; isi lama tidak dihapus.
+
+### 2026-11-08 - v1.21.0
+
+- Menambahkan KP-074 sampai KP-076: keputusan pemilik atas rancangan penyunting pratinjau F6 (#53).
 
 ### 2026-11-08 - v1.20.0
 
