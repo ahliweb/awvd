@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.9.0`
+- Version: `v1.9.1`
 - Last updated: `2026-11-08`
-- Changeset: `Menambahkan bagian Audio klip ber-speed (atempo): speed konstan dan ramp dirakit sinkron dengan pemetaan frame runtime.js, jangkauan 0,5 sampai 4x, panjang sampel tepat, reverse dan freeze tetap ditolak, kunci waktu dan durasi di klip[] rencana, serta bukti uji sinkron. Sebelumnya: bagian Rencana dari timeline.json.`
+- Changeset: `Jangkauan tempo 0,5..4x kini diperiksa R09 di validator timeline lewat rencanaWaktuAudio (issue #84); A04 menjadi lapis kedua. Sebelumnya: Menambahkan bagian Audio klip ber-speed (atempo): speed konstan dan ramp dirakit sinkron dengan pemetaan frame runtime.js, jangkauan 0,5 sampai 4x, panjang sampel tepat, reverse dan freeze tetap ditolak, kunci waktu dan durasi di klip[] rencana, serta bukti uji sinkron. Sebelumnya: bagian Rencana dari timeline.json.`
 
 Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md). Efek klip (stabilisasi, chroma key, LUT `.cube`, kecerahan, kontras, saturasi, gamma, keseimbangan warna) yang diterapkan saat ekstraksi ada di [olah-klip.md](olah-klip.md). Peredam bising dan pengubah nada/tempo suara ada di [§Olah suara per trek](#olah-suara-per-trek).
 
@@ -238,7 +238,7 @@ Aturan dan pengamannya:
 - **Kenyaringan.** Penyamaan level ke `audio.ucapanLufs` (bawaan -16) dan fade `audio.fadeMs` diambil dari timeline; kenyaringan akhir video tetap diatur `render.mjs --kenyaringan`.
 - **Batas.** Musik diputar sepanjang video dari awal berkas: butir musik harus `mulai` 0, `dari` 0, dan `durasi` sama dengan `proyek.durasi` (galat A02; siapkan berkas musik yang sudah dipotong). Peran `efek` belum didukung (R10). Olah suara (`bersih`, `suara`) belum ada di timeline; pakai `rencana-audio.json`. `--fps`, bila diberikan, harus sama dengan `proyek.fps`.
 
-Kode galat tambahan: `A01` audio klip tak ditemukan (tanpa `--klip-props`, atau klip tanpa audio), `A02` musik tak sepanjang video atau ber-offset, `A03` jalur berkas audio ditolak (keluar folder manifest), `A04` waktu klip tidak dapat dipetakan ke audio (reverse, freeze, kecepatan di luar 0,5..4x, atau ramp yang tak dapat disinkronkan). Galat dari pemeriksa timeline membawa kodenya (`SKEMA`, `R01`-`R17`).
+Kode galat tambahan: `A01` audio klip tak ditemukan (tanpa `--klip-props`, atau klip tanpa audio), `A02` musik tak sepanjang video atau ber-offset, `A03` jalur berkas audio ditolak (keluar folder manifest), `A04` waktu klip tidak dapat dipetakan ke audio (reverse, freeze, kecepatan di luar 0,5..4x, atau ramp yang tak dapat disinkronkan; pelanggaran yang sama sudah ditolak R09 oleh validator, A04 adalah lapis kedua). Galat dari pemeriksa timeline membawa kodenya (`SKEMA`, `R01`-`R17`).
 
 Bukti: `scripts/uji-audio-timeline.mjs` (`bun run uji:audio-timeline`, bagian dari `bun run uji`) memakai aset sintetis templat `timeline-contoh` (klip 1000 Hz dan 700 Hz, narasi 330 Hz, musik akor 220/277/330 Hz). Pada hasil rakitan: di rentang klip `bergantian` daya narasi dan musik turun lebih dari 50 dB di bawah klip; klip `campur` turun 12 dB (+-1,5) selama narasi; musik turun 6 dB saat narasi (+-1,5); kenyaringan klip dan narasi di dalam +-1,0 dan +-1,5 LU dari -16 LUFS, musik bebas dalam +-1,0 LU dari -22 LUFS; dua rakitan identik byte demi byte. Batas bukti: nada sintetis, bukan ucapan manusia.
 
@@ -261,7 +261,7 @@ flowchart TD
 
 - **Speed konstan.** Satu potongan: sumber `[0, panjang x S/1000)` frame dari `dariDetik`, tempo `S/1000`, dirangkai dari tahap `atempo` 0,5..2 (di luar itu dirantai; aman di semua versi ffmpeg). Panjang keluaran dipaksa tepat `round(panjang x 48000 / fps)` sampel (`apad` lalu `atrim`), jadi tidak ada drift yang menumpuk.
 - **Ramp.** Tabel runtime memakai lantai, sehingga ramp dipotong per segmen: tiap potongan memotong sumber `[tabel[f0], tabel[f1])` lalu `atempo` konstan `(tabel[f1] - tabel[f0]) / (f1 - f0)`. Batas potongan berhimpit di sumber dan di keluaran (tanpa celah atau tumpang tindih), panjang potongan paling banyak 250 ms dan dipendekkan sampai garis lurus berbeda paling banyak 1 frame dari tabel di setiap frame. Tiap potongan memotong sumber 100 ms lebih panjang lalu dipangkas ke panjang tepat, supaya ujung aliran `atempo` tidak masuk keluaran (tanpa itu bunyi di ujung potongan melemah).
-- **Jangkauan 0,5..4x (fail-closed).** Di bawah 0,5x `atempo` menggeser awal bunyi lebih dari 1 frame (diukur 3 frame pada 0,3x), dan di atas 4x bip pendek tidak lagi terdeteksi andal (diuji pada 8x dan 10x). Kecepatan konstan di luar jangkauan, atau ramp yang potongannya keluar dari jangkauan, ditolak dengan galat yang menyebut batasnya (A04 untuk timeline, pelanggaran `waktu:` untuk rencana tulisan tangan); set `bisu`.
+- **Jangkauan 0,5..4x (fail-closed).** Di bawah 0,5x `atempo` menggeser awal bunyi lebih dari 1 frame (diukur 3 frame pada 0,3x), dan di atas 4x bip pendek tidak lagi terdeteksi andal (diuji pada 8x dan 10x). Kecepatan konstan di luar jangkauan, atau ramp yang potongannya keluar dari jangkauan, ditolak dengan galat yang menyebut batasnya (R09 sejak `timeline periksa` dan A04 sebagai lapis kedua untuk timeline, pelanggaran `waktu:` untuk rencana tulisan tangan; validator memanggil `rencanaWaktuAudio`, jadi angka jangkauan hanya ada satu); set `bisu`.
 - **Reverse dan freeze ditolak.** Audio tidak diputar mundur dan tidak ditahan; pemetaan yang benar tidak ada, jadi `balik` dan `bekukan` pada klip bersuara galat (R09; A04 sebagai lapis kedua). Klip `bisu` boleh memakai waktu apa pun.
 - **Sumber habis.** Bila audio sumber lebih pendek daripada yang dibaca (speed besar), sisanya senyap dan ada peringatan; potongan yang seluruhnya di luar sumber dirakit senyap.
 - **Batas.** Nada tetap (`atempo` tidak menggeser nada), tetapi mutu ucapan menurun di tempo ekstrem. Transien sangat pendek (di bawah sekitar 10 ms) dapat melemah. Sambungan antarpotongan ramp tidak dikaburkan (tanpa crossfade): bunyi stasioner tersambung mulus, tetapi sambungan pada ucapan cepat dapat terdengar halus. `suara.tempo` tetap hanya untuk narasi.
@@ -327,6 +327,10 @@ awvd tidak membundel mesin TTS. Antarmuka narasi adalah **berkas WAV beku**: has
 Yang disediakan adalah adaptor opsional `sherpa-onnx` di `bun run narasi` ([TTS lokal](narasi-caption.md#tts-lokal-sherpa-onnx)): pengguna memasang sherpa-onnx dan model sendiri (Supertonic 3 untuk Indonesia, Kokoro untuk Inggris; bobot Supertonic berlisensi OpenRAIL-M dengan syarat label suara sintetis dan larangan nasihat medis, lihat [lisensi-kepatuhan.md](lisensi-kepatuhan.md#model-tts-dan-openrail-m)), adaptor membekukan WAV di cache berhash dan menormalkan kenyaringannya, dan `rencana-audio.json` yang dihasilkan masuk ke `bun run audio` seperti biasa.
 
 ## Changelog
+
+### 2026-11-08 - v1.9.1
+
+- Jangkauan tempo 0,5..4x dan sinkron ramp diperiksa R09 di validator timeline (memanggil `rencanaWaktuAudio`, #84); A04 menjadi lapis kedua.
 
 ### 2026-11-08 - v1.9.0
 

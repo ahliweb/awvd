@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.21.1`
+- Version: `v2.21.2`
 - Last updated: `2026-11-08`
-- Changeset: `Indeks dokumentasi: versi timeline.md v1.3.0 (dokumen penutup F2) dan roadmap.md v1.18.0 (F2 selesai); §Struktur repo: dua baris scripts/uji*.mjs yang kembar digabung jadi satu yang akurat; §Perintah utama menautkan alur ujung ke ujung timeline. Sebelumnya: §Perintah utama: audio klip ber-speed (konstan dan ramp, atempo) di `bun run audio` dan uji audio-waktu di `bun run uji`; §Struktur repo memuat uji audio-waktu; versi indeks dokumentasi (api-runtime v1.6.1, video-tertanam-audio v1.9.0, timeline v1.2.0, roadmap v1.17.0, log-keputusan v1.22.0).`
+- Changeset: `Indeks dokumentasi: versi timeline.md v1.3.1 dan video-tertanam-audio.md v1.9.1; §Perintah utama: R09 menolak kecepatan audio di luar 0,5..4x sejak timeline periksa (#84). Sebelumnya: Indeks dokumentasi: versi timeline.md v1.3.0 (dokumen penutup F2) dan roadmap.md v1.18.0 (F2 selesai).`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -64,7 +64,7 @@ Server statis apa pun juga bisa dipakai. Satu frame saja: `?frame=60`. Props pra
 - `bun run uji`: uji unit runtime, uji periksa, uji SOP, uji klip, uji konsep, uji visual (helper warna dan ukuran teks, data audiens), uji transisi, uji aset (`bun run uji:aset`), uji pelajari (statistik gaya, kebijakan kutipan, templat reaction), uji audio (`bun run uji:audio`: SNR peredam bising, nada dan tempo, kenyaringan -16 LUFS, determinisme), uji narasi (`bun run uji:narasi`: skema naskah, estimasi berjangkar jeda, cue, templat narasi-contoh), uji caption (`bun run uji:caption`: lima mode, posisi dan zona, area aman 16:9 dan 9:16, kontras, DOM di Chromium), uji ketukan (`bun run uji:ketukan`: metronom sintetis, kontrol negatif, senyap dan derau), uji timeline (`bun run uji:timeline`: skema, aturan R01-R17, manifest nyata, kode keluar, waktu klip), uji reframe (`bun run uji:reframe`: geometri crop, interpolasi, area aman, templat di Chromium, saran pada video sintetis), uji audio-timeline (`bun run uji:audio-timeline`: fail-closed, pemetaan narasi, musik, ducking, dan mode audio klip, kenyaringan, determinisme), uji audio-waktu (`bun run uji:audio-waktu`: atempo klip ber-speed sinkron dengan pemetaan frame dalam 1 frame, panjang sampel tepat, nada tetap, fail-closed, determinisme), uji render paralel (`bun run uji:render-paralel`: MP4 dan md5 tangkapan identik antar jumlah pekerja, efek awal-dingin, `--tangkap jpeg`, kegagalan pekerja fail-closed, audio dan subtitle di tahap akhir), uji templat timeline (`bun run uji:templat-timeline`: penjadwal murni, contoh lolos `--ketat`, framemd5 dua render identik termasuk transisi, `kurangiGerak`), lalu sepuluh uji renderer (properti video, determinisme, still, rentang, audio, subtitle, skala, galat, kenyaringan siaran, determinisme `--skala` 0.5 dan 0.75); sekitar tiga menit. `bun run uji -- --simpan DIR` juga menyalin PNG still hasil uji ke `DIR`; CI memakainya untuk artefak `frame-contoh`.
 - `bun run narasi <naskah.json> --out DIR`: naskah narasi dan WAV beku menjadi cue caption VTT/SRT yang sinkron (estimasi berjangkar jeda, lint cps profil audiens), stempel kata, dan `rencana-audio.json` untuk `bun run audio`; mesin suara opsional `sherpa-onnx` (TTS lokal: Supertonic untuk Indonesia, Kokoro untuk Inggris; tidak dibundel, WAV dibekukan di cache berhash, label suara sintetis wajib, konten medis diperingatkan atau ditolak) ([docs/narasi-caption.md](docs/narasi-caption.md#tts-lokal-sherpa-onnx)). ASR lokal opsional (whisper.cpp; tidak dibundel, jalan lokal sehingga boleh untuk naskah internal): `--selaras whisper` memakai stempel kata hasil ASR untuk sorot kata (skor penyelarasan rendah jatuh ke estimasi), dan `bun run narasi transkripsi <audio> --out DIR` membuat caption dari audio tanpa naskah yang ditandai "hasil ASR, wajib ditinjau manusia" ([docs/narasi-caption.md](docs/narasi-caption.md#asr-lokal-whispercpp)).
 - `bun run timeline periksa [timeline.json]`: validator `timeline.json` (skema 1) fail-closed sebelum Chromium: skema, rujukan ke `aset.json` dan `sumber.json` nyata, tumpang tindih dan transisi, waktu klip, audio, atribusi, dan kebijakan kutipan; kode keluar 2 untuk timeline tidak valid. Render: `bun templates/timeline/siapkan.mjs <timeline.json> --out DIR` (ekstraksi klip, validasi `--ketat`, aset) lalu `bun run render templates/timeline/index.html --props-file DIR/props.json --out ...`; audio lewat `bun run audio -- --timeline` ([docs/timeline.md](docs/timeline.md#templat-render); alur lengkap dari menulis sampai MP4 bersuara: [Alur ujung ke ujung](docs/timeline.md#alur-ujung-ke-ujung)). Uji: `bun run uji:templat-timeline` (ikut `bun run uji`).
-- `bun run audio -- --timeline timeline.json --klip-props klip-props.json --out campuran.wav [--rencana-keluar rencana-audio.json] [--draf]`: rencana audio diturunkan dari track audio dan `audio.mode` butir video `timeline.json`; timeline diperiksa penuh lebih dulu (fail-closed) ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md#rencana-dari-timelinejson)). Uji: `bun run uji:audio-timeline` (ikut `bun run uji`). Klip ber-speed (`waktu.kecepatan` konstan atau ramp) diregangkan dengan `atempo` sinkron dengan frame, jangkauan 0,5 sampai 4x; reverse dan freeze ditolak ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md#audio-klip-ber-speed-atempo)). Uji: `bun run uji:audio-waktu` (ikut `bun run uji`).
+- `bun run audio -- --timeline timeline.json --klip-props klip-props.json --out campuran.wav [--rencana-keluar rencana-audio.json] [--draf]`: rencana audio diturunkan dari track audio dan `audio.mode` butir video `timeline.json`; timeline diperiksa penuh lebih dulu (fail-closed) ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md#rencana-dari-timelinejson)). Uji: `bun run uji:audio-timeline` (ikut `bun run uji`). Klip ber-speed (`waktu.kecepatan` konstan atau ramp) diregangkan dengan `atempo` sinkron dengan frame, jangkauan 0,5 sampai 4x; reverse, freeze, dan kecepatan di luar jangkauan sudah ditolak R09 oleh `timeline periksa` ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md#audio-klip-ber-speed-atempo)). Uji: `bun run uji:audio-waktu` (ikut `bun run uji`).
 
 ## Dokumentasi
 
@@ -80,7 +80,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md) | `bun run periksa`: pemeriksaan, ambang, kilatan | `v1.0.1` |
 | [docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md) | `bun run konsep`: 13 jenis video, 5 alur, tingkat bukti, profil audiens | `v1.2.0` |
 | [docs/sop.md](docs/sop.md) | SOP sebagai dokumen cetak dan bahan video | `v1.0.1` |
-| [docs/video-tertanam-audio.md](docs/video-tertanam-audio.md) | Klip tertanam dan timeline audio | `v1.9.0` |
+| [docs/video-tertanam-audio.md](docs/video-tertanam-audio.md) | Klip tertanam dan timeline audio | `v1.9.1` |
 | [docs/olah-klip.md](docs/olah-klip.md) | Efek klip saat ekstraksi: LUT `.cube`, warna, keseimbangan, kunci cache | `v1.2.0` |
 | [docs/pelajari-reaction.md](docs/pelajari-reaction.md) | `bun run pelajari`, kebijakan kutipan wajar, gerbang hukum GH, templat reaction | `v1.0.0` |
 | [docs/visual-audiens.md](docs/visual-audiens.md) | Profil audiens, ukuran teks, buta warna, ketajaman, efek dekoratif | `v1.0.0` |
@@ -94,7 +94,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/narasi-caption.md](docs/narasi-caption.md) | `bun run narasi`: `naskah.json`, estimasi berjangkar jeda, cue VTT/SRT dengan lint cps, rencana audio, mode dan posisi caption | `v1.3.0` |
 | [docs/ketukan.md](docs/ketukan.md) | `bun run ketukan`: onset fluks spektral, tempo autokorelasi, ketukan berselaras grid, `ketukan.json`, helper `window.Ketukan`, batas bukti | `v1.0.0` |
 | [docs/reframe.md](docs/reframe.md) | Reframe 16:9 ke 9:16: crop berkeyframe, `reframe.json`, `window.Reframe`, saran fokus opsional | `v1.0.0` |
-| [docs/timeline.md](docs/timeline.md) | `timeline.json` (skema 1), validator `bun run timeline periksa`, templat render generik, rencana audio | `v1.3.0` |
+| [docs/timeline.md](docs/timeline.md) | `timeline.json` (skema 1), validator `bun run timeline periksa`, templat render generik, rencana audio | `v1.3.1` |
 | [docs/penyunting.md](docs/penyunting.md) | Rancangan penyunting pratinjau lokal F6 (disetujui, belum diimplementasikan) | `v1.0.0` |
 | [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.9.0` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
@@ -158,6 +158,10 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 **Peringatan hukum: video pihak ketiga.** awvd tidak menyediakan dan tidak akan menyediakan pengunduh atau perekam video platform (YouTube, TikTok, Facebook, Instagram, X, dan sejenisnya); fitur sumber hanya menerima berkas yang sah Anda miliki, dengan manifest dan atribusi. Kutipan untuk video reaction dan ulasan diperiksa terhadap kebijakan internal yang terukur dan gerbang tinjauan hukum, bukan jaminan kutipan sah. Dokumentasi ini bukan nasihat hukum; rincian di [docs/pelajari-reaction.md](docs/pelajari-reaction.md).
 
 ## Changelog
+
+### 2026-11-08 - v2.21.2
+
+- Indeks dokumentasi: `timeline.md` v1.3.1 dan `video-tertanam-audio.md` v1.9.1. §Perintah utama: `timeline periksa` menolak butir bersuara dengan kecepatan di luar 0,5..4x (R09, #84).
 
 ### 2026-11-08 - v2.21.1
 
