@@ -23,6 +23,9 @@
  * API (semua juga tersedia sebagai global dan di window.VideoTerprogram)
  *   defineVideo({ width, height, fps, durationInFrames, render(frame, ctx) })
  *   interpolasi(frame, masukan[], keluaran[], { clamp = true, easing })
+ *   keyframe(frame, [{ pada, nilai, easing? }], { clamp = true, easing })
+ *                                  lintasan nilai (angka atau larik angka) dengan easing per segmen;
+ *                                  easing titik i berlaku untuk segmen i -> i+1; nilai tepat di tiap titik
  *   easing.{linear, masukQuad, keluarQuad, masukKeluarQuad, masukCubic,
  *           keluarCubic, masukKeluarCubic, masukBack, keluarBack,
  *           keluarElastis, bezier(x1, y1, x2, y2)}
@@ -181,6 +184,51 @@
     // easing hanya di dalam segmen; di luar (clamp=false) ekstrapolasi linear.
     var te = t >= 0 && t <= 1 ? ease(t) : t;
     return keluaran[i] + (keluaran[i + 1] - keluaran[i]) * te;
+  }
+
+  // ------------------------------------------------------------- keyframe
+  // Lintasan nilai sembarang properti: daftar [{ pada, nilai, easing? }] naik tegas menurut
+  // `pada` (frame, boleh pecahan). `nilai` = angka atau larik angka (panjang sama di semua
+  // titik, mis. [x, y] atau [r, g, b]). `easing` pada titik i berlaku untuk segmen i -> i+1
+  // (nama easing, [x1, y1, x2, y2], atau fungsi; titik terakhir tidak boleh punya easing);
+  // tanpa easing dipakai opsi.easing, lalu linear. Nilai di setiap titik persis `nilai`-nya.
+  // Memakai ulang easing dan resolusi easing runtime; murni dari frame.
+  function keyframe(frame, kf, opsi) {
+    opsi = opsi || {};
+    var fn = "keyframe";
+    if (typeof frame !== "number" || !isFinite(frame)) throw new Error(fn + ": frame harus angka terhingga");
+    if (!Array.isArray(kf) || kf.length < 2) throw new Error(fn + ": butuh >= 2 titik { pada, nilai }");
+    var dim = Array.isArray(kf[0] && kf[0].nilai) ? kf[0].nilai.length : 0;
+    if (Array.isArray(kf[0] && kf[0].nilai) && dim < 1) throw new Error(fn + ": nilai larik tidak boleh kosong");
+    var n = kf.length, i;
+    function angkaOk(v) { return typeof v === "number" && isFinite(v); }
+    for (i = 0; i < n; i++) {
+      var k = kf[i];
+      if (!k || typeof k !== "object") throw new Error(fn + ": titik [" + i + "] harus objek { pada, nilai }");
+      if (!angkaOk(k.pada)) throw new Error(fn + ": titik [" + i + "].pada harus angka terhingga");
+      if (i > 0 && !(k.pada > kf[i - 1].pada)) throw new Error(fn + ": pada harus naik tegas");
+      if (dim === 0 ? !angkaOk(k.nilai)
+        : !(Array.isArray(k.nilai) && k.nilai.length === dim && k.nilai.every(angkaOk))) {
+        throw new Error(fn + ": titik [" + i + "].nilai harus " +
+          (dim === 0 ? "angka terhingga" : "larik " + dim + " angka (sama panjang di semua titik)"));
+      }
+      if (i === n - 1 && k.easing != null) throw new Error(fn + ": titik terakhir tidak boleh punya easing");
+    }
+    var clamp = opsi.clamp !== false;
+    var bawaan = opsi.easing != null ? easingKecepatan(opsi.easing, fn) : null;
+    function salin(v) { return dim === 0 ? v : v.slice(); }
+    if (frame === kf[0].pada || (clamp && frame < kf[0].pada)) return salin(kf[0].nilai);
+    if (frame === kf[n - 1].pada || (clamp && frame > kf[n - 1].pada)) return salin(kf[n - 1].nilai);
+    i = 0;
+    while (i < n - 2 && frame >= kf[i + 1].pada) i++;
+    if (frame === kf[i].pada) return salin(kf[i].nilai); // tepat di keyframe (bukan batas)
+    var a = kf[i], b = kf[i + 1];
+    var t = (frame - a.pada) / (b.pada - a.pada);
+    var ease = a.easing != null ? easingKecepatan(a.easing, fn) : bawaan;
+    // easing hanya di dalam segmen; di luar (clamp=false) ekstrapolasi linear.
+    var te = ease && t >= 0 && t <= 1 ? ease(t) : t;
+    if (dim === 0) return a.nilai + (b.nilai - a.nilai) * te;
+    return a.nilai.map(function (v, j) { return v + (b.nilai[j] - v) * te; });
   }
 
   // ------------------------------------------------------------------ pegas
@@ -2142,6 +2190,7 @@
   var api = {
     defineVideo: defineVideo,
     interpolasi: interpolasi,
+    keyframe: keyframe,
     easing: easing,
     pegas: pegas,
     urutan: urutan,

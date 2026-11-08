@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.10.0`
-- Last updated: `2026-11-07`
-- Changeset: `Paritas: timeline multitrack berstatus sebagian (validator timeline.json ada, render menyusul). Sebelumnya: caption otomatis dari audio (ASR) berstatus ada sebagai adaptor opsional.`
+- Version: `v1.11.0`
+- Last updated: `2026-11-08`
+- Changeset: `Paritas: keyframe generik berstatus ada (helper runtime keyframe, F2/06). Sebelumnya: Paritas: timeline multitrack berstatus sebagian (validator timeline.json ada, render menyusul).`
 
 ## Visi
 
@@ -84,7 +84,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | QC kenyaringan, kilatan, subtitle | ada ([pemeriksaan-mutu.md](pemeriksaan-mutu.md)) | — |
 | Timeline multitrack | sebagian: format `timeline.json`, validator `bun run timeline periksa`, dan contoh ada ([timeline.md](timeline.md)); render ke video menyusul | F2/02 (selesai), F2/03 |
 | Trim, speed, reverse, freeze | ada sebagai helper pemetaan frame ([api-runtime.md](api-runtime.md#pemetaan-waktu-klip); `petaWaktuKlip`, `frameSumber`, ramp kecepatan); tanpa interpolasi gerak, audio tidak ikut diregangkan | F2/04 (selesai) |
-| Keyframe generik | sebagian (`interpolasi`, `urutan`) | F2/06 |
+| Keyframe generik | ada (`keyframe`) | F2/06 |
 | Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
 | Chroma key | ada ([olah-klip.md](olah-klip.md); `kunciWarna`, keluaran PNG beralfa) | F3/02 (selesai) |
 | Stabilisasi | ada ([olah-klip.md](olah-klip.md); `stabil`: vidstab, cadangan deshake) | F3/03 (selesai) |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-08 - v1.11.0
+
+- Paritas: keyframe generik berstatus ada (`keyframe` dengan easing per segmen, F2/06).
 
 ### 2026-11-07 - v1.10.0
 
