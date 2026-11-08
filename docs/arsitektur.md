@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.2.0`
+- Version: `v1.3.0`
 - Last updated: `2026-11-08`
-- Changeset: `Alur renderer: segmen tetap dengan pekerja paralel dan penggabungan tanpa encode ulang, pemanasan 2 frame, urutan protokol pekerja. Sebelumnya: skala di bawah 1 diperkecil ffmpeg dari tangkapan skala 1.`
+- Changeset: `Alur render: cache segmen opt-in (--cache-segmen) dengan kunci global, manifest berkas per pekerja, dan syarat determinisme sisi cache. Sebelumnya: segmen tetap dengan pekerja paralel dan penggabungan tanpa encode ulang, pemanasan 2 frame.`
 
 Dokumen ini menjelaskan cara awvd bekerja: dari komposisi web sampai MP4, kontrak antara komposisi dan renderer, aturan yang menjaga hasil tetap deterministik, serta peran awvd sebagai upstream bagi repo proyek video. Referensi rinci ada di [api-runtime.md](api-runtime.md) dan [cli.md](cli.md).
 
@@ -19,9 +19,13 @@ flowchart LR
     A[Audio / subtitle<br/>opsional] --> Z[Tahap akhir tunggal<br/>-c:v copy]
     G --> Z
     Z --> M[MP4 H.264 High<br/>yuv420p, BT.709]
+    CS[(Cache segmen<br/>opsional)] -.hit: lewati pekerja.-> G
+    F -.simpan.-> CS
 ```
 
 Rentang frame dibagi menjadi segmen berukuran tetap (`4 x round(fps/2)` frame, kelipatan GOP) yang tidak bergantung jumlah pekerja. Setiap segmen dirender pekerja `scripts/render-segmen.mjs` di proses Chromium sendiri: PNG dialirkan langsung ke stdin ffmpeg (tidak ada berkas sementara per frame) dan menghasilkan satu aliran H.264 video-saja yang diremux ke MPEG-TS. `render.mjs` menggabung segmen dengan concat demuxer `-c copy` (tanpa encode ulang), memverifikasi jumlah frame dan PTS, lalu, bila ada audio atau subtitle, memasangnya di satu tahap akhir dengan `-c:v copy` (kenyaringan dua-pass tetap tahap tunggal). Serial adalah satu pekerja di jalur yang sama, sehingga MP4 byte-identik untuk jumlah pekerja berapa pun. Alasan, parameter, dan batasannya ada di [cli.md](cli.md#render-paralel-dan-segmen).
+
+Dengan `--cache-segmen` (opt-in), `render.mjs` mencari tiap segmen di cache sebelum meluncurkan pekerja: segmen yang kunci globalnya (lingkungan, props, konfigurasi, flag, ukuran segmen) dan rentangnya sama, serta manifest berkas yang dimuat halaman (direkam pekerja saat render, sha256) masih cocok, diambil dari cache tanpa Chromium dan ffmpeg; sisanya dirender pekerja lalu disimpan atomik segera setelah selesai. Hasil akhirnya byte-identik dengan render tanpa cache karena segmen yang sama dikunci oleh semua masukan yang memengaruhi byte-nya dan gabungan tetap diverifikasi. Kunci, fail-safe, dan integritasnya ada di [cli.md](cli.md#cache-segmen).
 
 ## Konsep komposisi
 
@@ -90,6 +94,7 @@ Dua render dari komposisi dan props yang sama harus menghasilkan frame identik (
 - Jangan pakai CSS animation atau transition; runtime menyuntikkan aturan yang mematikannya.
 - Font dan gambar harus termuat sebelum frame pertama; renderer memuat eksplisit setiap `@font-face`, menunggu `document.fonts.ready` dan semua `<img>`, dan gagal bila ada gambar atau font rusak.
 - Tidak ada sumber luar: semua permintaan selain `file:`, `data:`, `about:`, dan `blob:` (HTTP, HTTPS, WebSocket, `fetch`, `sendBeacon`) diblokir dan menggagalkan render dengan kode keluar `3` beserta daftar URL-nya. Aset berupa berkas lokal yang tercatat ([aset.md](aset.md)); rinciannya di [cli.md](cli.md#jaringan-dan-font).
+- Cache segmen (`--cache-segmen`) bersandar pada aturan di atas: komposisi yang membaca isi berkas yang sama harus menghasilkan piksel yang sama. Masukan yang tak lewat berkas lokal atau kunci cache (mis. sumber acak, waktu, atau keadaan luar yang lolos dari aturan determinisme) membuat segmen basi dipakai; cache hanya menjamin hasil yang sama untuk masukan yang sama, bukan menutup komposisi yang tidak deterministik ([cli.md](cli.md#cache-segmen)).
 - Frame klip digambar ke `<canvas>` lewat `klipGambar` (bukan `<img>`, yang kadang tertangkap dengan frame sebelumnya). Teramati di Chromium mesin pengembangan: kotak berlatar dengan `border-radius` pada posisi pecahan (mis. caption `inline-block` di tengah) menghasilkan 1-2 piksel tepi yang berubah antar-run pada render berurutan; latar bersudut siku atau posisi bulat tidak. Templat `klip-tertanam` memakai latar caption bersudut siku dan lolos uji frame identik.
 
 ## Peran repo: upstream
@@ -157,6 +162,10 @@ Prasyarat (Bun, `ffmpeg`, Chromium untuk Playwright) sama dengan [Mulai cepat di
 - Panduan video formal untuk pemerintah dan swasta mengikuti standar dokumen formal internal AhliWeb; awvd menjadi alat render videonya.
 
 ## Changelog
+
+### 2026-11-08 - v1.3.0
+
+- Alur render: cache segmen opt-in (diagram dan paragraf), dan butir aturan determinisme tentang ketergantungan cache pada determinisme komposisi (isu #46).
 
 ### 2026-11-08 - v1.2.0
 

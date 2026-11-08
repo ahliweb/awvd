@@ -12,6 +12,11 @@
  *   (f) audio dan subtitle di tahap akhir tunggal: video identik dengan render tanpa keduanya;
  *   (g) durasi MP4 = rentang frame yang dirender: subtitle yang berakhir lebih awal tidak memotong
  *       video/audio; audio panjang dipotong di akhir video, audio pendek di-pad; kenyaringan benar.
+ *   (h)-(m) cache segmen (--cache-segmen): miss lalu hit menghasilkan MP4 byte-identik dengan render
+ *       tanpa cache dan hit tidak meluncurkan pekerja Chromium (h); props, aset (termasuk yang dimuat
+ *       malas per frame), HTML, dan flag membatalkan cache (i); segmen cache rusak tidak dipakai (j);
+ *       kegagalan di tengah lalu render ulang hanya merender segmen yang belum ada (k); fail-safe (l);
+ *       pangkas LRU (m).
  * Tanpa dependensi tambahan. Exit 0 bila semua lolos, 1 bila ada yang gagal.
  *
  *   bun scripts/uji-render-paralel.mjs
@@ -64,6 +69,31 @@ function tulisKomposisi(nama, { frame = 70, gagalDi = -1 } = {}) {
     `const k = document.getElementById("k"); k.style.left = (f * 2) + "px"; k.style.top = (f % 20) + "px"; document.getElementById("t").textContent = "frame " + f; } });</script>`);
   return f;
 }
+
+// Komposisi uji cache: 100 frame = 5 segmen (20 frame). `aset.txt` dibaca setiap frame (berkas global),
+// `lanjut.txt` hanya mulai frame 45 (dimuat malas: segmen 0 dan 1 tidak pernah memintanya); isi
+// "gagal" membuat render() melempar galat. Warna kotak dan teks bergantung pada isi kedua berkas.
+function tulisKomposisiCache(nama, { aset = "f80", lanjut = "ok", ekstraBody = "", ekstraSkrip = "" } = {}) {
+  const dir = j(nama);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "aset.txt"), aset);
+  writeFileSync(join(dir, "lanjut.txt"), lanjut);
+  const f = join(dir, "index.html");
+  writeFileSync(f, `<!doctype html><meta charset="utf-8"><body style="margin:0;background:#123"><div id="k" style="position:absolute;width:40px;height:40px"></div><p id="t" style="position:absolute;left:10px;top:50px;margin:0;font:20px sans-serif;color:#fff"></p>${ekstraBody}` +
+    `<script src="${runtimeJs}"></script><script>${ekstraSkrip}defineVideo({ width: 160, height: 90, fps: 10, durationInFrames: 100, async render(f) {` +
+    `const w = (await (await fetch("aset.txt")).text()).trim(); let l = "";` +
+    `if (f >= 45) { l = (await (await fetch("lanjut.txt")).text()).trim(); if (l === "gagal") throw new Error("uji: lanjut.txt berisi gagal pada frame " + f); }` +
+    `const k = document.getElementById("k"); k.style.background = "#" + w; k.style.left = f + "px"; k.style.top = (f % 20) + "px";` +
+    `document.getElementById("t").textContent = "frame " + f + " " + l; } });</script>`);
+  return f;
+}
+// ringkasan cache dari baris "selesai": (N segmen, P pekerja, cache segmen: H hit, R render)
+function ringkasCache(err) {
+  const m = /(\d+) segmen, (\d+) pekerja, cache segmen: (\d+) hit, (\d+) render/.exec(err);
+  tegas(m, `ringkasan cache segmen tidak ada di keluaran: ${err}`);
+  return { segmen: Number(m[1]), pekerja: Number(m[2]), hit: Number(m[3]), render: Number(m[4]) };
+}
+const entriCache = (dir) => (existsSync(dir) ? readdirSync(dir).filter((n) => !n.startsWith(".tmp-")).sort() : []);
 
 const uji = [];
 function daftar(nama, fn) { uji.push([nama, fn]); }
@@ -237,6 +267,204 @@ daftar("(g) durasi = rentang frame: subtitle pendek tidak memotong; audio panjan
     }
     if (args.includes("--subtitle")) tegas(info.streams.some((s) => s.codec_type === "subtitle" && s.codec_name === "mov_text"), `${nama}: trek subtitle hilang`);
   }
+});
+
+// --------------------------------------------------------------- cache segmen
+daftar("(h) cache segmen: miss lalu hit = MP4 byte-identik dengan tanpa cache; hit tanpa pekerja Chromium; rentang bergeser memakai ulang segmen", async () => {
+  const k = tulisKomposisiCache("h");
+  const cache = j("h-cache");
+  const [ref, miss, hit, hit3] = [j("h-ref.mp4"), j("h-miss.mp4"), j("h-hit.mp4"), j("h-hit3.mp4")];
+  let r = await renderKe([k, "--out", ref, "--paralel", "2"]);
+  tegas(r.kode === 0, `tanpa cache: ${r.err}`);
+  tegas(!/cache segmen/.test(r.err), `tanpa --cache-segmen tidak boleh menyebut cache (bawaan mati): ${r.err}`);
+  const t1 = Date.now();
+  r = await renderKe([k, "--out", miss, "--paralel", "2", "--cache-segmen", "--cache-dir", cache]);
+  const msMiss = Date.now() - t1;
+  tegas(r.kode === 0, `miss: ${r.err}`);
+  let st = ringkasCache(r.err);
+  tegas(st.segmen === 5 && st.hit === 0 && st.render === 5 && st.pekerja === 2, `miss: ${JSON.stringify(st)}`);
+  tegas(/5 disimpan/.test(r.err), `miss: segmen tidak tersimpan: ${r.err}`);
+  tegas(entriCache(cache).length === 5, `entri cache ${entriCache(cache).length}, seharusnya 5`);
+  const md5Ref = await md5Berkas(ref);
+  tegas((await md5Berkas(miss)) === md5Ref, "miss: MP4 berbeda dari render tanpa cache");
+  const t2 = Date.now();
+  r = await renderKe([k, "--out", hit, "--paralel", "2", "--cache-segmen", "--cache-dir", cache]);
+  const msHit = Date.now() - t2;
+  tegas(r.kode === 0, `hit: ${r.err}`);
+  st = ringkasCache(r.err);
+  tegas(st.hit === 5 && st.render === 0 && st.pekerja === 0, `hit harus melewati semua pekerja Chromium: ${JSON.stringify(st)} ${r.err}`);
+  tegas(!/frame \d+\/100/.test(r.err), `hit: ada kemajuan render (pekerja berjalan?): ${r.err}`);
+  tegas((await md5Berkas(hit)) === md5Ref, "hit: MP4 berbeda dari render tanpa cache");
+  // --paralel tidak masuk kunci (keluaran sama untuk N berapa pun)
+  r = await renderKe([k, "--out", hit3, "--paralel", "3", "--cache-segmen", "--cache-dir", cache]);
+  tegas(r.kode === 0 && ringkasCache(r.err).hit === 5, `hit dengan --paralel 3: ${r.err}`);
+  tegas((await md5Berkas(hit3)) === md5Ref, "hit --paralel 3: MP4 berbeda");
+  // audio tidak masuk kunci (cache hanya video-saja): tetap hit, video identik
+  const wav = j("h-nada.wav");
+  const g = await jalankan(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=11", wav]);
+  tegas(g.kode === 0, `ffmpeg sine: ${g.err}`);
+  const av = j("h-av.mp4");
+  r = await renderKe([k, "--out", av, "--cache-segmen", "--cache-dir", cache, "--audio", wav]);
+  tegas(r.kode === 0 && ringkasCache(r.err).hit === 5, `hit dengan --audio: ${r.err}`);
+  tegas((await framemd5(av)) === (await framemd5(ref)), "hit dengan --audio: isi frame video berubah");
+  // rentang bergeser ke batas segmen yang sama: 20..99 = segmen 1..4 dari render pertama
+  const [geserRef, geser] = [j("h-geser-ref.mp4"), j("h-geser.mp4")];
+  r = await renderKe([k, "--out", geserRef, "--dari", "20", "--sampai", "99"]);
+  tegas(r.kode === 0, `geser tanpa cache: ${r.err}`);
+  r = await renderKe([k, "--out", geser, "--dari", "20", "--sampai", "99", "--cache-segmen", "--cache-dir", cache]);
+  tegas(r.kode === 0, `geser: ${r.err}`);
+  st = ringkasCache(r.err);
+  tegas(st.segmen === 4 && st.hit === 4 && st.render === 0, `geser: ${JSON.stringify(st)}`);
+  tegas((await md5Berkas(geser)) === (await md5Berkas(geserRef)), "geser: MP4 berbeda dari render tanpa cache pada rentang yang sama");
+  console.log(`       h: waktu dinding miss ${msMiss} ms, hit ${msHit} ms (5 segmen, 100 frame 160x90)`);
+});
+
+daftar("(i) props, aset (global dan dimuat malas), HTML, dan flag membatalkan cache; hasil sama dengan tanpa cache", async () => {
+  const k = tulisKomposisiCache("i");
+  const dir = dirname(k);
+  const cache = j("i-cache");
+  const dasar = ["--cache-segmen", "--cache-dir", cache];
+  const hitMiss = async (nama, args, { hit, render }) => {
+    const out = j(`i-${nama}.mp4`);
+    const r = await renderKe([k, "--out", out, ...args]);
+    tegas(r.kode === 0, `${nama}: exit ${r.kode}: ${r.err}`);
+    const st = ringkasCache(r.err);
+    tegas(st.hit === hit && st.render === render, `${nama}: ${st.hit} hit/${st.render} render, seharusnya ${hit}/${render}: ${r.err}`);
+    return out;
+  };
+  const tanpaCache = async (nama) => {
+    const f = j(`i-ref-${nama}.mp4`);
+    const r = await renderKe([k, "--out", f]);
+    tegas(r.kode === 0, `ref ${nama}: ${r.err}`);
+    return f;
+  };
+  const a0 = await hitMiss("dasar", dasar, { hit: 0, render: 5 });
+  await hitMiss("dasar-lagi", dasar, { hit: 5, render: 0 });
+  // flag dan props: kunci baru, tak ada hit (entri dasar tetap ada)
+  await hitMiss("crf", [...dasar, "--crf", "23"], { hit: 0, render: 5 });
+  await hitMiss("skala", [...dasar, "--skala", "2"], { hit: 0, render: 5 });
+  await hitMiss("jpeg", [...dasar, "--tangkap", "jpeg"], { hit: 0, render: 5 });
+  await hitMiss("props", [...dasar, "--props", '{"judul":"lain"}'], { hit: 0, render: 5 });
+  await hitMiss("props-sama", [...dasar, "--props", '{"judul":"lain"}'], { hit: 5, render: 0 }); // props sama persis: hit
+  await hitMiss("dasar-utuh", dasar, { hit: 5, render: 0 }); // entri dasar tidak tertimpa variasi di atas
+  // berkas yang dimuat setiap frame (global): semua segmen berubah, hasil = render tanpa cache pada keadaan baru
+  writeFileSync(join(dir, "aset.txt"), "08f");
+  const a1 = await hitMiss("aset", dasar, { hit: 0, render: 5 });
+  tegas((await md5Berkas(a1)) === (await md5Berkas(await tanpaCache("aset"))), "aset berubah: hasil cache berbeda dari tanpa cache (cache basi?)");
+  tegas((await md5Berkas(a1)) !== (await md5Berkas(a0)), "aset berubah tetapi MP4 sama (komposisi uji tidak peka terhadap aset?)");
+  // berkas yang HANYA dimuat malas dari frame 45 (segmen 2..4): hanya segmen itu yang dirender ulang. Probe awal
+  // tidak melihat berkas ini; manifest per pekerja yang menangkapnya.
+  writeFileSync(join(dir, "lanjut.txt"), "lain");
+  const a2 = await hitMiss("lanjut", dasar, { hit: 2, render: 3 });
+  tegas((await md5Berkas(a2)) === (await md5Berkas(await tanpaCache("lanjut"))), "lanjut.txt berubah: hasil cache berbeda dari tanpa cache (berkas termuat malas tidak terlacak?)");
+  tegas((await md5Berkas(a2)) !== (await md5Berkas(a1)), "lanjut.txt berubah tetapi MP4 sama");
+  // HTML berubah (hanya komentar): isi halaman ikut kunci, semua segmen dirender ulang
+  writeFileSync(k, `${readFileSync(k, "utf8")}\n<!-- ubah -->`);
+  const a3 = await hitMiss("html", dasar, { hit: 0, render: 5 });
+  tegas((await md5Berkas(a3)) === (await md5Berkas(a2)), "komentar HTML tidak mengubah piksel, MP4 seharusnya sama");
+});
+
+daftar("(j) segmen cache rusak (byte berubah, terpotong, hilang, meta rusak) tidak dipakai dan dirender ulang", async () => {
+  const k = tulisKomposisiCache("j");
+  const cache = j("j-cache");
+  const dasar = [k, "--cache-segmen", "--cache-dir", cache];
+  const ref = j("j-ref.mp4");
+  let r = await renderKe([...dasar, "--out", ref]);
+  tegas(r.kode === 0 && ringkasCache(r.err).hit === 0, `prima: ${r.err}`);
+  const e = entriCache(cache);
+  tegas(e.length === 5, `entri ${e.length}`);
+  const ts = (n) => join(cache, n, "seg.ts");
+  const b = new Uint8Array(await Bun.file(ts(e[0])).bytes());
+  const rusak = b.slice();
+  rusak[Math.floor(b.length / 2)] ^= 0xff;
+  writeFileSync(ts(e[0]), rusak); // byte berubah, ukuran sama
+  writeFileSync(ts(e[1]), b.slice(0, 188 * 5)); // terpotong
+  rmSync(ts(e[2])); // hilang
+  writeFileSync(join(cache, e[3], "meta.json"), "{rusak"); // meta tidak terbaca
+  const out = j("j-pulih.mp4");
+  r = await renderKe([...dasar, "--out", out]);
+  tegas(r.kode === 0, `pulih: ${r.err}`);
+  const st = ringkasCache(r.err);
+  tegas(st.hit === 1 && st.render === 4, `pulih: ${st.hit} hit/${st.render} render, seharusnya 1/4: ${r.err}`);
+  tegas(/4 rusak/.test(r.err), `pulih: laporan cache rusak tidak ada: ${r.err}`);
+  tegas((await md5Berkas(out)) === (await md5Berkas(ref)), "segmen rusak ikut terpakai: MP4 berbeda dari render tanpa cache");
+  // entri rusak ditulis ulang: render berikutnya hit penuh
+  r = await renderKe([...dasar, "--out", j("j-lagi.mp4")]);
+  tegas(r.kode === 0 && ringkasCache(r.err).hit === 5, `setelah pulih harus hit penuh: ${r.err}`);
+});
+
+daftar("(k) gagal di tengah lalu render ulang hanya merender segmen yang belum ada", async () => {
+  const k = tulisKomposisiCache("k", { lanjut: "gagal" });
+  const dir = dirname(k);
+  const cache = j("k-cache");
+  const dasar = [k, "--cache-segmen", "--cache-dir", cache, "--paralel", "1"];
+  const keluar = j("k-hasil.mp4");
+  // frame 45 (segmen 2) gagal; segmen 0 dan 1 selesai lebih dulu dan tersimpan
+  let r = await renderKe([...dasar, "--out", keluar]);
+  tegas(r.kode === 1 && /lanjut\.txt berisi gagal/.test(r.err), `harus gagal di frame 45: exit ${r.kode} ${r.err}`);
+  tegas(!existsSync(keluar), "keluaran tertulis walau render gagal");
+  tegas(entriCache(cache).length === 2, `entri tersimpan ${entriCache(cache).length}, seharusnya 2 (segmen 0 dan 1)`);
+  tegas(/2 segmen selesai tersimpan/.test(r.err), `laporan lanjutan tidak ada: ${r.err}`);
+  // perbaiki masalahnya, render ulang: 2 hit (0..19, 20..39), 3 render
+  writeFileSync(join(dir, "lanjut.txt"), "ok");
+  r = await renderKe([...dasar, "--out", keluar]);
+  tegas(r.kode === 0, `lanjutan: ${r.err}`);
+  const st = ringkasCache(r.err);
+  tegas(st.hit === 2 && st.render === 3, `lanjutan: ${st.hit} hit/${st.render} render, seharusnya 2/3: ${r.err}`);
+  const ref = j("k-ref.mp4");
+  const rr = await renderKe([k, "--out", ref]);
+  tegas(rr.kode === 0, `ref: ${rr.err}`);
+  tegas((await md5Berkas(keluar)) === (await md5Berkas(ref)), "hasil lanjutan berbeda dari render tanpa cache");
+  tegas(readdirSync(dirname(keluar)).every((n) => !n.endsWith(".sementara")), "berkas .sementara tersisa");
+});
+
+daftar("(l) fail-safe: cache dimatikan atau segmen tidak disimpan bila isinya tak bisa dijamin; argumen salah exit 2", async () => {
+  const k = tulisKomposisiCache("l");
+  const cache = j("l-cache");
+  // bersama --md5-tangkapan: dimatikan dengan peringatan, tidak ada cache
+  let r = await renderKe([k, "--out", j("l-md5.mp4"), "--cache-segmen", "--cache-dir", cache, "--md5-tangkapan", j("l.md5")]);
+  tegas(r.kode === 0 && /cache segmen dimatikan/.test(r.err) && !existsSync(cache), `--md5-tangkapan: exit ${r.kode} ${r.err}`);
+  // bersama --still: diabaikan
+  r = await renderKe([k, "--out", j("l.png"), "--still", "3", "--cache-segmen", "--cache-dir", cache]);
+  tegas(r.kode === 0 && /--cache-segmen diabaikan bersama --still/.test(r.err) && !existsSync(cache), `--still: exit ${r.kode} ${r.err}`);
+  // bersama --izinkan-jaringan
+  r = await renderKe([k, "--out", j("l-net.mp4"), "--cache-segmen", "--cache-dir", cache, "--izinkan-jaringan", "--dari", "0", "--sampai", "19"]);
+  tegas(r.kode === 0 && /cache segmen dimatikan/.test(r.err) && !existsSync(cache), `--izinkan-jaringan: exit ${r.kode} ${r.err}`);
+  // flag cache tanpa --cache-segmen: peringatan, tidak ada cache
+  r = await renderKe([k, "--out", j("l-tanpa.mp4"), "--cache-dir", cache, "--dari", "0", "--sampai", "19"]);
+  tegas(r.kode === 0 && /diabaikan tanpa --cache-segmen/.test(r.err) && !existsSync(cache), `--cache-dir tanpa --cache-segmen: ${r.err}`);
+  // halaman dengan iframe: isinya tak terlacak lengkap, segmen tidak disimpan (render tetap sukses), tak pernah hit
+  const kf = tulisKomposisiCache("l-iframe", { ekstraBody: '<iframe src="about:blank" style="display:none"></iframe>' });
+  for (let i = 0; i < 2; i++) {
+    r = await renderKe([kf, "--out", j(`l-iframe-${i}.mp4`), "--cache-segmen", "--cache-dir", cache, "--dari", "0", "--sampai", "39"]);
+    tegas(r.kode === 0, `iframe: ${r.err}`);
+    const st = ringkasCache(r.err);
+    tegas(st.hit === 0 && st.render === 2 && /tidak disimpan ke cache: .*iframe/.test(r.err) && entriCache(cache).length === 0, `iframe harus tak disimpan: ${r.err}`);
+  }
+  // Web Worker: tidak disimpan
+  const kw = tulisKomposisiCache("l-worker", { ekstraSkrip: 'new Worker(URL.createObjectURL(new Blob(["1"])));' });
+  r = await renderKe([kw, "--out", j("l-worker.mp4"), "--cache-segmen", "--cache-dir", cache, "--dari", "0", "--sampai", "19"]);
+  tegas(r.kode === 0 && /tidak disimpan ke cache: .*Worker/.test(r.err) && entriCache(cache).length === 0, `worker harus tak disimpan: exit ${r.kode} ${r.err}`);
+  // argumen tidak valid
+  for (const bad of ["abc", "0", "-5"]) {
+    const p = await renderKe([k, "--out", j("l-x.mp4"), "--cache-segmen", "--cache-maks", bad]);
+    tegas(p.kode === 2, `--cache-maks ${bad} harus exit 2, dapat ${p.kode}`);
+  }
+});
+
+daftar("(m) pangkas LRU: entri terlama dihapus bila melebihi --cache-maks, entri render ini dilindungi", async () => {
+  const k = tulisKomposisiCache("m");
+  const cache = j("m-cache");
+  const dasar = [k, "--cache-segmen", "--cache-dir", cache, "--cache-maks", "0.03"];
+  let r = await renderKe([...dasar, "--out", j("m-a.mp4"), "--props", '{"v":"a"}']);
+  tegas(r.kode === 0, `A: ${r.err}`);
+  tegas(entriCache(cache).length === 5, `A: entri ${entriCache(cache).length}`);
+  await Bun.sleep(30); // mtime meta.json A lebih tua dari B
+  r = await renderKe([...dasar, "--out", j("m-b.mp4"), "--props", '{"v":"b"}']);
+  tegas(r.kode === 0 && /5 entri terlama dipangkas/.test(r.err), `B harus memangkas A: ${r.err}`);
+  tegas(entriCache(cache).length === 5, `setelah pangkas entri ${entriCache(cache).length}, seharusnya 5 (milik B)`);
+  r = await renderKe([...dasar, "--out", j("m-b2.mp4"), "--props", '{"v":"b"}']);
+  tegas(r.kode === 0 && ringkasCache(r.err).hit === 5, `entri B harus utuh: ${r.err}`);
 });
 
 // ----------------------------------------------------------------- jalankan

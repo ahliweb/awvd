@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.8.1`
+- Version: `v1.9.0`
 - Last updated: `2026-11-08`
-- Changeset: `Durasi MP4 selalu sama dengan rentang frame: tahap akhir memakai -t dari jumlah frame, bukan -shortest; subtitle yang berakhir lebih awal tidak lagi memotong video dan audio. Sebelumnya: Semua render lewat jalur segmen dengan pekerja paralel.`
+- Changeset: `Cache segmen opt-in: flag --cache-segmen, --cache-dir, --cache-maks dan bagian Cache segmen (kunci, manifest berkas per segmen, fail-safe, lanjut setelah gagal). Sebelumnya: Durasi MP4 selalu sama dengan rentang frame: tahap akhir memakai -t dari jumlah frame, bukan -shortest.`
 
 Referensi CLI `scripts/render.mjs` (`bun run render`). Alur di balik perintah ini ada di [arsitektur.md](arsitektur.md).
 
@@ -28,6 +28,9 @@ bun scripts/render.mjs <komposisi.html|URL> --out hasil.mp4 [opsi]
 | `--paralel N` | `min(4, inti/2)`, minimal 1 | Jumlah pekerja (proses Chromium) yang merender segmen secara bersamaan, bilangan bulat `>= 1`. **Tidak memengaruhi keluaran**: MP4 sama persis untuk N berapa pun; serial adalah `--paralel 1`. Lihat [Render paralel dan segmen](#render-paralel-dan-segmen). Diabaikan (dengan peringatan) bersama `--still`. |
 | `--tangkap png\|jpeg` | `png` | Format tangkapan layar yang dialirkan ke encoder. `png`: lossless (bawaan, untuk rilis). `jpeg`: **draf pratinjau**, lossy (kualitas 95, sekitar 42 dB PSNR terhadap PNG pada contoh terukur), 6-38% lebih cepat; mencetak peringatan, jangan dipakai untuk rilis. Nilai lain atau bersama `--still`: kode keluar `2`. |
 | `--md5-tangkapan F` | - | Diagnostik: tulis ke `F` satu baris `nomor-frame md5` untuk setiap tangkapan frame (tidak termasuk pemanasan). Dipakai uji determinisme (bukti tangkapan sama untuk jumlah pekerja berbeda); tidak diperlukan untuk render biasa. |
+| `--cache-segmen` | mati | Simpan segmen video-saja (MPEG-TS) di cache berkunci dan pakai ulang hanya bila seluruh kunci sama; render ulang yang identik, atau lanjutan setelah gagal atau terhenti, melewati segmen yang sudah jadi. MP4 hasilnya byte-identik dengan render tanpa cache. Opt-in; dimatikan dengan peringatan bersama `--md5-tangkapan`, `--izinkan-jaringan`, komposisi `http(s)`, atau bila lingkungan tak bisa dibaca lengkap, dan diabaikan bersama `--still`. Lihat [Cache segmen](#cache-segmen). |
+| `--cache-dir DIR` | `.cache/awvd/segmen` | Folder cache segmen (relatif terhadap folder kerja). Diabaikan (dengan peringatan) tanpa `--cache-segmen`. |
+| `--cache-maks MB` | `2048` | Batas ukuran cache; setelah render yang berhasil, entri terlama (LRU) di luar yang dipakai render itu dihapus sampai di bawah batas. Bilangan `> 0`, selain itu kode keluar `2`. Diabaikan tanpa `--cache-segmen`. |
 | `--still N` | - | Render satu frame N sebagai PNG, bukan video. Memakai pemanasan 2 frame yang sama dengan segmen video (lihat di bawah), jadi PNG-nya identik dengan tangkapan frame itu di dalam video. |
 | `--browser PATH` | otomatis | Jalur Chromium. Tanpa ini: `PLAYWRIGHT_BROWSERS_PATH` atau `~/.cache/ms-playwright`, lalu `google-chrome`/`chromium` sistem. |
 | `--izinkan-jaringan` | mati | Mematikan pemblokiran jaringan (lihat [Jaringan dan font](#jaringan-dan-font)). Hanya untuk pratinjau; mencetak peringatan, dan hasil bisa tidak deterministik. |
@@ -83,6 +86,48 @@ Percepatan terukur (satu mesin 20 thread yang dipakai bersama, beban tidak terko
 
 Dua pengukuran per konfigurasi (satu untuk `--paralel 1`), `loadavg` sekitar 12 selama pengukuran pada mesin 20 thread. Pada 180 frame hanya ada 3 segmen sehingga paling banyak 3 pekerja yang terpakai; klip lebih panjang dengan segmen lebih banyak memberi percepatan lebih tinggi (riset awal pada klip 480 frame, mesin lebih longgar: serial 22,6 s menjadi 8,7 s dengan 4 pekerja dan 6,6 s dengan 8 pekerja). Ukuran berkas keluaran sekitar 5% lebih kecil daripada renderer lama (717 KB dibanding 751 KB pada contoh ini).
 
+## Cache segmen
+
+Segmen video-saja hasil pekerja disimpan di cache dan dipakai ulang pada render berikutnya, dengan `--cache-segmen` (opt-in; bawaan mati sampai terbukti aman di komposisi nyata). Hit tidak meluncurkan Chromium dan ffmpeg per segmen; hasil akhirnya **byte-identik** dengan render tanpa cache (diuji, lihat bawah). Yang di-cache hanya video-saja sebelum penggabungan, jadi `--audio`, `--subtitle`, `--kenyaringan`, `--bahasa`, `--paralel`, dan `--out` **tidak** masuk kunci: mengganti audio atau subtitle tetap hit.
+
+```mermaid
+flowchart TD
+    P[Probe: cfg + versi Chromium] --> K[Kunci global<br/>lingkungan, props, cfg, flag, ukuran segmen]
+    K --> C{Per segmen:<br/>entri kunci+rentang ada?}
+    C -->|tidak| R[Render oleh pekerja<br/>+ manifest berkas]
+    C -->|ya| V{Manifest berkas dan<br/>sha256 segmen cocok?}
+    V -->|ya| H[Hit: salin ke folder sementara,<br/>tanpa Chromium]
+    V -->|tidak: berubah atau rusak| R
+    R -->|sukses| S[Simpan atomik<br/>langsung, walau render gagal nanti]
+    H --> G[Gabung -c copy,<br/>verifikasi frame dan PTS]
+    S --> G
+    G -->|gagal verifikasi| D[Hapus entri yang terpakai]
+```
+
+**Kunci.** Kunci segmen = `sha256(kunci global | dari | sampai)`; segmen tetap yang sama pada rentang yang digeser ke batas segmen yang sama (mis. `--dari 20` setelah render `0..99` pada 10 fps) memakai ulang entri. Kunci global memuat (semua harus sama, hash tunggal):
+
+| Kelompok | Isi |
+| --- | --- |
+| Lingkungan | versi Chromium (dari browser yang dipakai probe) dan `playwright-core`; seluruh keluaran `ffmpeg -version` dan string versi libx264 yang dibaca dari keluaran encode uji; hash isi `render-segmen.mjs` dan `render-sesi.mjs` (parameter encode, tangkapan, pemblokiran jaringan); sidik font sistem (nama, ukuran, mtime setiap berkas yang dikenal `fc-list`, dan hasil `fc-match` untuk `sans-serif`, `serif`, `monospace`, `emoji`, `system-ui`); platform dan arsitektur; `TZ`, `LANG`, `LC_ALL`, `LANGUAGE` |
+| Masukan render | URL komposisi (jalur mutlak, termasuk query), props **persis** seperti teks JSON yang dibaca halaman (urutan kunci berbeda berarti kunci berbeda), `width`/`height`/`fps`/`durationInFrames`, `--skala`, `--crf`, `--tangkap`, ukuran segmen |
+| Per segmen | rentang `dari`..`sampai` |
+
+**Berkas yang dimuat halaman: manifest per segmen, direkam saat render.** Kunci global tidak dapat memuat daftar berkas yang dibaca halaman, karena probe hanya melihat berkas yang dimuat saat halaman dibuka dan tidak melihat berkas yang dimuat malas per frame (mis. frame klip lewat `klipGambar`, atau `fetch` yang dipicu frame tertentu). Karena itu tiap pekerja merekam setiap permintaan `file:` yang dibuat proses Chromium-nya sepanjang hidupnya (muat halaman, pemanasan, semua frame): dokumen, skrip, CSS, `@import`, font, gambar, media, `fetch`, modul, iframe, dan permintaan worker, termasuk yang gagal atau berkas yang tidak ada. Saat selesai, ia menulis manifest `jalur`, `ada`, dan `sha256` ke `meta.json` entri. Entri sah hanya bila setiap berkas masih berisi hal yang sama dan berkas yang dulu tidak ada masih tidak ada. Karena komposisi deterministik, eksekusi yang membaca isi berkas yang sama membaca berkas yang sama dan menghasilkan piksel yang sama. Akibatnya mengubah berkas yang hanya dimuat dari frame tertentu hanya membatalkan segmen yang memuatnya, sedangkan HTML, `runtime.js`, atau aset yang dimuat di setiap segmen membatalkan semuanya. Pengukuran (Chromium 158): `request` konteks Playwright mencakup semua jenis di atas.
+
+**Fail-safe.** Lebih baik cache miss daripada segmen basi. Segmen **tidak disimpan** (render tetap berjalan dan sukses, dengan peringatan `tidak disimpan ke cache`) bila ada hal yang isinya tak bisa dijamin: berkas berubah selama render (ukuran atau mtime berbeda antara saat diminta dan saat di-hash), berkas bukan berkas biasa (direktori), permintaan non-lokal, Web Worker, service worker, popup, atau elemen `iframe`/`video`/`audio`/`object`/`embed` di halaman. Seluruh cache **dimatikan** dengan peringatan bila: `--md5-tangkapan` (butuh tangkapan nyata), `--izinkan-jaringan`, komposisi bukan berkas lokal (`http(s)`), atau lingkungan tak bisa dibaca (ffmpeg, libx264, `fc-list`, atau versi Chromium).
+
+**Integritas dan penulisan.** Entri ditulis ke folder `.tmp-*` lalu di-rename (atomik); render lain yang berjalan bersamaan tidak melihat entri setengah jadi. Saat dipakai, `seg.ts` disalin ke folder sementara render dan salinannya diverifikasi (ukuran dan sha256 sesuai `meta.json`); `meta.json` yang tak terbaca, tak cocok dengan kunci dan rentang, atau `seg.ts` yang hilang, terpotong, atau berubah byte dihitung `rusak`, tidak dipakai, dan ditulis ulang. Gabungan segmen tetap diverifikasi (jumlah frame dan PTS); bila gagal, semua entri yang dipakai render itu dihapus. Segmen yang berhasil langsung disimpan walau render gagal di segmen lain, sehingga render ulang melanjutkan dari segmen yang belum ada.
+
+**Laporan.** Sebelum render: `cache segmen: H hit, R render (n baru, n berubah, n rusak)` (`baru`: tak ada entri; `berubah`: berkas di manifest berbeda, alasan dicetak; `rusak`: lihat di atas). Ringkasan akhir: `(N segmen, P pekerja, cache segmen: H hit, R render)`; `0 pekerja` berarti tidak ada Chromium segmen yang diluncurkan (probe konfigurasi tetap satu kali). Lalu `cache segmen: K disimpan[, M tidak disimpan] (folder)`.
+
+**Pangkas.** Tidak ada pembersihan lain: `--cache-maks` memangkas entri terlama (menurut mtime `meta.json`, yang diperbarui setiap hit) di luar yang dipakai render itu, dan sisa `.tmp-*` lebih tua dari satu jam. Folder cache boleh dihapus kapan saja; `.cache/` sudah di `.gitignore`.
+
+Terukur (`transisi-galeri` frame 200-379, 180 frame 720p, 3 segmen, mesin pengembangan yang dipakai bersama): render tanpa cache 4,9 s, cache miss 5,1 s (termasuk menyimpan), cache hit 0,4 s, ketiganya MP4 identik (`md5` sama). Komposisi mungil uji (100 frame 160x90, 5 segmen): miss 3,5 s, hit 0,5 s. Waktu hit terutama probe konfigurasi, verifikasi manifest (hash berkas yang dimuat), dan verifikasi gabungan; hampir tidak bergantung jumlah frame yang di-cache.
+
+Diuji di `scripts/uji-render-paralel.mjs` (h)-(m): miss lalu hit byte-identik dengan tanpa cache, hit tanpa pekerja (statistik `0 pekerja`), rentang bergeser memakai ulang segmen, props/aset global/berkas termuat malas/HTML/`--crf`/`--skala`/`--tangkap` membatalkan, empat jenis kerusakan entri, kegagalan di tengah lalu lanjut, fail-safe, dan pangkas.
+
+Batasan: lihat [batasan.md](batasan.md). Keputusan di balik desain ini ada di [log-keputusan.md](log-keputusan.md).
+
 ## Encode video
 
 Piksel PNG sRGB rentang penuh dari browser dikonversi eksplisit ke YUV 4:2:0 matriks BT.709 rentang TV (`scale=in_range=full:out_range=tv:out_color_matrix=bt709`) dan ditandai SDR BT.709 (primaries, transfer, matriks, rentang `tv`), sehingga warna sama di semua pemutar. Profil H.264 High, progresif, B-frame 2, GOP tertutup sepanjang setengah fps, x264 `medium` dengan `-threads 2`, `faststart`. Audio AAC-LC 48 kHz stereo 384 kbps. Parameter ini mengikuti YouTube Help "Recommended upload encoding settings" (support.google.com/youtube/answer/1722171). Target kenyaringan mengikuti EBU R 128 (-23 LUFS, true peak maks -1 dBTP) untuk siaran dan AES TD1004/TD1008 (streaming -14 sampai -20 LUFS, dipilih -16) untuk web.
@@ -91,7 +136,7 @@ Piksel PNG sRGB rentang penuh dari browser dikonversi eksplisit ke YUV 4:2:0 mat
 
 ## Kode keluar
 
-Kode keluar `0` bila berhasil, `2` untuk argumen tidak valid (termasuk `--paralel` bukan bilangan bulat `>= 1` dan `--tangkap` selain `png`/`jpeg`), `3` bila ada permintaan jaringan yang diblokir (lihat di bawah), `1` untuk galat saat render lainnya (termasuk halaman tanpa `window.video` setelah 15 detik, `@font-face` yang gagal dimuat, satu pekerja segmen yang gagal, dan gabungan segmen yang gagal verifikasi), `130` bila dihentikan Ctrl+C (SIGINT) dan `143` bila dihentikan SIGTERM.
+Kode keluar `0` bila berhasil, `2` untuk argumen tidak valid (termasuk `--paralel` bukan bilangan bulat `>= 1`, `--cache-maks` bukan bilangan `> 0`, dan `--tangkap` selain `png`/`jpeg`), `3` bila ada permintaan jaringan yang diblokir (lihat di bawah), `1` untuk galat saat render lainnya (termasuk halaman tanpa `window.video` setelah 15 detik, `@font-face` yang gagal dimuat, satu pekerja segmen yang gagal, dan gabungan segmen yang gagal verifikasi), `130` bila dihentikan Ctrl+C (SIGINT) dan `143` bila dihentikan SIGTERM.
 
 ## Jaringan dan font
 
@@ -125,6 +170,10 @@ Sebelum frame pertama renderer memuat eksplisit setiap `@font-face` (`FontFace.l
 | `bun run uji` | Seluruh uji otomatis | [README](../README.md#perintah-utama) |
 
 ## Changelog
+
+### 2026-11-08 - v1.9.0
+
+- Menambahkan `--cache-segmen`, `--cache-dir`, dan `--cache-maks` (opt-in, bawaan mati) dan bagian Cache segmen: kunci global dan per segmen, manifest berkas yang dimuat halaman direkam per pekerja saat render, fail-safe, integritas (atomik, sha256), lanjut setelah gagal, pangkas LRU, pengukuran. Kode keluar `2` juga untuk `--cache-maks` tidak valid (isu #46).
 
 ### 2026-11-08 - v1.8.1
 
