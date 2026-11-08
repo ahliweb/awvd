@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.2.0`
+- Version: `v1.2.1`
 - Last updated: `2026-11-07`
-- Changeset: `Menambahkan efek kunciWarna (chroma key, keluaran PNG beralfa; tahap alfa) dan stabil (vidstab dua pass dengan cadangan deshake, deteksi kemampuan ffmpeg dengan pesan jelas; tahap pra), urutan tahap pra, alfa, warna, serta format PNG otomatis untuk efek beralfa.`
+- Changeset: `Bagian Cache menunjuk --verifikasi dan --bersihkan (#46, sebagian). Sebelumnya: Menambahkan efek kunciWarna (chroma key, keluaran PNG beralfa; tahap alfa) dan stabil (vidstab dua pass dengan cadangan deshake, deteksi kemampuan ffmpeg dengan pesan jelas; tahap pra), urutan tahap pra, alfa, warna, serta format PNG otomatis untuk efek beralfa.`
 
 `scripts/klip.mjs` dapat mengolah klip **sekali, saat ekstraksi frame**, lewat blok `efek` di `sumber.json` (stabilisasi, chroma key, LUT, koreksi warna). Frame yang sampai ke komposisi sudah berefek, jadi komposisi tetap menggambar frame ke-n klip sebagai fungsi murni dari nomor frame (`klipGambar`) tanpa tahu efeknya. Tidak ada grading per frame di Chromium. Manifest, lisensi, cache, dan pemakaian klip di komposisi ada di [video-tertanam-audio.md](video-tertanam-audio.md); dokumen ini hanya mengurai efek. Keputusan di baliknya ada di [log-keputusan.md](log-keputusan.md).
 
@@ -83,7 +83,7 @@ Urutan antar-tahap tetap (pra, alfa, warna) dan tidak mengikuti urutan array; da
 Kunci cache menambahkan `efek` ke kunci lama: daftar efek kanonik (parameter berisi nilai bawaan yang sudah terisi, tanpa efek netral) dan, untuk `lut`, **sha256 isi berkas LUT** dan interpolasi; untuk `stabil`, mesin yang terpilih (`vidstab` atau `deshake`, sesudah `otomatis` diselesaikan); untuk `kunciWarna`, warna (huruf kecil), toleransi, halus, dan metode. Format berkas frame (`png` otomatis untuk efek beralfa) juga ikut kunci. Akibatnya:
 
 - manifest yang sama menghasilkan cache hit dan tidak menjalankan ffmpeg;
-- mengubah parameter, urutan, atau **isi LUT** (walau jalurnya sama) menghasilkan kunci baru; folder cache lama dibiarkan (seperti perubahan fps);
+- mengubah parameter, urutan, atau **isi LUT** (walau jalurnya sama) menghasilkan kunci baru; folder cache lama dibiarkan (seperti perubahan fps) kecuali dipangkas dengan `--bersihkan`; `--verifikasi` mengekstrak ulang folder yang hash frame-nya tidak cocok dengan `meta.json` ([video-tertanam-audio.md](video-tertanam-audio.md#scriptsklipmjs));
 - memindahkan proyek ke jalur lain tidak mengubah kunci, karena jalur mutlak tidak ikut dihash;
 - klip tanpa efek tidak berubah kuncinya, jadi cache lama tetap berlaku.
 
@@ -129,6 +129,10 @@ bun templates/klip-tertanam/buat-lut.mjs .cache/awvd/lut   # membangkitkan ulang
 ```
 
 ## Changelog
+
+### 2026-11-08 - v1.2.1
+
+- Bagian Cache: `--bersihkan` dan `--verifikasi` (#46, sebagian).
 
 ### 2026-11-07 - v1.2.0
 

@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.18.0`
+- Version: `v1.18.1`
 - Last updated: `2026-11-08`
-- Changeset: `F2 selesai: dokumen penutup F2/07 (#36, docs/timeline.md v1.3.0) menutup semua sub-issue F2; status F2 menjadi selesai. Sebelumnya: Speed ramp dengan audio atempo (F3/05) selesai: paritas trim, speed, reverse, freeze mencakup audio speed konstan dan ramp; status F3 selesai. Sebelumnya: F6 berstatus berjalan: rancangan penyunting pratinjau (F6/01, #53) disetujui pemilik; paritas penyunting visual merujuk penyunting.md. Sebelumnya: Paritas timeline multitrack berstatus ada (templat render generik F2/03 dan rencana audio F2/05 selesai); status F2 berjalan.`
+- Changeset: `Paritas render cepat: cache ekstraksi klip dirinci (hit/miss, --verifikasi, --bersihkan); cache segmen render tetap belum (F4/03 sebagian). Sebelumnya: F2 selesai: dokumen penutup F2/07 (#36, docs/timeline.md v1.3.0) menutup semua sub-issue F2; status F2 menjadi selesai. Sebelumnya: Speed ramp dengan audio atempo (F3/05) selesai: paritas trim, speed, reverse, freeze mencakup audio speed konstan dan ramp; status F3 selesai. Sebelumnya: F6 berstatus berjalan: rancangan penyunting pratinjau (F6/01, #53) disetujui pemilik; paritas penyunting visual merujuk penyunting.md. Sebelumnya: Paritas timeline multitrack berstatus ada (templat render generik F2/03 dan rencana audio F2/05 selesai); status F2 berjalan.`
 
 ## Visi
 
@@ -89,7 +89,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Chroma key | ada ([olah-klip.md](olah-klip.md); `kunciWarna`, keluaran PNG beralfa) | F3/02 (selesai) |
 | Stabilisasi | ada ([olah-klip.md](olah-klip.md); `stabil`: vidstab, cadangan deshake) | F3/03 (selesai) |
 | Peredam bising, pengubah suara | ada ([video-tertanam-audio.md](video-tertanam-audio.md#olah-suara-per-trek)); `arnndn` butuh model milik pengguna | F3/04 (selesai) |
-| Render cepat untuk footage panjang | ada: render paralel per segmen `--paralel N` (sekitar 2,6x dengan 4 pekerja pada klip 480 frame; [cli.md](cli.md#render-paralel-dan-segmen)); cache segmen hasil render belum | F4/01 (selesai), F4/02 (selesai), F4/03 |
+| Render cepat untuk footage panjang | ada: render paralel per segmen `--paralel N` (sekitar 2,6x dengan 4 pekerja pada klip 480 frame; [cli.md](cli.md#render-paralel-dan-segmen)); cache ekstraksi klip ada ([video-tertanam-audio.md](video-tertanam-audio.md#scriptsklipmjs): hit/miss, `--verifikasi`, `--bersihkan`); cache segmen hasil render belum | F4/01 (selesai), F4/02 (selesai), F4/03 (sebagian: sisi klip) |
 | Caption otomatis dari audio (ASR) | ada sebagai adaptor opsional yang tidak dibundel ([narasi-caption.md](narasi-caption.md#asr-lokal-whispercpp)): whisper.cpp lokal untuk caption dari audio tanpa naskah (wajib ditinjau manusia) dan stempel kata narasi; belum diuji pada suara manusia | F5/01 (selesai) |
 | Sinkron ketukan musik | sebagian: deteksi ketukan dan tempo tetap dari audio lokal ke `ketukan.json` dengan helper komposisi ada ([ketukan.md](ketukan.md)); diuji pada sinyal sintetis, musik nyata dan tempo berubah belum diuji | F5/02 (selesai) |
 | Reframe 16:9 ke 9:16 | sebagian: crop berkeyframe manual deterministik dengan validasi teks terpotong dan area aman 9:16 (`window.Reframe`, `bun run reframe`) dan saran fokus heuristik tanpa model ([reframe.md](reframe.md)); diuji pada video sintetis, pelacakan wajah atau objek belum | F5/03 (selesai) |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-08 - v1.18.1
+
+- Paritas "Render cepat untuk footage panjang": cache ekstraksi klip dirinci; cache segmen render belum, F4/03 (#46) baru sebagian (sisi klip).
 
 ### 2026-11-08 - v1.18.0
 

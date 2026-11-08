@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.9.1`
+- Version: `v1.10.0`
 - Last updated: `2026-11-08`
-- Changeset: `Jangkauan tempo 0,5..4x kini diperiksa R09 di validator timeline lewat rencanaWaktuAudio (issue #84); A04 menjadi lapis kedua. Sebelumnya: Menambahkan bagian Audio klip ber-speed (atempo): speed konstan dan ramp dirakit sinkron dengan pemetaan frame runtime.js, jangkauan 0,5 sampai 4x, panjang sampel tepat, reverse dan freeze tetap ditolak, kunci waktu dan durasi di klip[] rencana, serta bukti uji sinkron. Sebelumnya: bagian Rencana dari timeline.json.`
+- Changeset: `klip.mjs: ringkasan cache hit/miss, flag --verifikasi (cache rusak diekstrak ulang) dan --bersihkan (pangkas cache lama), batas cache dinyatakan eksplisit (#46, sebagian). Sebelumnya: Jangkauan tempo 0,5..4x kini diperiksa R09 di validator timeline lewat rencanaWaktuAudio (issue #84); A04 menjadi lapis kedua. Sebelumnya: Menambahkan bagian Audio klip ber-speed (atempo): speed konstan dan ramp dirakit sinkron dengan pemetaan frame runtime.js, jangkauan 0,5 sampai 4x, panjang sampel tepat, reverse dan freeze tetap ditolak, kunci waktu dan durasi di klip[] rencana, serta bukti uji sinkron. Sebelumnya: bagian Rencana dari timeline.json.`
 
 Dua fitur yang saling terkait: `scripts/klip.mjs` menyediakan frame klip dan `scripts/audio.mjs` menata audionya. Keputusan di baliknya tercatat di [log-keputusan.md](log-keputusan.md) (KP-011 sampai KP-014); kewajiban lisensi pengguna ada di [lisensi-kepatuhan.md](lisensi-kepatuhan.md). Kutipan dari karya orang lain untuk video reaction dan ulasan (kebijakan angka, gerbang hukum, templat) ada di [pelajari-reaction.md](pelajari-reaction.md). Efek klip (stabilisasi, chroma key, LUT `.cube`, kecerahan, kontras, saturasi, gamma, keseimbangan warna) yang diterapkan saat ekstraksi ada di [olah-klip.md](olah-klip.md). Peredam bising dan pengubah nada/tempo suara ada di [§Olah suara per trek](#olah-suara-per-trek).
 
@@ -73,7 +73,7 @@ Jalur `berkas` dan `bukti` relatif terhadap folder manifest. Contoh lengkap: [`t
 ### `scripts/klip.mjs`
 
 ```text
-bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung props.json] [--paksa] [--draf]
+bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung props.json] [--paksa] [--verifikasi] [--bersihkan] [--draf]
 ```
 
 | Flag | Keterangan |
@@ -82,11 +82,13 @@ bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung pr
 | `--out DIR` | Folder cache dan keluaran (bawaan `.cache/awvd/klip`, diabaikan git). |
 | `--gabung F` | Berkas props dasar (objek JSON tanpa kunci `klip`); hasil digabung dengan daftar klip ke `props-gabungan.json` untuk `--props-file`. |
 | `--paksa` | Ekstrak ulang walau cache ada. |
+| `--verifikasi` | Cache hit hanya dipakai bila hash seluruh frame di folder cache cocok dengan `framesSha256` di `meta.json`; bila tidak (frame terpotong, diganti, atau rusak) folder diekstrak ulang dan barisnya bertanda `ekstraksi (cache rusak)`. Tanpa flag ini cache hit hanya memeriksa `meta.json`, jumlah berkas frame, dan `audio.wav`, jadi isi frame yang rusak tidak terdeteksi. Biayanya membaca semua frame klip. |
+| `--bersihkan` | Sesudah semua klip berhasil, hapus folder cache lama di `--out` yang tidak dipakai klip manifest ini (folder bernama 16 karakter heksadesimal yang memuat `meta.json`) dan sisa `.tmp-<kunci>-<pid>` milik proses yang sudah mati, lalu cetak ringkasannya. Folder lain dan berkas keluaran tidak disentuh. **Hati-hati bila `--out` dipakai bersama beberapa manifest**: cache manifest lain di folder itu ikut terhapus dan harus diekstrak ulang. |
 | `--draf` | Hanya untuk sumber `KUTIPAN-WAJAR` yang gerbang hukum GH-nya belum disetujui: lolos dengan peringatan, `klip-props.json` dan `props-gabungan.json` memuat `"draf": true`, dan `atribusi.txt` diberi baris DRAF. Komposisi wajib menampilkan tanda draf; hasilnya tidak boleh dipublikasikan. Pelanggaran angka kutipan tidak dapat dilewati dengan flag ini. |
 
 Keluaran di `--out`: `<kunci>/` (frame `000000.jpg`..., `audio.wav` bila sumber beraudio, `meta.json` berisi hash seluruh frame), `klip-props.json` (daftar `klip[]`: `id`, `akar` URL `file://` folder cache, `folder`, `ekstensi`, `digit`, `jumlah`, `fps`, `lebar`, `tinggi`, `audio`, `atribusi`), `atribusi.txt` (format TASL siap tempel di deskripsi), dan `props-gabungan.json` bila `--gabung`. Untuk sumber dalam cakupan kebijakan kutipan, tiap klip di `klip-props.json` memuat `kutipan: { isiAudio, musikDibahas }` (dipakai `audio.mjs`). Kode keluar: `0` berhasil, `2` manifest atau argumen tidak valid (tidak ada ekstraksi), `1` galat ffmpeg.
 
-**Cache.** Kunci = sha256 dari {hash berkas sumber, fps, lebar, tinggi, dari, panjang, matriks warna, rentang, format, kualitas, versi ffmpeg, dan efek kanonik beserta sha256 berkas LUT bila klip berefek}. Cache hit tidak menjalankan ffmpeg. Ekstraksi dua kali menghasilkan frame identik byte demi byte (diuji lewat `framesSha256`). Cache tidak dibersihkan otomatis; hapus `.cache/awvd/klip` bila perlu. Ekstraksi memakai `-flags +bitexact` agar JPEG tidak memuat tag versi ffmpeg.
+**Cache.** Kunci = sha256 dari {hash berkas sumber, fps, lebar, tinggi, dari, panjang, matriks warna, rentang, format, kualitas, versi ffmpeg, dan efek kanonik beserta sha256 berkas LUT bila klip berefek}. Cache hit tidak menjalankan ffmpeg: render kedua tanpa perubahan melewati ekstraksi, dan baris `cache: N hit, M ekstraksi` meringkas setiap jalan (contoh terukur pada `templates/klip-tertanam` dua klip 90 dan 120 frame 480x270: jalan pertama 0,57 s, jalan kedua 0,15 s dengan dua hit; frame tidak disentuh, diuji lewat mtime). Ekstraksi dua kali menghasilkan frame identik byte demi byte (diuji lewat `framesSha256`). Cache tidak dibersihkan otomatis: mengubah fps, rentang, efek, atau versi ffmpeg menambah folder kunci baru dan membiarkan yang lama; pakai `--bersihkan` atau hapus `.cache/awvd/klip`. Cache ini hanya untuk **ekstraksi klip**; cache hasil render (segmen MP4) belum ada ([roadmap.md](roadmap.md), F4/03). Ekstraksi memakai `-flags +bitexact` agar JPEG tidak memuat tag versi ffmpeg.
 
 **Warna.** Chromium mendekode video tak bertag dengan matriks BT.709 sedangkan ffmpeg bawaannya BT.601; pada uji riset PSNR frame yang sama 25,6 dB (bawaan) berbanding 46,1 dB (matriks eksplisit). Karena itu `klip.mjs` memberi matriks dan rentang eksplisit dari tag `ffprobe` (`color_space`, `color_range`); sumber tak bertag dianggap `bt709` (juga untuk resolusi SD; konvensi SD = BT.601 belum diverifikasi), rentang tak bertag dianggap `tv` (`pc` untuk `yuvj*`). Sumber HDR (`smpte2084`, `arib-std-b67`) ditolak. SAR non-persegi dikoreksi, rotasi mengikuti autorotate ffmpeg. Frame JPEG disimpan `yuvj444p`; frame PNG `rgb24`.
 
@@ -327,6 +329,10 @@ awvd tidak membundel mesin TTS. Antarmuka narasi adalah **berkas WAV beku**: has
 Yang disediakan adalah adaptor opsional `sherpa-onnx` di `bun run narasi` ([TTS lokal](narasi-caption.md#tts-lokal-sherpa-onnx)): pengguna memasang sherpa-onnx dan model sendiri (Supertonic 3 untuk Indonesia, Kokoro untuk Inggris; bobot Supertonic berlisensi OpenRAIL-M dengan syarat label suara sintetis dan larangan nasihat medis, lihat [lisensi-kepatuhan.md](lisensi-kepatuhan.md#model-tts-dan-openrail-m)), adaptor membekukan WAV di cache berhash dan menormalkan kenyaringannya, dan `rencana-audio.json` yang dihasilkan masuk ke `bun run audio` seperti biasa.
 
 ## Changelog
+
+### 2026-11-08 - v1.10.0
+
+- `klip.mjs`: baris ringkasan `cache: N hit, M ekstraksi`, flag `--verifikasi` (cache hit disahkan dengan `framesSha256`) dan `--bersihkan` (pangkas folder cache tak terpakai dan sisa `.tmp` proses mati); batas cache (hanya ekstraksi klip, bukan segmen render) dinyatakan (#46, sebagian).
 
 ### 2026-11-08 - v1.9.1
 
