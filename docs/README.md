@@ -37,7 +37,7 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | [reframe.md](reframe.md) | Reframe 16:9 ke 9:16: crop berkeyframe deterministik, skema `reframe.json`, `window.Reframe`, saran fokus opsional tanpa model, templat `reframe-contoh` | `v1.0.0` |
 | [timeline.md](timeline.md) | `timeline.json` (skema 1): track, butir, transisi tumpang tindih, pemetaan waktu klip; validator `bun run timeline periksa`, aturan R01-R17 dan W01-W09, kebijakan kutipan turunan; templat render generik `templates/timeline/` dan rencana audio turunan | `v1.3.1` |
 | [penyunting.md](penyunting.md) | Rancangan penyunting pratinjau lokal F6 (disetujui, belum diimplementasikan): server lokal `Bun.serve` dengan validator `timeline.mjs`, wireframe, alur sunting, aksesibilitas WCAG 2.2 AA, pemecahan #54 dan #55 | `v1.0.0` |
-| [README.md](README.md) | Indeks ini | `v1.17.2` |
+| [README.md](README.md) | Indeks ini | `v1.17.3` |
 
 ## Peta dokumen
 
