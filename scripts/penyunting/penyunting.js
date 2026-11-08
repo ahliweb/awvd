@@ -43,7 +43,7 @@
     return { track: Number(m[1]), butir: m[2] === undefined ? null : Number(m[2]) };
   }
 
-  /** Menempatkan butir (urutan waktu) ke sublajur pertama yang kosong; daftar = [{ mulai, akhir }]. */
+  /** Menempatkan butir (urutan waktu) ke sublajur pertama yang kosong; daftar = [{ mulai, akhir }] (satuan bebas: frame atau piksel, asal seragam). */
   function aturSublajur(daftar) {
     var akhirLajur = [], lajur = [];
     var urut = daftar.map(function (_, i) { return i; }).sort(function (a, b) { return daftar[a].mulai - daftar[b].mulai || a - b; });
@@ -337,7 +337,9 @@
     M.track.forEach(function (tr) {
       var jalur = el.grid.querySelector('.jalur[data-track="' + tr.t + '"]');
       if (!jalur) return;
-      var sub = aturSublajur(tr.butir);
+      // sublajur dihitung dalam piksel dengan lebar tampil (minimum 24 px, SC 2.5.8), bukan dalam frame:
+      // butir pendek yang melebar ke 24 px dipisah dari tetangganya, posisi waktu (left) tidak digeser
+      var sub = aturSublajur(tr.butir.map(function (b) { var x = xFrame(b.mulai); return { mulai: x, akhir: x + Math.max(24, xFrame(b.durasi)) }; }));
       jalur.style.width = w + "px";
       jalur.style.height = sub.jumlah * TINGGI_BARIS + "px";
       tr.butir.forEach(function (b, i) {

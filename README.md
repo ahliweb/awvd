@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.27.0`
+- Version: `v2.28.0`
 - Last updated: `2026-11-08`
-- Changeset: `§Perintah utama: bun run penyunting memuat penyuntingan dasar dan ekspor (#55, flag --timpa); indeks: AGENTS.md v1.9.2 (kolom Versi yang basi); §Struktur repo: scripts/penyunting/model.js; indeks dokumentasi: penyunting.md v2.0.0, aksesibilitas.md v1.9.0, timeline.md v1.4.0, roadmap.md v1.23.0, log-keputusan.md v1.28.0, docs/README.md v1.17.9. Sebelumnya: §Perintah utama: bun run segmentasi (periksa lingkungan hapus latar lokal, #88) dan uji segmentasi di bun run uji; §Struktur repo: scripts/segmentasi-lib.js, scripts/segmentasi.mjs, scripts/uji-segmentasi.mjs, data/model-segmentasi.json; indeks dokumentasi: segmentasi-latar.md v1.1.0, lisensi-kepatuhan.md v1.7.0, batasan.md v1.10.0, roadmap.md v1.22.0, log-keputusan.md v1.27.0, docs/README.md v1.17.8.`
+- Changeset: `Indeks dokumentasi: penyunting.md v2.1.0 (#94: butir sangat pendek tidak saling menumpuk), aksesibilitas.md v1.9.1, roadmap.md v1.24.0, docs/README.md v1.17.10. Sebelumnya: §Perintah utama: bun run penyunting memuat penyuntingan dasar dan ekspor (#55, flag --timpa); indeks: AGENTS.md v1.9.2 (kolom Versi yang basi); §Struktur repo: scripts/penyunting/model.js; indeks dokumentasi: penyunting.md v2.0.0, aksesibilitas.md v1.9.0, timeline.md v1.4.0, roadmap.md v1.23.0, log-keputusan.md v1.28.0, docs/README.md v1.17.9.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -74,7 +74,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.9` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.10` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.3.0` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.6.1` |
 | [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.9.0` |
@@ -87,17 +87,17 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/pelajari-reaction.md](docs/pelajari-reaction.md) | `bun run pelajari`, kebijakan kutipan wajar, gerbang hukum GH, templat reaction | `v1.0.0` |
 | [docs/visual-audiens.md](docs/visual-audiens.md) | Profil audiens, ukuran teks, buta warna, ketajaman, efek dekoratif | `v1.0.0` |
 | [docs/transisi-animasi.md](docs/transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, `kurangiGerak`, biaya kompresi | `v1.1.0` |
-| [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.9.0` |
+| [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.9.1` |
 | [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.10.0` |
 | [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab aset, matriks lisensi aset, matriks model segmentasi, video pihak ketiga | `v1.7.0` |
 | [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.1.0` |
-| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.23.0` |
+| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.24.0` |
 | [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.28.0` |
 | [docs/narasi-caption.md](docs/narasi-caption.md) | `bun run narasi`: `naskah.json`, estimasi berjangkar jeda, cue VTT/SRT dengan lint cps, rencana audio, mode dan posisi caption | `v1.3.0` |
 | [docs/ketukan.md](docs/ketukan.md) | `bun run ketukan`: onset fluks spektral, tempo autokorelasi, ketukan berselaras grid, `ketukan.json`, helper `window.Ketukan`, batas bukti | `v1.0.0` |
 | [docs/reframe.md](docs/reframe.md) | Reframe 16:9 ke 9:16: crop berkeyframe, `reframe.json`, `window.Reframe`, saran fokus opsional | `v1.0.0` |
 | [docs/timeline.md](docs/timeline.md) | `timeline.json` (skema 1), validator `bun run timeline periksa`, templat render generik, rencana audio | `v1.4.0` |
-| [docs/penyunting.md](docs/penyunting.md) | Penyunting pratinjau lokal F6: `bun run penyunting` (server `Bun.serve` berpengerasan, scrubber, grid track, frame identik piksel dengan render; penyuntingan dasar pindah, potong, ubah durasi, urungkan; ekspor `<nama>.sunting.json` hanya bila validator lolos; jalur tanpa seret; aksesibilitas yang diterapkan; penyimpangan dari rancangan) | `v2.0.0` |
+| [docs/penyunting.md](docs/penyunting.md) | Penyunting pratinjau lokal F6: `bun run penyunting` (server `Bun.serve` berpengerasan, scrubber, grid track, frame identik piksel dengan render; penyuntingan dasar pindah, potong, ubah durasi, urungkan; ekspor `<nama>.sunting.json` hanya bila validator lolos; jalur tanpa seret; aksesibilitas yang diterapkan; penyimpangan dari rancangan) | `v2.1.0` |
 | [docs/segmentasi-latar.md](docs/segmentasi-latar.md) | Hapus latar lokal F5: modul segmentasi dan registri (#88, kondisi nyata), model, lisensi, uji CPU sintetis, ORT opsional; efek klip `hapusLatar` masih rancangan (#89) | `v1.1.0` |
 | [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.9.2` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
@@ -164,6 +164,10 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 **Peringatan hukum: video pihak ketiga.** awvd tidak menyediakan dan tidak akan menyediakan pengunduh atau perekam video platform (YouTube, TikTok, Facebook, Instagram, X, dan sejenisnya); fitur sumber hanya menerima berkas yang sah Anda miliki, dengan manifest dan atribusi. Kutipan untuk video reaction dan ulasan diperiksa terhadap kebijakan internal yang terukur dan gerbang tinjauan hukum, bukan jaminan kutipan sah. Dokumentasi ini bukan nasihat hukum; rincian di [docs/pelajari-reaction.md](docs/pelajari-reaction.md).
 
 ## Changelog
+
+### 2026-11-08 - v2.28.0
+
+- Indeks dokumentasi: `penyunting.md` v2.1.0 (#94), `aksesibilitas.md` v1.9.1, `roadmap.md` v1.24.0, `docs/README.md` v1.17.10.
 
 ### 2026-11-08 - v2.27.0
 

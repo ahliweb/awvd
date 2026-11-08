@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.0.0`
+- Version: `v2.1.0`
 - Last updated: `2026-11-08`
-- Changeset: `Issue #55 diimplementasikan: bagian Kondisi nyata (#55) mendokumentasikan penyuntingan dasar (pindah, potong, ubah durasi), urungkan dan ulangi, ekspor yang hanya berhasil bila validator lolos (atomik, <nama>.sunting.json, --timpa), rute POST berpengerasan, jalur tanpa seret dan tanpa pintasan karakter global, serta sepuluh penyimpangan dari rancangan; dokumen tidak lagi berstatus rancangan. Sebelumnya: issue #54 diimplementasikan (tampilan baca-saja, sembilan penyimpangan).`
+- Changeset: `Issue #94 diperbaiki: butir yang lebarnya di bawah 24 px pada zum 100% tidak lagi saling menumpuk; sublajur dihitung dari lebar tampil dalam piksel sehingga tiap butir punya target 24 px tanpa tumpang dan klik di pusatnya memilih butir itu (SC 2.5.8), posisi waktu tidak berubah; trade-off dicatat di bagian Butir sangat pendek (#94). Sebelumnya: issue #55 diimplementasikan (penyuntingan dasar, urungkan dan ulangi, ekspor yang hanya bila validator lolos).`
 
 > **Status: #54 (tampilan) dan #55 (penyuntingan dan ekspor) sudah diimplementasikan.** Bagian [Kondisi nyata (#54)](#kondisi-nyata-54) dan [Kondisi nyata (#55)](#kondisi-nyata-55) menggambarkan kode yang ada di repo. Bagian arsitektur, antarmuka, alur penyuntingan, dan aksesibilitas di bawahnya adalah rancangan awal yang disetujui pemilik pada 2026-11-08 (issue #53) dan dipertahankan sebagai dasar keputusan; yang berbeda dari kenyataan dicatat di [Penyimpangan dari rancangan (#54)](#penyimpangan-dari-rancangan-54) dan [Penyimpangan dari rancangan (#55)](#penyimpangan-dari-rancangan-55). Bila rancangan dan kondisi nyata berbeda, kondisi nyata yang berlaku.
 
@@ -276,7 +276,7 @@ Urutan pemeriksaan tiap permintaan: `Host` (hanya `127.0.0.1:<port>` dan `localh
 | Pratinjau | iframe `/komposisi.html` pada ukuran komposisi (mode **100%**, identik dengan render) atau diskalakan `transform: scale()` (mode **Muat ke panel**, hanya tampilan). Area pratinjau bergulir sendiri dan dapat difokuskan. Permintaan frame yang menumpuk digabung: hanya yang terbaru dijalankan. Setelah `renderFrame(n)` selesai, font yang belum termuat ditunggu (jaring pengaman yang sama dengan `ambil` di `render-sesi.mjs`); baru kemudian atribut `data-frame-tampil` iframe diisi `n`. |
 | Scrubber | `input type="range"` natif berlabel "Posisi frame" (`min` 0, `max` durasi-1, `step` 1, `aria-valuetext` "frame 75, 2,50 detik"); panah, `Home`, `End` bawaan peramban; `PageUp`/`PageDown` = 10 frame; `Spasi` = putar/jeda; kolom angka "Frame" (nilai luar jangkauan dijepit dan diumumkan); tombol Awal, Mundur 1, Maju 1, Akhir; pemilih penanda dari `timeline.penanda`. |
 | Pemutaran | `requestAnimationFrame` dan `performance.now` hanya di kerangka halaman; bawaan jeda; berhenti di frame terakhir. Bila validator memberi W06 (kilatan), tombol Putar pertama hanya mengumumkan peringatan; tekan lagi untuk tetap memutar. Tanpa audio. |
-| Track | `role="grid"`: satu baris per track (indeks terbesar di atas), `rowheader` berisi nama, jenis, dan "(nonaktif)"; sel butir `role="gridcell"` dengan posisi dan lebar sebanding frame (minimum 24 px), glif jenis (V G W T K A) dan gaya garis berbeda per jenis; butir yang bertumpuk dipisah ke sublajur dan irisan transisi diarsir. Penggaris waktu, penanda, playhead, zum 100% sampai 3200% (klik penggaris menaruh playhead). |
+| Track | `role="grid"`: satu baris per track (indeks terbesar di atas), `rowheader` berisi nama, jenis, dan "(nonaktif)"; sel butir `role="gridcell"` dengan posisi dan lebar sebanding frame (minimum 24 px), glif jenis (V G W T K A) dan gaya garis berbeda per jenis; butir yang bertumpuk, termasuk butir pendek yang kotak tampilnya 24 px saling menutupi (#94), dipisah ke sublajur dan irisan transisi diarsir. Penggaris waktu, penanda, playhead, zum 100% sampai 3200% (klik penggaris menaruh playhead). |
 | Properti | id, jenis, track, mulai, durasi, akhir, transisi, klip/aset/warna/isi, jumlah masalah terkait, tombol "Ke awal butir". Sejak #55 ditambah form "Sunting butir" ([Kondisi nyata (#55)](#halaman-penyuntingan)). |
 | Masalah | Galat, masalah muat, dan peringatan dengan kode, lokasi JSON pointer, dan pesan (paling banyak 200 baris); baris yang menunjuk ke butir berupa tombol yang menaruh fokus ke butir itu. Jumlah ada di judul. |
 | Status | Satu `aria-live="polite"`: hasil validator saat dibuka dan setelah tiap perubahan, hasil operasi, urungkan, ekspor, pengumuman jepit, penanda, zum, jeda; `role="alert"` bila sesi tidak dapat dimuat. Galat pratinjau memakai `role="alert"`. |
@@ -302,11 +302,26 @@ Temuan penting: tanpa CSS khusus, iframe **tidak** identik. Frame tanpa kanvas k
 
 ### Aksesibilitas yang diterapkan
 
-Sasaran WCAG 2.2 AA untuk kerangka penyunting (bukan isi video). Yang dilaksanakan dan diuji otomatis di `scripts/uji-penyunting.mjs`: nama aksesibel semua kontrol interaktif (pohon aksesibilitas CDP), landmark `banner`, `main`, `complementary`, `region`, dan `status`, `lang="id"`, scrubber dan grid sesuai tabel di atas, urutan tab (pratinjau, scrubber, track; grid satu perhentian), tanpa pintasan karakter global (SC 2.1.4), sasaran minimal 24 px (SC 2.5.8), kontras token terang dan gelap dihitung dengan `kontras` runtime (teks minimal 4,5:1; komponen UI, batas, dan fokus minimal 3:1; SC 1.4.3 dan 1.4.11), jenis butir tidak hanya lewat warna (glif dan gaya garis, SC 1.4.1), reflow 320 px tanpa gulir horizontal halaman dengan area track dan pratinjau yang bergulir sendiri dan dapat difokuskan (SC 1.4.10), tanpa animasi atau transisi CSS, dan `forced-colors` ditangani di CSS (belum diuji otomatis). Yang ditambahkan #55 (jalur tanpa seret, SC 2.5.7, dan pengumuman hasil, SC 4.1.3) ada di [Kondisi nyata (#55)](#aksesibilitas-yang-diterapkan-55). **Belum dilakukan:** uji manual dengan pembaca layar dan uji zum teks 200% di peramban sebenarnya (hanya dicakup uji lebar 160 px). Tidak ada klaim kepatuhan atau sertifikasi.
+Sasaran WCAG 2.2 AA untuk kerangka penyunting (bukan isi video). Yang dilaksanakan dan diuji otomatis di `scripts/uji-penyunting.mjs`: nama aksesibel semua kontrol interaktif (pohon aksesibilitas CDP), landmark `banner`, `main`, `complementary`, `region`, dan `status`, `lang="id"`, scrubber dan grid sesuai tabel di atas, urutan tab (pratinjau, scrubber, track; grid satu perhentian), tanpa pintasan karakter global (SC 2.1.4), sasaran minimal 24 px tanpa tumpang antarbutir (SC 2.5.8; diuji `(za)`), kontras token terang dan gelap dihitung dengan `kontras` runtime (teks minimal 4,5:1; komponen UI, batas, dan fokus minimal 3:1; SC 1.4.3 dan 1.4.11), jenis butir tidak hanya lewat warna (glif dan gaya garis, SC 1.4.1), reflow 320 px tanpa gulir horizontal halaman dengan area track dan pratinjau yang bergulir sendiri dan dapat difokuskan (SC 1.4.10), tanpa animasi atau transisi CSS, dan `forced-colors` ditangani di CSS (belum diuji otomatis). Yang ditambahkan #55 (jalur tanpa seret, SC 2.5.7, dan pengumuman hasil, SC 4.1.3) ada di [Kondisi nyata (#55)](#aksesibilitas-yang-diterapkan-55). **Belum dilakukan:** uji manual dengan pembaca layar dan uji zum teks 200% di peramban sebenarnya (hanya dicakup uji lebar 160 px). Tidak ada klaim kepatuhan atau sertifikasi.
 
 ### Pengujian
 
 `bun run uji:penyunting` (juga bagian `bun run uji` dan CI) menjalankan 17 uji tampilan (#54) dan 9 uji penyuntingan (#55, lihat [Pengujian penyuntingan](#pengujian-penyuntingan)). Uji tampilan menjalankan dalam sekitar 15 detik: CLI dan kode keluar; pengerasan server (tanpa token, token salah, `Host`/`Origin`/`Sec-Fetch-Site` asing lewat soket mentah, metode, rute, `..`, tautan simbolik keluar folder untuk frame klip dan aset); header CSP; kesesuaian DOM dengan `Timeline.rencana`; scrubber dan papan ketik; pemutaran dan zum; widget track; pohon aksesibilitas; tujuh frame piksel identik dengan `render.mjs --still`; timeline ditolak validator (galat berlokasi, klik masalah memfokuskan butir); `--draf`; timeline sintetis 500 butir (dibuka sekitar 100 ms); reflow 320 px; kontras token dan tema gelap; larangan animasi CSS, `Date.now`, dan `Math.random`; serta, selama seluruh sesi, tidak ada permintaan jaringan non-lokal dan tidak ada galat konsol atau halaman. Memakai `playwright-core` dan `cariBrowser` yang sudah ada.
+
+### Butir sangat pendek (#94)
+
+Butir ditampilkan selebar `max(24, frame x px per frame)`. Sebelum #94, sublajur ditentukan dari interval **waktu**, sehingga dua butir 1 frame yang berdampingan (pada zum 100% hanya beberapa piksel) berada di sublajur yang sama padahal kotak tampilnya 24 px dan saling menutupi: klik di pusat butir pertama mengenai butir kedua (SC 2.5.8, ukuran target minimum).
+
+Perbaikan: `tataUlang()` menghitung sublajur dalam **piksel** memakai lebar tampil (`aturSublajur` tidak peduli satuan, asal seragam). Butir yang kotak tampilnya beririsan dipindah ke sublajur berikutnya (tinggi baris 32 px, kotak butir 28 px), tanpa kotak yang saling menutupi. Setiap butir tetap 24 px atau lebih di kedua sumbu, dan klik di pusatnya hanya mengenai butir itu. Perhitungan diulang pada setiap perubahan zum, ukuran, dan penyuntingan, sehingga pada zum tinggi (butir lebar) tata letak kembali ke satu sublajur.
+
+| Pendekatan | Kelebihan | Kekurangan | Putusan |
+| --- | --- | --- | --- |
+| Sublajur berbasis lebar tampil (dipakai) | Target penuh 24 x 24 tanpa tumpang; `left` dan lebar tetap sebanding frame (min 24 px, tidak ada kebohongan posisi); perubahan kecil (satu fungsi, tanpa DOM atau CSS baru); iframe pratinjau tidak tersentuh sehingga uji piksel dan padding bulat tetap utuh | Track padat bertambah tinggi pada zum rendah; butir pendek tampak lebih panjang dari durasinya (sudah begitu sejak #54, durasi sebenarnya ada di `aria-label`, properti, dan teks) | Dipilih |
+| Pengecualian spasi SC 2.5.8 (target kecil dengan jarak) | Tidak mengubah tinggi | Butir 1 frame berjarak 1 px tak bisa diberi jarak 24 px tanpa menggeser posisi waktu | Ditolak |
+| Zona sentuh tak terlihat di luar kotak butir | Kotak visual tetap sempit | Zona saling menutupi, pusat butir tetangga tetap ambigu | Ditolak |
+| Mengelompokkan butir pendek menjadi satu butir gabungan | Hemat ruang | Mengubah model pemilihan, papan ketik, dan seret (area #55) | Ditolak |
+
+Diuji oleh `(za)` di `scripts/uji-penyunting.mjs`: dua butir 1 frame berdampingan pada zum 100%, tiap kotak minimal 24 x 24 px, tidak ada pasangan butir yang kotaknya beririsan, `left` sebanding `mulai`, dan klik mouse di pusat tiap butir memilih butir itu (uji gagal sebelum perbaikan dengan "saling menumpuk").
 
 ### Penyimpangan dari rancangan (#54)
 
@@ -322,7 +337,7 @@ Sasaran WCAG 2.2 AA untuk kerangka penyunting (bukan isi video). Yang dilaksanak
 | 8 | Urutan track "menurut urutan di JSON" | Indeks terbesar di atas (lapisan atas di atas); wireframe di atas hanya ilustrasi | Sesuai kalimat "lapisan atas ditampilkan di atas" |
 | 9 | `Enter` atau `F2` masuk mode sunting | `Enter` memindahkan playhead ke awal butir; `F2` belum dipakai | Mode sunting adalah #55 (diselesaikan di #55: `Enter` memindahkan playhead dan masuk mode sunting; `F2` masuk tanpa memindahkan playhead) |
 
-Opsi CLI `--cache` dan `--help` ditambahkan (tidak ada di rancangan). Butir yang sangat pendek (di bawah 24 px) saling menumpuk secara visual pada zum 100% sehingga klik penunjuk bisa mengenai tetangganya; papan ketik dan zum tidak terdampak.
+Opsi CLI `--cache` dan `--help` ditambahkan (tidak ada di rancangan). Butir yang sangat pendek (di bawah 24 px) pernah saling menumpuk pada zum 100% sehingga klik penunjuk bisa mengenai tetangganya; diperbaiki di #94 (lihat [Butir sangat pendek (#94)](#butir-sangat-pendek-94)).
 
 ## Kondisi nyata (#55)
 
@@ -504,6 +519,10 @@ Tiga keputusan, semuanya **disetujui pemilik sesuai rekomendasi pada 2026-11-08*
 - Pemutaran di penyunting tidak menyertakan audio dan kecepatannya bergantung pada kinerja perangkat; ia bukan pengganti hasil render.
 
 ## Changelog
+
+### 2026-11-08 - v2.1.0
+
+- #94: sublajur daftar track dihitung dari lebar tampil dalam piksel agar butir pendek tidak saling menumpuk (SC 2.5.8); bagian Butir sangat pendek (#94) dengan perbandingan pendekatan; catatan penyimpangan #54 diperbarui.
 
 ### 2026-11-08 - v2.0.0
 
