@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.8.0`
+- Version: `v1.8.1`
 - Last updated: `2026-11-08`
-- Changeset: `Batasan renderer: paralel per segmen menggantikan serial, overhead segmentasi, jpeg draf, audio bersama subtitle memotong video. Sebelumnya: penunjuk batasan timeline.`
+- Changeset: `Menghapus batasan -shortest: durasi MP4 kini selalu sama dengan rentang frame walau subtitle berakhir lebih awal. Sebelumnya: Batasan renderer: paralel per segmen menggantikan serial, overhead segmentasi, jpeg draf.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -13,7 +13,6 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 - Determinisme `--skala` di atas 1 (clip.scale) diuji pada contoh-dasar saja (tiga render, 30 frame, dua kali percobaan, skala 1,5 dan 2, tanpa selisih); tidak ada uji otomatis dan jaminannya lebih lemah daripada skala 1 dan di bawah 1.
 - Kecepatan render dibatasi tangkapan layar Chromium (sekitar 90-95% waktu per frame; sekitar 21 fps per proses pada mesin pengembangan, komposisi contoh). Paralelisasi dilakukan antar segmen (satu proses Chromium per segmen, `--paralel N`), bukan antar frame; percepatan tidak linear karena CPU dibagi dengan ffmpeg dan Chromium lain. Segmentasi punya biaya tetap (sekitar 30% pada klip panjang dengan 1 pekerja, dibanding renderer serial lama), jadi klip pendek (kurang dari sekitar 100 frame) tidak mendapat untung. Angka bergantung mesin dan beban; memori puncak per proses Chromium belum diukur, dan tangkapan identik antar proses baru dibuktikan pada satu mesin dengan satu versi Chromium (GPU, driver, atau versi lain belum diuji); lihat [cli.md](cli.md#render-paralel-dan-segmen).
 - `--tangkap jpeg` (draf pratinjau) lossy dan mengubah semua piksel dibanding PNG; jangan untuk rilis. Pemanasan 2 frame menetapkan satu perilaku tangkapan di semua mode; frame awal komposisi yang peka terhadap efek awal-dingin dapat berbeda hingga sekitar 20 piksel (selisih maks 5/255) dibanding renderer lama.
-- `--audio` bersama `--subtitle`: bila trek subtitle berakhir lebih awal daripada video (cue terakhir selesai sebelum video habis), `-shortest` memotong video dan audio di akhir subtitle (perilaku yang sudah ada sebelum jalur segmen; belum diperbaiki). Pakai subtitle yang mencakup durasi video, atau pasang audio dan subtitle terpisah.
 - Hanya Linux yang diuji.
 - Elemen `<video>` di DOM tidak di-seek per frame. Untuk video di dalam video pakai fitur klip tertanam ([video-tertanam-audio.md](video-tertanam-audio.md): frame diekstrak ke cache lalu digambar per nomor frame); untuk gambar diam pakai `<img>` atau `<canvas>`.
 - Keluaran hanya H.264 (MP4) dan PNG (still). Tidak ada WebM/ProRes/GIF.
@@ -39,6 +38,10 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | Mempelajari gaya video dan kutipan wajar | [pelajari-reaction.md](pelajari-reaction.md#batasan) |
 
 ## Changelog
+
+### 2026-11-08 - v1.8.1
+
+- Menghapus batasan pemotongan video oleh `-shortest` pada `--audio` bersama `--subtitle` yang lebih pendek: tahap akhir kini membatasi durasi dengan `-t` dari jumlah frame (isu #79).
 
 ### 2026-11-08 - v1.8.0
 

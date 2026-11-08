@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.8.0`
+- Version: `v1.8.1`
 - Last updated: `2026-11-08`
-- Changeset: `Semua render lewat jalur segmen dengan pekerja paralel: flag --paralel, --tangkap, --md5-tangkapan, bagian Render paralel dan segmen, pemanasan 2 frame, keluaran MP4 berubah satu kali. Sebelumnya: Tabel Perintah lain memuat bun run reframe periksa dan saran.`
+- Changeset: `Durasi MP4 selalu sama dengan rentang frame: tahap akhir memakai -t dari jumlah frame, bukan -shortest; subtitle yang berakhir lebih awal tidak lagi memotong video dan audio. Sebelumnya: Semua render lewat jalur segmen dengan pekerja paralel.`
 
 Referensi CLI `scripts/render.mjs` (`bun run render`). Alur di balik perintah ini ada di [arsitektur.md](arsitektur.md).
 
@@ -21,9 +21,9 @@ bun scripts/render.mjs <komposisi.html|URL> --out hasil.mp4 [opsi]
 | `--dari N` / `--sampai M` | `0` / frame terakhir | Rentang frame (inklusif). Audio dan subtitle diselaraskan ke frame awal. |
 | `--skala X` | `1` | Faktor skala keluaran (min 0,1); layout tetap. `X >= 1`: raster dibuat ulang tajam pada ukuran akhir. `X < 1`: tangkapan skala 1 diperkecil `ffmpeg` (lanczos), sehingga deterministik. Dimensi ganjil dipotong 1 px ke genap. |
 | `--crf N` | `18` | Kualitas x264, `0..51`. |
-| `--audio F` | - | Trek audio, di-encode AAC-LC 48 kHz stereo 384 kbps; yang pendek diberi senyap (setelah normalisasi), yang panjang dipotong sesuai durasi video. |
+| `--audio F` | - | Trek audio, di-encode AAC-LC 48 kHz stereo 384 kbps; yang pendek diberi senyap (setelah normalisasi), yang panjang dipotong sesuai durasi video (rentang frame yang dirender). |
 | `--kenyaringan M` | `web` | Normalisasi kenyaringan audio dengan `loudnorm` dua-pass (mode `linear`); hanya berlaku bersama `--audio`, diabaikan (dengan peringatan) tanpa `--audio`. `web`: -16 LUFS, true peak -1,5 dBTP, LRA 11. `siaran`: -23 LUFS, -1 dBTP, LRA 11 (EBU R 128; toleransi R 128 ±1 LU). `mati`: tanpa normalisasi. Nilai lain: kode keluar `2`. Pass 1 mengukur segmen audio yang sama dengan yang dipakai video (offset `--dari`, dipotong sepanjang video); audio senyap total dilewati dengan peringatan. |
-| `--subtitle F` | - | `.vtt` atau `.srt`, disematkan sebagai trek lunak `mov_text`. |
+| `--subtitle F` | - | `.vtt` atau `.srt`, disematkan sebagai trek lunak `mov_text`. Cue yang berakhir sebelum video habis tidak memendekkan keluaran; durasi MP4 tetap sama dengan rentang frame. |
 | `--bahasa KODE` | `ind` | Kode bahasa trek subtitle. |
 | `--paralel N` | `min(4, inti/2)`, minimal 1 | Jumlah pekerja (proses Chromium) yang merender segmen secara bersamaan, bilangan bulat `>= 1`. **Tidak memengaruhi keluaran**: MP4 sama persis untuk N berapa pun; serial adalah `--paralel 1`. Lihat [Render paralel dan segmen](#render-paralel-dan-segmen). Diabaikan (dengan peringatan) bersama `--still`. |
 | `--tangkap png\|jpeg` | `png` | Format tangkapan layar yang dialirkan ke encoder. `png`: lossless (bawaan, untuk rilis). `jpeg`: **draf pratinjau**, lossy (kualitas 95, sekitar 42 dB PSNR terhadap PNG pada contoh terukur), 6-38% lebih cepat; mencetak peringatan, jangan dipakai untuk rilis. Nilai lain atau bersama `--still`: kode keluar `2`. |
@@ -66,7 +66,7 @@ Langkah orkestrasi:
 1. `render.mjs` membuka halaman sekali (probe) untuk membaca `window.video` dan menutupnya; kegagalan halaman, font, gambar, dan jaringan di tahap ini dilaporkan seperti biasa.
 2. Pengukuran kenyaringan pass 1 (bila `--audio`), lalu pekerja `scripts/render-segmen.mjs` (internal, bukan antarmuka publik) dijalankan sampai `--paralel` proses bersamaan. Tiap pekerja menghasilkan MP4 video-saja (x264 sama dengan [Encode video](#encode-video)) lalu me-remux ke MPEG-TS.
 3. Segmen digabung dengan concat demuxer `-c copy` ke MP4 `+faststart`. Hasilnya diverifikasi: jumlah frame sama dengan rentang dan PTS rapat (selisih tetap, tanpa lubang atau duplikat); bila tidak, render gagal dengan kode keluar `1`.
-4. Bila ada `--audio` atau `--subtitle`, satu tahap akhir memasang audio (AAC, normalisasi kenyaringan dua-pass), subtitle, dan `faststart` dengan `-c:v copy`. Tidak ada encode video ulang.
+4. Bila ada `--audio` atau `--subtitle`, satu tahap akhir memasang audio (AAC, normalisasi kenyaringan dua-pass), subtitle, dan `faststart` dengan `-c:v copy`. Tidak ada encode video ulang. Durasi keluaran dikunci dengan `-t` = jumlah frame / fps (bukan `-shortest`, yang ikut menghitung trek subtitle dan memotong video di akhir cue terakhir), jadi durasi dan jumlah frame MP4 selalu sama dengan rentang yang dirender: audio panjang dipotong, audio pendek di-pad senyap.
 5. Keluaran ditulis ke `<out>.sementara` lalu di-rename ke `--out` hanya bila semuanya berhasil; kegagalan tidak meninggalkan MP4 setengah jadi atau menimpa `--out` yang sudah ada.
 
 **Kegagalan fail-closed.** Satu pekerja gagal (galat render, permintaan jaringan diblokir, ffmpeg gagal) berarti seluruh render gagal: pekerja lain dihentikan (SIGTERM, lalu SIGKILL setelah 3 detik), berkas sementara dihapus, tidak ada sisa proses Chromium, dan pesan galat pekerja yang gagal dicetak (kode keluar `3` bila penyebabnya jaringan, selain itu `1`). Ctrl+C membersihkan hal yang sama dan keluar dengan `130`. Berkas sementara ada di folder unik `awvd-render-*` di `$TMPDIR` (atau `/tmp`).
@@ -125,6 +125,10 @@ Sebelum frame pertama renderer memuat eksplisit setiap `@font-face` (`FontFace.l
 | `bun run uji` | Seluruh uji otomatis | [README](../README.md#perintah-utama) |
 
 ## Changelog
+
+### 2026-11-08 - v1.8.1
+
+- Tahap akhir audio dan subtitle memakai `-t` dari jumlah frame alih-alih `-shortest`; subtitle yang berakhir lebih awal tidak lagi memotong video dan audio (isu #79).
 
 ### 2026-11-08 - v1.8.0
 
