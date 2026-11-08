@@ -277,8 +277,14 @@
     };
   }
 
+  /**
+   * Teks berkas timeline hasil suntingan: indentasi 2 dan baris baru di akhir. Satu-satunya serialisasi:
+   * dipakai server untuk ekspor dan halaman untuk unduhan cadangan, sehingga keduanya identik byte demi byte.
+   */
+  function serialisasi(t) { return JSON.stringify(t, null, 2) + "\n"; }
+
   var api = {
-    pindah: pindah, ubahDurasi: ubahDurasi, potong: potong, bolehPotong: bolehPotong, bolehSisiKiri: bolehSisiKiri,
+    serialisasi: serialisasi, pindah: pindah, ubahDurasi: ubahDurasi, potong: potong, bolehPotong: bolehPotong, bolehSisiKiri: bolehSisiKiri,
     alasanPotong: alasanPotong, alasanSisiKiri: alasanSisiKiri, hitungTumpang: hitungTumpang, buatRiwayat: buatRiwayat, cari: cari,
     BATAS_RIWAYAT: BATAS_RIWAYAT,
   };
