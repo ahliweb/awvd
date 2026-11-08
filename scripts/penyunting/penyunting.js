@@ -1,10 +1,18 @@
 /**
- * awvd / penyunting.js — halaman penyunting pratinjau (tampilan baca-saja, #54; docs/penyunting.md).
+ * awvd / penyunting.js — halaman penyunting pratinjau (tampilan #54, penyuntingan dan ekspor #55; docs/penyunting.md).
  *
  * Dua bagian:
  *   1. Logika murni tanpa DOM (jepit, format waktu, tata sublajur, pointer JSON -> butir, langkah tik,
  *      navigasi grid): diekspor lewat `module.exports` agar bisa diuji di Bun (scripts/uji-penyunting.mjs).
  *   2. UI: scrubber, daftar track (role="grid"), panel properti dan masalah, serta iframe komposisi.
+ *
+ * Penyuntingan: operasi (pindah, ubah durasi, potong) dan riwayat urungkan ada di model.js (murni); halaman
+ * hanya memanggilnya, menyimpan timeline kerja, lalu mengirimnya PENUH ke server (`POST /api/periksa` setelah
+ * jeda 250 ms, satu permintaan pada satu waktu; server menjawab hasil validator dan menyimpan salinan kerja yang
+ * dirender iframe, sehingga iframe dimuat ulang setelah jawaban terbaru). Ekspor (`POST /api/ekspor`) hanya aktif
+ * dan hanya diterima server bila validator lolos; jalur keluaran tidak pernah dikirim dari sini. Semua operasi punya
+ * jalur tanpa seret (kolom angka, tombol, papan ketik; SC 2.5.7); pintasan satu karakter (S) hanya di widget track
+ * dan pintasan global memakai Ctrl (SC 2.1.4). Seret dengan penunjuk hanya tambahan: satu seretan = satu langkah.
  *
  * Frame TIDAK digambar di sini. Iframe memuat templat `templates/timeline/index.html` apa adanya dan
  * halaman hanya memanggil `iframe.contentWindow.video.renderFrame(n)` (protokol yang sama dengan render.mjs),
@@ -139,11 +147,17 @@
     angka: $("frame-angka"), waktu: $("waktu"), penanda: $("penanda"), scrubber: $("scrubber"), zumKurang: $("zum-kurang"), zumLebih: $("zum-lebih"),
     zum: $("zum"), gulirTrack: $("gulir-track"), kanvas: $("kanvas"), penggaris: $("penggaris"), grid: $("grid"), playhead: $("playhead"),
     properti: $("isi-properti"), masalah: $("daftar-masalah"), hMasalah: $("h-masalah"),
+    urungkan: $("urungkan"), ulangi: $("ulangi"), ekspor: $("ekspor"), eksporKetat: $("ekspor-ketat"), alasanEkspor: $("alasan-ekspor"), galatEkspor: $("galat-ekspor"),
+    sunting: $("sunting"), modeSunting: $("mode-sunting"), fMulai: $("f-mulai"), fDurasi: $("f-durasi"), fSisi: $("f-sisi"), alasanSisi: $("alasan-sisi"),
+    geserMin: $("geser-min"), geserPlus: $("geser-plus"), durasiMin: $("durasi-min"), durasiPlus: $("durasi-plus"), potong: $("potong"), alasanPotong: $("alasan-potong"),
   };
   var token = new URLSearchParams(window.location.search).get("token") || "";
   var S = {
     sesi: null, M: null, frame: 0, pilih: null, zum: 1, ppf: 1, lebarKepala: 140, main: false, f0: 0, t0: 0, kilatSetuju: false,
     sel: new Map(), urut: [], mulaiPer: [], diminta: null, sibuk: false, siap: false, mode: "penuh",
+    // penyuntingan: T = timeline kerja, R = riwayat, rev = nomor perubahan (0 = keadaan awal sesi)
+    T: null, R: null, valid: null, rev: 0, revValid: 0, revIframe: 0, revEkspor: -1, ekspor: null, sunting: false, sisi: "kanan",
+    timer: null, terbang: false, ulang: false, membangun: false, sesiKolom: 0, seret: null, galatBlokir: "", mengekspor: false,
   };
 
   function umumkan(teks) { el.status.textContent = teks; }
@@ -165,6 +179,7 @@
     el.waktu.textContent = "Frame " + S.frame + " / " + (M.durasi - 1) + " (" + detikTeks(S.frame, M.fps) + " s)";
     letakkanPlayhead(opsi && opsi.gulir !== false);
     tampil(S.frame);
+    if (S.T) perbaruiPotong();
   }
 
   function siapkanFont(cw) {
@@ -237,7 +252,7 @@
 
   // ----------------------------------------------------------- pemutaran (hanya kerangka halaman)
   function adaKilatan() {
-    return S.sesi.validasi.peringatan.some(function (w) { return w.kode === "W06"; });
+    return S.valid.peringatan.some(function (w) { return w.kode === "W06"; });
   }
   function berhenti(pesan) {
     S.main = false;
@@ -407,12 +422,20 @@
   function pilihButir(t, b, opsi) {
     var c = S.sel.get(t + "/" + b);
     if (!c) return;
-    S.sel.forEach(function (x) { x.setAttribute("aria-selected", "false"); x.tabIndex = -1; });
+    S.sel.forEach(function (x) {
+      x.setAttribute("aria-selected", "false"); x.tabIndex = -1;
+      var lama = x.querySelector(".gagang");
+      if (lama) lama.remove();
+    });
     c.setAttribute("aria-selected", "true");
     c.tabIndex = 0;
     S.pilih = { t: t, b: b };
+    var g = document.createElement("span");
+    g.className = "gagang"; g.setAttribute("aria-hidden", "true");
+    c.appendChild(g);
     if (opsi && opsi.fokus) c.focus();
     isiProperti();
+    isiForm();
   }
 
   function pada(ev) {
@@ -426,30 +449,361 @@
     });
     el.grid.addEventListener("keydown", function (ev) {
       var p = pada(ev);
-      if (!p || ev.altKey || ev.ctrlKey || ev.metaKey) return;
-      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].indexOf(ev.key) >= 0) {
+      if (!p || ev.ctrlKey || ev.metaKey) return;
+      var k = ev.key;
+      var kiriKanan = k === "ArrowLeft" || k === "ArrowRight";
+      var arah = k === "ArrowRight" ? 1 : -1;
+      var langkah = ev.shiftKey ? S.M.fps : 1; // Shift = 1 detik
+      if (ev.altKey) {
+        if (S.sunting && kiriKanan) { ev.preventDefault(); sesuaikanDurasi(arah * langkah, "kanan"); }
+        return;
+      }
+      if (S.sunting && kiriKanan) { ev.preventDefault(); geserButir(arah * langkah); return; }
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].indexOf(k) >= 0) {
         ev.preventDefault();
-        var tuju = tetangga({ urut: S.urut, mulai: S.mulaiPer }, { t: p.t, b: p.b }, ev.key);
+        var tuju = tetangga({ urut: S.urut, mulai: S.mulaiPer }, { t: p.t, b: p.b }, k);
         pilihButir(tuju.t, tuju.b, { fokus: true });
-      } else if (ev.key === "Enter") {
+      } else if (k === "Enter") {
         ev.preventDefault();
         pilihButir(p.t, p.b, { fokus: true });
         var mulai = Number(p.el.getAttribute("data-mulai"));
         ke(mulai);
-        umumkan("Playhead di awal butir " + p.el.getAttribute("data-id") + " (frame " + mulai + ")");
+        masukSunting("Playhead di awal butir " + p.el.getAttribute("data-id") + " (frame " + mulai + "). ");
+      } else if (k === "F2") {
+        ev.preventDefault();
+        pilihButir(p.t, p.b, { fokus: true });
+        masukSunting("");
+      } else if (k === "Escape" && S.sunting) {
+        ev.preventDefault();
+        keluarSunting("Keluar dari mode sunting.");
+      } else if (k === "s" || k === "S") {
+        ev.preventDefault();
+        pilihButir(p.t, p.b, { fokus: true });
+        potongDiPlayhead();
       }
     });
+    el.grid.addEventListener("focusout", function (ev) {
+      if (S.membangun || !S.sunting) return;
+      if (!ev.relatedTarget || !el.grid.contains(ev.relatedTarget)) keluarSunting("");
+    });
+    el.grid.addEventListener("pointerdown", mulaiSeret);
+    el.grid.addEventListener("pointermove", gerakSeret);
+    el.grid.addEventListener("pointerup", akhiriSeret);
+    el.grid.addEventListener("pointercancel", batalSeret);
     el.penggaris.addEventListener("click", function (ev) {
       var r = el.penggaris.getBoundingClientRect();
       ke(Math.round((ev.clientX - r.left) / S.ppf));
     });
   }
 
+  // ----------------------------------------------------------- penyuntingan
+  var Mod = akar.PenyuntingModel;
+  function refPilih() { return S.pilih ? { track: S.pilih.t, butir: S.pilih.b } : null; }
+  function butirPilih() {
+    if (!S.pilih) return null;
+    var tr = S.M.track[S.pilih.t];
+    return tr ? tr.butir.filter(function (x) { return x.b === S.pilih.b; })[0] || null : null;
+  }
+  function masukSunting(awalan) {
+    if (!S.pilih) return;
+    S.sunting = true;
+    el.grid.setAttribute("data-mode-sunting", "1");
+    el.modeSunting.hidden = false;
+    umumkan(awalan + "Mode sunting butir " + butirPilih().id + ": panah menggeser 1 frame (Shift 1 detik), Alt dan panah mengubah durasi, S memotong, Esc keluar.");
+  }
+  function keluarSunting(pesan) {
+    if (!S.sunting) return;
+    S.sunting = false;
+    el.grid.removeAttribute("data-mode-sunting");
+    el.modeSunting.hidden = true;
+    if (pesan) umumkan(pesan);
+  }
+
+  /** Menerapkan hasil model: gagal -> umumkan alasan; tanpa perubahan -> umumkan; berubah -> riwayat dan muat ulang. */
+  function terapkan(res, opsi) {
+    if (!res.ok) { umumkan(res.alasan); return false; }
+    if (!res.berubah) { umumkan(res.ringkas); return false; }
+    if (S.main) berhenti();
+    S.R.terapkan(res.timeline, opsi && opsi.gabung);
+    ubahTimeline(res.timeline, res.ref, res.ringkas);
+    return true;
+  }
+
+  function ubahTimeline(t, pilih, pesan) {
+    var fokusGrid = el.grid.contains(document.activeElement);
+    var gulirX = el.gulirTrack.scrollLeft, gulirY = el.gulirTrack.scrollTop;
+    S.membangun = true;
+    S.T = t;
+    S.M = normalisasi(t);
+    S.rev++;
+    cacheMasalah = null;
+    bangunTrack();
+    tataUlang();
+    el.gulirTrack.scrollLeft = gulirX; el.gulirTrack.scrollTop = gulirY;
+    if (pilih && S.sel.has(pilih.track + "/" + pilih.butir)) pilihButir(pilih.track, pilih.butir, { fokus: fokusGrid });
+    else { S.pilih = null; keluarSunting(""); isiProperti(); isiForm(); }
+    S.membangun = false;
+    bangunMasalah();
+    if (pesan) umumkan(pesan);
+    jadwalPeriksa();
+  }
+
+  function geserButir(delta) {
+    var b = butirPilih();
+    if (!b) return;
+    terapkan(Mod.pindah(S.T, refPilih(), b.mulai + delta));
+  }
+  function sesuaikanDurasi(delta, sisi) {
+    var b = butirPilih();
+    if (!b) return;
+    terapkan(Mod.ubahDurasi(S.T, refPilih(), b.durasi + delta, sisi || S.sisi));
+  }
+  function potongDiPlayhead() {
+    if (!S.pilih) { umumkan("Pilih butir di daftar track lebih dulu."); return; }
+    var res = Mod.potong(S.T, refPilih(), S.frame);
+    if (!res.ok) { umumkan("Tidak dapat memotong: " + res.alasan); return; }
+    terapkan(res);
+  }
+
+  function urungkan() {
+    if (!S.R.bisaUrungkan()) { umumkan("Tidak ada langkah yang dapat diurungkan."); return; }
+    if (S.main) berhenti();
+    var t = S.R.urungkan();
+    ubahTimeline(t, refPilih(), "Diurungkan. Sisa " + S.R.jumlahUrungkan() + " langkah urungkan, " + S.R.jumlahUlangi() + " langkah ulangi.");
+  }
+  function ulangi() {
+    if (!S.R.bisaUlangi()) { umumkan("Tidak ada langkah yang dapat diulangi."); return; }
+    if (S.main) berhenti();
+    var t = S.R.ulangi();
+    ubahTimeline(t, refPilih(), "Diulangi. Sisa " + S.R.jumlahUrungkan() + " langkah urungkan, " + S.R.jumlahUlangi() + " langkah ulangi.");
+  }
+
+  // ----- form properti (jalur tanpa seret)
+  function isiForm() {
+    var b = butirPilih();
+    el.sunting.hidden = !b;
+    if (!b) { perbaruiTombol(); return; }
+    el.fMulai.value = String(b.mulai);
+    el.fMulai.max = String(Math.max(0, S.M.durasi - b.durasi));
+    el.fDurasi.value = String(b.durasi);
+    el.fDurasi.max = String(Math.max(1, S.M.durasi - b.mulai));
+    var kiri = Mod.bolehSisiKiri(S.T, refPilih());
+    el.fSisi.querySelector('option[value="kiri"]').disabled = !kiri.boleh;
+    if (!kiri.boleh && S.sisi === "kiri") S.sisi = "kanan";
+    el.fSisi.value = S.sisi;
+    el.alasanSisi.hidden = kiri.boleh;
+    el.alasanSisi.textContent = kiri.boleh ? "" : "Sisi awal dinonaktifkan: " + kiri.alasan;
+    perbaruiPotong();
+    perbaruiTombol();
+  }
+  function perbaruiPotong() {
+    var b = butirPilih();
+    if (!b) return;
+    var p = Mod.bolehPotong(S.T, refPilih(), S.frame);
+    el.potong.setAttribute("aria-disabled", p.boleh ? "false" : "true");
+    el.alasanPotong.textContent = p.boleh ? "Memotong butir " + b.id + " di frame " + S.frame + " menjadi dua butir." : "Potong dinonaktifkan: " + p.alasan;
+  }
+
+  function nilaiKolom(input) {
+    var v = input.value.trim();
+    if (v === "" || !isFinite(Number(v))) { umumkan("Isi angka frame yang valid."); isiForm(); return null; }
+    return Number(v);
+  }
+
+  // ----- seret (tambahan; satu seretan = satu langkah, diterapkan saat tombol dilepas)
+  function mulaiSeret(ev) {
+    var c = ev.target.closest && ev.target.closest(".butir");
+    if (!c || ev.button !== 0 || !S.T) return;
+    var t = Number(c.getAttribute("data-track")), b = Number(c.getAttribute("data-butir"));
+    var mulai = Number(c.getAttribute("data-mulai")), durasi = Number(c.getAttribute("data-durasi"));
+    S.seret = { mode: ev.target.closest(".gagang") ? "durasi" : "pindah", x0: ev.clientX, t: t, b: b, mulai: mulai, durasi: durasi, aktif: false, df: 0, el: c, id: ev.pointerId };
+    try { c.setPointerCapture(ev.pointerId); } catch (e) { /* tanpa capture */ }
+  }
+  function gerakSeret(ev) {
+    var d = S.seret;
+    if (!d || ev.pointerId !== d.id) return;
+    var dx = ev.clientX - d.x0;
+    if (!d.aktif && Math.abs(dx) < 4) return;
+    d.aktif = true;
+    d.df = Math.round(dx / S.ppf);
+    if (d.mode === "pindah") d.el.style.left = xFrame(jepit(d.mulai + d.df, 0, Math.max(0, S.M.durasi - d.durasi))) + "px";
+    else d.el.style.width = Math.max(24, xFrame(jepit(d.durasi + d.df, 1, Math.max(1, S.M.durasi - d.mulai)))) + "px";
+  }
+  function akhiriSeret(ev) {
+    var d = S.seret;
+    if (!d || ev.pointerId !== d.id) return;
+    S.seret = null;
+    try { d.el.releasePointerCapture(ev.pointerId); } catch (e) { /* sudah lepas */ }
+    if (!d.aktif) return;
+    pilihButir(d.t, d.b, { fokus: true });
+    var ref = { track: d.t, butir: d.b };
+    var rev = S.rev;
+    if (d.mode === "pindah") terapkan(Mod.pindah(S.T, ref, d.mulai + d.df));
+    else terapkan(Mod.ubahDurasi(S.T, ref, d.durasi + d.df, "kanan"));
+    if (rev === S.rev) tataUlang(); // operasi ditolak atau tanpa perubahan: kembalikan posisi visual
+  }
+  function batalSeret() {
+    if (!S.seret) return;
+    S.seret = null;
+    tataUlang();
+  }
+
+  // ----- periksa dan ekspor
+  function kirim(rute, badan) {
+    return fetch(rute, { method: "POST", headers: { "Content-Type": "application/json", "X-Awvd-Token": token }, body: JSON.stringify(badan), cache: "no-store" })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); });
+  }
+
+  function jadwalPeriksa() {
+    if (S.timer !== null) window.clearTimeout(S.timer);
+    S.timer = window.setTimeout(kirimPeriksa, 250);
+    perbaruiTombol();
+  }
+  function kirimPeriksa() {
+    S.timer = null;
+    if (S.terbang) { S.ulang = true; return; }
+    S.terbang = true;
+    var rev = S.rev;
+    kirim("/api/periksa", { timeline: S.T }).then(function (h) {
+      S.terbang = false;
+      if (h.status !== 200) { umumkan("Pemeriksaan gagal: " + (h.j && h.j.galat ? h.j.galat : "HTTP " + h.status)); return; }
+      if (rev === S.rev) {
+        S.valid = h.j.validasi; S.revValid = rev; cacheMasalah = null;
+        bangunMasalah();
+        isiProperti();
+        umumkan(ringkasHasil());
+        muatUlangIframe(rev);
+      }
+    }, function (e) {
+      S.terbang = false;
+      umumkan("Pemeriksaan gagal: " + (e && e.message ? e.message : String(e)));
+    }).then(function () {
+      // perubahan yang datang selama permintaan berjalan dikirim setelah yang berjalan selesai (urutan tetap)
+      if (S.ulang && S.timer === null) { S.ulang = false; kirimPeriksa(); }
+      perbaruiTombol();
+    });
+  }
+  function ringkasHasil() {
+    var v = S.valid;
+    return (v.lolos ? "Lolos validator (" + v.galat.length + " galat, " + v.peringatan.length + " peringatan)"
+      : "Ditolak validator: " + v.galat.length + " galat, " + v.peringatan.length + " peringatan") + ".";
+  }
+  function muatUlangIframe(rev) {
+    if (S.revIframe === rev) return;
+    S.revIframe = rev; S.siap = false;
+    el.iframe.setAttribute("data-siap", "0");
+    el.iframe.setAttribute("data-frame-tampil", "");
+    el.iframe.setAttribute("data-revisi", String(rev));
+    tampilGalatPratinjau("");
+    el.iframe.src = "/komposisi.html?r=" + rev;
+  }
+
+  function aturTombol(tombol, aktif) { tombol.setAttribute("aria-disabled", aktif ? "false" : "true"); }
+  function perbaruiTombol() {
+    aturTombol(el.urungkan, S.R.bisaUrungkan());
+    aturTombol(el.ulangi, S.R.bisaUlangi());
+    var alasan, boleh = false, ketatBoleh = false;
+    if (S.revValid !== S.rev || S.timer !== null || S.terbang) alasan = "Memeriksa timeline; ekspor aktif setelah validator selesai.";
+    else if (!S.valid.lolos) {
+      alasan = "Ekspor dinonaktifkan: validator menemukan " + S.valid.galat.length + " galat (lihat panel Masalah).";
+    } else {
+      boleh = true;
+      ketatBoleh = S.valid.peringatan.length === 0;
+      alasan = "Ekspor menulis " + S.ekspor.berkas + (S.ekspor.timpa ? " (menimpa sumber)" : "") + "." +
+        (ketatBoleh ? "" : " Ekspor ketat dinonaktifkan: ada " + S.valid.peringatan.length + " peringatan.") +
+        (S.revEkspor === S.rev ? " Keadaan ini sudah diekspor." : "");
+    }
+    aturTombol(el.ekspor, boleh && !S.mengekspor);
+    aturTombol(el.eksporKetat, ketatBoleh && !S.mengekspor);
+    el.alasanEkspor.textContent = alasan;
+    // galat yang memblokir ekspor diumumkan sebagai alert (SC 4.1.3), hanya saat keadaan berubah
+    var blokir = !boleh && S.revValid === S.rev && !S.valid.lolos ? alasan : "";
+    if (blokir !== S.galatBlokir) { S.galatBlokir = blokir; el.galatEkspor.textContent = blokir; el.galatEkspor.hidden = blokir === ""; }
+  }
+
+  function komitKolomAktif() {
+    var a = document.activeElement;
+    if (a === el.fMulai) kolomMulai();
+    else if (a === el.fDurasi) kolomDurasi();
+  }
+  function eksporSekarang(ketat) {
+    komitKolomAktif();
+    var tombol = ketat ? el.eksporKetat : el.ekspor;
+    if (tombol.getAttribute("aria-disabled") === "true") { umumkan(el.alasanEkspor.textContent); return; }
+    var rev = S.rev;
+    S.mengekspor = true;
+    perbaruiTombol();
+    kirim("/api/ekspor", { timeline: S.T, ketat: !!ketat }).then(function (h) {
+      S.mengekspor = false;
+      if (h.status === 200) {
+        S.revEkspor = rev;
+        umumkan("Diekspor ke " + h.j.berkas + " (" + h.j.byte + " byte)" + (ketat ? ", ekspor ketat" : "") + (h.j.draf ? "; mode draf: periksa dengan --draf" : "") + (rev !== S.rev ? "; perubahan setelahnya belum diekspor" : "") + ".");
+      } else {
+        el.galatEkspor.hidden = false;
+        el.galatEkspor.textContent = "Ekspor ditolak: " + (h.j && h.j.galat ? h.j.galat : "HTTP " + h.status);
+        S.galatBlokir = el.galatEkspor.textContent;
+        if (h.j && h.j.validasi && rev === S.rev) { S.valid = h.j.validasi; S.revValid = rev; cacheMasalah = null; bangunMasalah(); }
+      }
+      perbaruiTombol();
+    }, function (e) {
+      S.mengekspor = false;
+      umumkan("Ekspor gagal: " + (e && e.message ? e.message : String(e)));
+      perbaruiTombol();
+    });
+  }
+
+  function pasangSunting() {
+    var aksi = function (tombol, fn) {
+      tombol.addEventListener("click", function () {
+        if (tombol.getAttribute("aria-disabled") === "true") {
+          umumkan(tombol === el.potong ? el.alasanPotong.textContent : tombol === el.urungkan ? "Tidak ada langkah yang dapat diurungkan." : tombol === el.ulangi ? "Tidak ada langkah yang dapat diulangi." : el.alasanEkspor.textContent);
+          return;
+        }
+        fn();
+      });
+    };
+    aksi(el.urungkan, urungkan);
+    aksi(el.ulangi, ulangi);
+    aksi(el.ekspor, function () { eksporSekarang(false); });
+    aksi(el.eksporKetat, function () { eksporSekarang(true); });
+    aksi(el.potong, potongDiPlayhead);
+    el.geserMin.addEventListener("click", function () { geserButir(-1); });
+    el.geserPlus.addEventListener("click", function () { geserButir(1); });
+    el.durasiMin.addEventListener("click", function () { sesuaikanDurasi(-1); });
+    el.durasiPlus.addEventListener("click", function () { sesuaikanDurasi(1); });
+    el.fSisi.addEventListener("change", function () { S.sisi = el.fSisi.value; umumkan("Durasi diubah dari sisi " + (S.sisi === "kiri" ? "awal (kiri)" : "akhir (kanan)") + "."); });
+    // satu rangkaian ketikan atau putaran panah di kolom angka = satu langkah riwayat (digabung selama fokus tetap di kolom)
+    [el.fMulai, el.fDurasi].forEach(function (k) {
+      k.addEventListener("focus", function () { S.sesiKolom++; });
+      k.addEventListener("blur", function () { S.R.putus(); });
+    });
+    el.fMulai.addEventListener("change", kolomMulai);
+    el.fDurasi.addEventListener("change", kolomDurasi);
+    document.addEventListener("keydown", function (ev) {
+      if (!(ev.ctrlKey || ev.metaKey) || ev.altKey || !S.T) return;
+      var k = ev.key.toLowerCase();
+      var a = ev.target, teks = !!a && (a.tagName === "TEXTAREA" || a.tagName === "SELECT" || (a.tagName === "INPUT" && ["range", "radio", "checkbox", "button"].indexOf(a.type) < 0));
+      if (k === "z" && !ev.shiftKey) { if (teks) return; ev.preventDefault(); urungkan(); }
+      else if ((k === "z" && ev.shiftKey) || k === "y") { if (teks) return; ev.preventDefault(); ulangi(); }
+      else if (k === "s" && !ev.shiftKey) { ev.preventDefault(); eksporSekarang(false); }
+    });
+  }
+  function kolomMulai() {
+    var n = nilaiKolom(el.fMulai);
+    if (n !== null && S.pilih) terapkan(Mod.pindah(S.T, refPilih(), n), { gabung: "kolom-mulai:" + S.sesiKolom });
+    else isiForm();
+  }
+  function kolomDurasi() {
+    var n = nilaiKolom(el.fDurasi);
+    if (n !== null && S.pilih) terapkan(Mod.ubahDurasi(S.T, refPilih(), n, S.sisi), { gabung: "kolom-durasi:" + S.sesiKolom + ":" + S.sisi });
+    else isiForm();
+  }
+
   // ----------------------------------------------------------- masalah
   var cacheMasalah = null;
   function daftarMasalah() {
     if (cacheMasalah) return cacheMasalah;
-    var v = S.sesi.validasi;
+    var v = S.valid;
     cacheMasalah = []
       .concat(v.galat.map(function (x) { return { jenis: "galat", kode: x.kode, lok: x.lok, pesan: x.pesan }; }))
       .concat(S.sesi.masalahMuat.map(function (x) { return { jenis: "galat", kode: x.kode, lok: x.lok, pesan: x.pesan }; }))
@@ -478,12 +832,12 @@
   }
 
   function ringkasStatus() {
-    var v = S.sesi.validasi, nm = S.sesi.masalahMuat.length;
+    var v = S.valid, nm = S.sesi.masalahMuat.length;
     var s = v.lolos ? "Lolos validator (" + v.galat.length + " galat, " + v.peringatan.length + " peringatan)"
       : "Ditolak validator: " + v.galat.length + " galat, " + v.peringatan.length + " peringatan";
     if (nm) s += "; " + nm + " masalah muat";
     if (S.sesi.draf) s += "; mode draf";
-    return s + ". Tampilan baca-saja.";
+    return s + ". Pilih butir lalu tekan Enter atau F2 untuk menyunting.";
   }
 
   // ----------------------------------------------------------- mulai
@@ -539,6 +893,7 @@
       r.addEventListener("change", function () { if (r.checked) { S.mode = r.value; aturTampilan(); } });
     });
     pasangGrid();
+    pasangSunting();
     if (typeof window.ResizeObserver === "function") {
       var lebarTerakhir = 0;
       new window.ResizeObserver(function () {
@@ -551,6 +906,10 @@
 
   function mulaiHalaman(sesi) {
     S.sesi = sesi;
+    S.T = sesi.timeline;
+    S.R = Mod.buatRiwayat(S.T);
+    S.valid = sesi.validasi;
+    S.ekspor = sesi.ekspor;
     S.M = normalisasi(sesi.timeline);
     document.title = (S.M.judul ? S.M.judul + " - " : "") + "Penyunting awvd";
     el.berkas.textContent = sesi.berkas;
@@ -560,9 +919,11 @@
     aturTampilan();
     tataUlang();
     ke(0, { gulir: false });
+    isiForm();
     umumkan(ringkasStatus());
     el.iframe.addEventListener("load", siapIframe);
-    el.iframe.src = "/komposisi.html";
+    el.iframe.setAttribute("data-revisi", "0");
+    el.iframe.src = "/komposisi.html?r=0";
   }
 
   fetch("/api/sesi", { headers: { "X-Awvd-Token": token }, cache: "no-store" })

@@ -50,10 +50,10 @@ body {
   margin: 0; background: var(--latar); color: var(--teks);
   font: 1rem/1.5 system-ui, "Segoe UI", Roboto, "DejaVu Sans", sans-serif;
 }
-h1, h2 { margin: 0 0 .5rem; line-height: 1.25; }
+h1, h2, h3 { margin: 0 0 .5rem; line-height: 1.25; }
 h1 { font-size: 1.25rem; }
-h2 { font-size: 1rem; }
-p { margin: 0 0 .5rem; }
+h2, h3 { font-size: 1rem; }
+p { margin: 0 0 .5rem; overflow-wrap: anywhere; }
 .redup { color: var(--redup); }
 .kecil { font-size: .875rem; }
 
@@ -64,8 +64,10 @@ a, button, input, select, summary, [tabindex] { scroll-margin: 3rem 1rem; }
 
 button, input, select {
   font: inherit; color: var(--teks); background: var(--tombol);
-  border: 1px solid var(--garis); border-radius: 4px; min-height: 28px; min-width: 28px; padding: .15rem .6rem;
+  border: 1px solid var(--garis); border-radius: 4px; min-height: 28px; min-width: 28px; padding: 2px 10px;
 }
+button { white-space: normal; overflow-wrap: anywhere; }
+button, input, select { max-width: 100%; }
 input[type="number"] { width: 6.5rem; background: var(--latar); }
 select { max-width: 100%; }
 input[type="radio"] { min-width: 0; min-height: 0; accent-color: var(--aksen); }
@@ -75,7 +77,13 @@ fieldset label { display: block; }
 legend { padding: 0 .25rem; }
 
 #bilah { padding: .75rem 1rem; background: var(--panel); border-bottom: 1px solid var(--garis); }
-#status { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+#status { margin: 0 0 .5rem; font-weight: 600; overflow-wrap: anywhere; }
+#aksi-atas { margin-bottom: .25rem; }
+#alasan-ekspor { margin: 0; }
+#galat-ekspor { margin: .25rem 0 0; color: var(--galat); font-weight: 600; overflow-wrap: anywhere; }
+button[aria-disabled="true"] { color: var(--redup); border-style: dashed; cursor: not-allowed; }
+#sunting { margin-top: 1rem; border-top: 1px solid var(--garis); padding-top: .75rem; }
+#mode-sunting { font-weight: 600; }
 #berkas { margin: 0 0 .25rem; overflow-wrap: anywhere; }
 
 /* tata letak: pratinjau + posisi + track di kiri, properti di kanan, masalah di bawah */
@@ -134,6 +142,9 @@ section, aside { min-width: 0; }
 .butir[aria-selected="true"] { outline: 3px solid var(--pilih); outline-offset: 0; font-weight: 700; }
 .butir:focus-visible { outline: 3px solid var(--fokus); outline-offset: 2px; }
 .butir[aria-selected="true"]:focus-visible { outline-color: var(--fokus); box-shadow: 0 0 0 2px var(--pilih); }
+#grid[data-mode-sunting="1"] .butir[aria-selected="true"] { outline-style: dashed; }
+.gagang { position: absolute; right: 0; top: 0; bottom: 0; width: 24px; max-width: 40%; cursor: ew-resize; background: repeating-linear-gradient(90deg, var(--butir-garis) 0 2px, transparent 2px 5px); touch-action: none; }
+.butir { touch-action: none; }
 .glif { flex: 0 0 auto; min-width: 1.25rem; text-align: center; font-weight: 700; background: var(--butir-garis); color: var(--latar); }
 .tumpang { position: absolute; left: 0; top: 0; height: 100%; pointer-events: none; background: repeating-linear-gradient(135deg, var(--butir-garis) 0 3px, transparent 3px 6px); opacity: .6; }
 .nonaktif { text-decoration: line-through; }
@@ -159,6 +170,8 @@ caption { text-align: left; margin-bottom: .25rem; }
   .butir { border-color: CanvasText; background: Canvas; color: CanvasText; }
   .butir[aria-selected="true"] { outline: 3px solid Highlight; }
   .glif { background: CanvasText; color: Canvas; }
+  .gagang { background: repeating-linear-gradient(90deg, CanvasText 0 2px, transparent 2px 5px); }
+  button[aria-disabled="true"] { color: GrayText; }
   #playhead { background: Highlight; }
   .tumpang { background: repeating-linear-gradient(135deg, CanvasText 0 3px, transparent 3px 6px); }
   :focus-visible { outline: 3px solid Highlight; }

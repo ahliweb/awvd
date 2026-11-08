@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.3.1`
+- Version: `v1.4.0`
 - Last updated: `2026-11-08`
-- Changeset: `Aturan R09 kini juga menolak butir bersuara yang kecepatannya di luar jangkauan audio 0,5..4x (konstan maupun ramp) lewat rencanaWaktuAudio, satu sumber dengan rakit audio (issue #84). Sebelumnya: Dokumen penutup F2 (issue #36): bagian Alur ujung ke ujung (tulis, periksa, siapkan, render, rakit audio, pasang audio) dengan diagram dan perintah yang dijalankan apa adanya terhadap templates/timeline-contoh, keluaran galat contoh diganti hasil nyata, catatan menyusul dan rujukan fitur yang sudah ada dibersihkan. `
+- Changeset: `Menambahkan bagian Menyunting secara visual (alur penyunting pratinjau: pindah, potong, ubah durasi, ekspor yang hanya bila validator lolos, apa yang dijamin dan tidak oleh ekspor; issue #55). Sebelumnya: Aturan R09 kini juga menolak butir bersuara yang kecepatannya di luar jangkauan audio 0,5..4x (konstan maupun ramp) lewat rencanaWaktuAudio, satu sumber dengan rakit audio (issue #84).`
 
 `timeline.json` adalah rencana video yang bisa ditinjau sebagai data: daftar track berisi butir (klip video, gambar, warna, teks, kredit, audio) dengan posisi absolut dalam frame. Dokumen ini menjelaskan format dan validatornya, `bun run timeline periksa`, yang menolak timeline yang salah **sebelum Chromium diluncurkan**, dengan pola yang sama seperti `aset.json` dan `sumber.json`.
 
@@ -262,6 +262,30 @@ Ketentuan yang perlu diingat:
 - Untuk proyek sendiri, mulai dari `timeline-sederhana.json` (warna, logo, dua teks) dan tambahkan track sedikit demi sedikit sambil menjalankan langkah 2 setiap kali; `$schema` ke `data/skema-timeline.json` memberi saran di penyunting.
 - Timeline tanpa klip bersuara dan tanpa track audio tidak butuh langkah 5 dan 6.
 
+## Menyunting secara visual
+
+`bun run penyunting <timeline.json>` membuka penyunting pratinjau lokal ([penyunting.md](penyunting.md)): melihat track dan butir, menggeser scrubber ke frame mana pun dan melihat frame itu persis seperti hasil render, lalu melakukan penyuntingan dasar dan mengekspor. Penyunting adalah pelengkap menulis JSON, bukan penggantinya: ia hanya mengubah `mulai`, `durasi` (dan `dari`, `transisi.durasi` yang menyertainya) serta membagi butir; menambah butir atau track, mengganti media, dan semua bidang lain tetap disunting di JSON.
+
+```mermaid
+flowchart TD
+    JS[timeline.json] --> PN[bun run penyunting]
+    PN --> OP[pindah, ubah durasi, potong<br/>urungkan, ulangi]
+    OP --> V{validator timeline.mjs<br/>skema + R01-R17<br/>di tiap perubahan}
+    V -->|galat berlokasi| M[panel Masalah<br/>Ekspor nonaktif]
+    M --> OP
+    V -->|lolos| EX[Ekspor]
+    EX --> KE[nama.sunting.json<br/>atau --timpa menimpa sumber]
+    KE --> PR[bun run timeline periksa]
+    PR --> SI[siapkan, render]
+    JS -.sunting tangan.-> PR
+```
+
+- **Satu validator.** Penyunting memanggil `periksaTimeline` yang sama dengan `timeline periksa` di proses server; ia tidak punya validator sendiri. Ekspor hanya berhasil bila `lolos` (dengan "Ekspor ketat", peringatan juga dianggap galat), jadi hasilnya lolos `bun run timeline periksa` untuk berkas dan manifest yang sama. Jaminan itu hanya berlaku untuk konteks yang sama: penyunting hanya mengizinkan perubahan pada `butir` di dalam track, sehingga `manifes` dan `proyek` tetap seperti berkas sumber.
+- **Sunting longgar, ekspor ketat.** Keadaan antara boleh melanggar aturan (misalnya dua butir tumpang tindih tanpa transisi); galatnya tampil berlokasi (JSON pointer) di panel Masalah dan Ekspor nonaktif sampai diperbaiki atau diurungkan.
+- **Transisi ikut disinkronkan** (R05): memindahkan atau mengubah durasi butir menyetel ulang `transisi.durasi` butir yang tumpang tindihnya berubah, dan menghapus `transisi` bila tumpang tindihnya menjadi 0 (diumumkan, dapat diurungkan).
+- **Potong terbatas pada butir sederhana**: tidak untuk `audio` dan butir ber-`waktu`, `properti`, `animasi`, atau `kenBurns` (membagi keyframe dan peta waktu belum didukung); butir kedua berid `<id>-b` tanpa `transisi`.
+- **Keluaran tidak menimpa sumber** kecuali `--timpa`; penulisan atomik; format sama dengan contoh (indentasi 2, baris baru di akhir). Frame di pratinjau sama piksel demi piksel dengan `render.mjs --still N` dari berkas hasil ekspor (diuji).
+
 ## Contoh
 
 [`templates/timeline-contoh/`](../templates/timeline-contoh/), contoh yang juga dirender templat di atas, berisi `timeline.json` (multitrack), `timeline-sederhana.json` (warna, logo, dua teks), `aset.json`, `sumber.json`, dan media kecil buatan sendiri (catatan di [ASET.md](../templates/timeline-contoh/ASET.md)). Semua contoh lolos tanpa peringatan:
@@ -303,8 +327,13 @@ Dua pilihan implementasi yang menyertainya: validator ditulis tangan tanpa depen
 - Angka batas (64 track, 2000 butir per track, 256 keyframe, 500 penanda, 1.000.000 frame, berkas 5 MB, ambang W03) adalah keputusan desain, belum diukur.
 - Jumlah frame klip tanpa `--klip-props` adalah perkiraan; ffprobe dibutuhkan untuk manifest berisi video, audio, atau gambar raster.
 - Validator memeriksa kelengkapan catatan dan kepatuhan aturan teknis; ia tidak menjamin pemakaian yang sah secara hukum, dan kebijakan kutipan bukan nasihat hukum.
+- Penyunting pratinjau ([penyunting.md](penyunting.md)) hanya mengubah posisi dan durasi butir (pindah, ubah durasi, potong); riwayat urungkan tidak bertahan lintas muat ulang halaman dan perubahan yang belum diekspor hilang saat server dihentikan.
 
 ## Changelog
+
+### 2026-11-08 - v1.4.0
+
+- Menambahkan bagian Menyunting secara visual (alur penyunting pratinjau, #55): operasi dasar, ekspor yang hanya bila validator lolos, jaminan dan batasnya; batasan penyunting.
 
 ### 2026-11-08 - v1.3.1
 
