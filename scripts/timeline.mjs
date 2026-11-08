@@ -32,6 +32,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { probeSumber, uraiLisensi, validasiManifest } from "./klip.mjs";
 import { jalurDalam, validasiAset } from "./aset-lib.js";
+import { rencanaWaktuAudio } from "./audio.mjs"; // satu sumber jangkauan tempo audio (tanpa salinan angka); audio.mjs memuat timeline.mjs secara dinamis, jadi tak ada siklus
 import {
   barisRingkasan, dalamCakupan, gabungInterval, hashGerbang, periksaKutipan, statusGerbang,
 } from "./kutipan.mjs";
@@ -588,6 +589,14 @@ export function periksaAturan(t, konteks, { draf = false } = {}) {
     if (mode !== "bisu") {
       if (k && k.audio === false) G("R09", `${lok}/audio/mode`, `klip "${b.klip}" tidak beraudio; mode harus "bisu"`);
       if (tanpaPemetaanAudio) G("R09", `${lok}/audio/mode`, 'audio klip tidak mendukung reverse atau freeze (audio.mjs hanya meregangkan waktu maju dengan atempo untuk speed konstan dan ramp); set mode "bisu"');
+      else if (kecepatanSah && !(w.bekukan && w.balik) && b.durasi >= 1) {
+        // jangkauan tempo dan sinkron atempo: pemeriksa yang sama dengan rakit audio (rencanaWaktuAudio)
+        const panjang = akhirAudioButir(x.akhir, sesudah.get(b.id)) - b.mulai;
+        if (Number.isInteger(panjang) && panjang >= 1 && panjang <= b.durasi) {
+          const rw = rencanaWaktuAudio(RT, w, b.durasi, panjang, fps);
+          if (rw.galat) G("R09", `${lok}/audio/mode`, rw.galat);
+        }
+      }
       const sumberObj = k && adaSumber ? konteks.sumber.perId.get(k.sumber) : null;
       if (sumberObj && dalamCakupan(sumberObj) && (sumberObj.kutipan?.isiAudio ?? "musik") === "musik") {
         if (sumberObj.kutipan?.musikDibahas === true) W("W08", `${lok}/audio/mode`, `sumber kutipan "${sumberObj.id}" berisi musik yang dibahas; batas 10 detik diperiksa saat rakit audio`);

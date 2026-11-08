@@ -480,6 +480,13 @@ daftar("(j) peringatan W01-W09 dan --ketat (peringatan menjadi galat, exit 2)", 
   tegas(!kodeAda(r, "R09"), `speed konstan bersuara tidak boleh R09: ${ringkas(r)}`);
   r = await aturanDengan((t) => { t.track[0].butir[1].audio.mode = "campur"; t.track[0].butir[1].waktu.kecepatan = [{ pada: 0, nilai: 1 }, { pada: 79, nilai: 2 }]; }, { konteks: kon });
   tegas(!kodeAda(r, "R09"), `ramp bersuara tidak boleh R09: ${ringkas(r)}`);
+  // R09: kecepatan di luar jangkauan audio (rencanaWaktuAudio, satu sumber dengan audio.mjs) ditolak sejak periksa
+  r = await aturanDengan((t) => { t.track[0].butir[1].audio.mode = "campur"; t.track[0].butir[1].waktu.kecepatan = 0.3; }, { konteks: kon });
+  tegas(kodeAda(r, "R09", "/track/0/butir/1/audio/mode") && r.galat.some((x) => x.kode === "R09" && /jangkauan audio/.test(x.pesan)), `kecepatan 0,3 bersuara harus R09: ${ringkas(r)}`);
+  r = await aturanDengan((t) => { t.track[0].butir[1].audio.mode = "campur"; t.track[0].butir[1].waktu.kecepatan = [{ pada: 0, nilai: 1 }, { pada: 79, nilai: 6 }]; }, { konteks: kon });
+  tegas(kodeAda(r, "R09", "/track/0/butir/1/audio/mode"), `ramp 1 ke 6 bersuara harus R09: ${ringkas(r)}`);
+  r = await aturanDengan((t) => { t.track[0].butir[1].audio.mode = "campur"; t.track[0].butir[1].waktu.kecepatan = 0.3; }, { konteks: kon });
+  tegas(!kodeAda(r, "R08"), `kecepatan 0,3 sah menurut R08: ${ringkas(r)}`);
   r = await aturanDengan((t) => { t.audio.ketatCampur = true; t.track[0].butir[0].audio.mode = "campur"; t.track[5].butir[0].mulai = 60; t.track[0].butir[0].durasi = 100; t.track[0].butir[1].mulai = 85; t.track[0].butir[1].transisi.durasi = 15; t.track[0].butir[1].durasi = 70; t.track[0].butir[1].waktu = {}; t.track[0].butir[1].audio = { mode: "bisu" }; }, { konteks: kon });
   tegas(kodeAda(r, "R11", "/track/0/butir/0"), `ketatCampur menjadikan W05 galat R11: ${ringkas(r)}`);
   // W06: tiga kilatan beruntun hanya peringatan (empat tidak dapat dibangun: R06 dan durasi minimum jenis berkilat)

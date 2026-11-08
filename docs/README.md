@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.17.2`
+- Version: `v1.17.3`
 - Last updated: `2026-11-08`
-- Changeset: `Versi timeline.md v1.3.0 dan roadmap.md v1.18.0 (F2 selesai). Sebelumnya: Versi api-runtime.md v1.6.1, video-tertanam-audio.md v1.9.0, timeline.md v1.2.0, roadmap.md v1.17.0, dan log-keputusan.md v1.22.0 (audio klip ber-speed). Sebelumnya: Mendaftarkan penyunting.md (v1.0.0, rancangan penyunting pratinjau F6) di indeks dan peta dokumen; versi roadmap.md dan log-keputusan.md diperbarui. Sebelumnya: Versi cli.md dan batasan.md menjadi v1.8.1 (durasi MP4 dikunci rentang frame, isu #79).`
+- Changeset: `Versi timeline.md v1.3.1 dan video-tertanam-audio.md v1.9.1 (R09 memeriksa jangkauan tempo, #84). Sebelumnya: Versi timeline.md v1.3.0 dan roadmap.md v1.18.0 (F2 selesai).`
 
 Pintu masuk ke seluruh dokumentasi rinci awvd. Ringkasan proyek, mulai cepat, dan perintah utama ada di [README akar](../README.md); aturan kerja kontributor dan AI agent ada di [AGENTS.md](../AGENTS.md); riwayat perubahan software ada di [CHANGELOG.md](../CHANGELOG.md).
 
@@ -21,7 +21,7 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) | `bun run periksa` (termasuk `--konsep`): pemeriksaan, ambang, kilatan fotosensitif | `v1.0.1` |
 | [konsep-jenis-alur.md](konsep-jenis-alur.md) | `bun run konsep`, `konsep.json`, 13 jenis video, 5 alur produksi, tingkat bukti, profil audiens | `v1.2.0` |
 | [sop.md](sop.md) | SOP sebagai dokumen cetak (PermenPAN-RB 35/2012) dan bahan video | `v1.0.1` |
-| [video-tertanam-audio.md](video-tertanam-audio.md) | Video di dalam video (lisensi sumber, `klip.mjs`) dan timeline audio (`audio.mjs`) | `v1.9.0` |
+| [video-tertanam-audio.md](video-tertanam-audio.md) | Video di dalam video (lisensi sumber, `klip.mjs`) dan timeline audio (`audio.mjs`) | `v1.9.1` |
 | [olah-klip.md](olah-klip.md) | Efek klip saat ekstraksi: `klip[].efek` (LUT `.cube`, warna, keseimbangan), rantai ffmpeg, kunci cache, LUT identitas, titik perluasan | `v1.2.0` |
 | [pelajari-reaction.md](pelajari-reaction.md) | `bun run pelajari` (statistik gaya), kebijakan kutipan wajar, gerbang hukum GH, templat reaction, dasar hukum ringkas (bukan nasihat hukum) | `v1.0.0` |
 | [visual-audiens.md](visual-audiens.md) | Profil audiens, ukuran teks, buta warna dan jarak warna, ketajaman (garis 2 px, 4:2:0, supersampling), efek dekoratif | `v1.0.0` |
@@ -35,9 +35,9 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | [narasi-caption.md](narasi-caption.md) | `bun run narasi`: skema `naskah.json`, estimasi timing berjangkar jeda, cue VTT/SRT dengan lint cps profil audiens, rencana audio, mode dan posisi caption, mesin suara pluggable, TTS dan ASR lokal opsional | `v1.3.0` |
 | [ketukan.md](ketukan.md) | `bun run ketukan`: onset fluks spektral, tempo autokorelasi, ketukan berselaras grid, skema `ketukan.json`, helper `window.Ketukan`, batas bukti | `v1.0.0` |
 | [reframe.md](reframe.md) | Reframe 16:9 ke 9:16: crop berkeyframe deterministik, skema `reframe.json`, `window.Reframe`, saran fokus opsional tanpa model, templat `reframe-contoh` | `v1.0.0` |
-| [timeline.md](timeline.md) | `timeline.json` (skema 1): track, butir, transisi tumpang tindih, pemetaan waktu klip; validator `bun run timeline periksa`, aturan R01-R17 dan W01-W09, kebijakan kutipan turunan; templat render generik `templates/timeline/` dan rencana audio turunan | `v1.3.0` |
+| [timeline.md](timeline.md) | `timeline.json` (skema 1): track, butir, transisi tumpang tindih, pemetaan waktu klip; validator `bun run timeline periksa`, aturan R01-R17 dan W01-W09, kebijakan kutipan turunan; templat render generik `templates/timeline/` dan rencana audio turunan | `v1.3.1` |
 | [penyunting.md](penyunting.md) | Rancangan penyunting pratinjau lokal F6 (disetujui, belum diimplementasikan): server lokal `Bun.serve` dengan validator `timeline.mjs`, wireframe, alur sunting, aksesibilitas WCAG 2.2 AA, pemecahan #54 dan #55 | `v1.0.0` |
-| [README.md](README.md) | Indeks ini | `v1.17.2` |
+| [README.md](README.md) | Indeks ini | `v1.17.3` |
 
 ## Peta dokumen
 
@@ -96,6 +96,10 @@ flowchart TD
 - Dokumen berbahasa Indonesia dan tidak menyebut nama, path, atau tautan repo internal AhliWeb yang privat.
 
 ## Changelog
+
+### 2026-11-08 - v1.17.3
+
+- Kolom Versi `timeline.md` v1.3.1 dan `video-tertanam-audio.md` v1.9.1 (R09 memeriksa jangkauan tempo audio, #84).
 
 ### 2026-11-08 - v1.17.2
 

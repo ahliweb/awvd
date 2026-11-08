@@ -219,11 +219,11 @@ daftar("(c2) fail-closed: skema salah, rujukan aset hilang, waktu bukan identita
   t.track[0].butir[1].waktu = { bekukan: true };
   r = await turunkan(t);
   tegas(!r.rencana && kodeAda(r, "R09", "/track/0/butir/1/audio/mode"), `freeze bersuara:\n${ringkas(r)}`);
-  // speed di luar jangkauan audio (0,5..4x): validator lolos, A04 menahan (fail-closed)
+  // speed di luar jangkauan audio (0,5..4x): validator menolak (R09, #84); A04 lapis kedua diuji di uji-audio-waktu
   t = dasar();
   t.track[0].butir[1].waktu = { kecepatan: 0.4 };
   r = await turunkan(t);
-  tegas(!r.rencana && kodeAda(r, "A04", "/track/0/butir/1/waktu") && /di luar jangkauan audio/.test(ringkas(r)), `speed 0,4x bersuara:\n${ringkas(r)}`);
+  tegas(!r.rencana && kodeAda(r, "R09", "/track/0/butir/1/audio/mode") && /di luar jangkauan audio/.test(ringkas(r)), `speed 0,4x bersuara:\n${ringkas(r)}`);
 
   // musik dipotong: R10 tidak mengatur akhir musik, audio.mjs memutar sepanjang video -> A02
   t = dasar();
