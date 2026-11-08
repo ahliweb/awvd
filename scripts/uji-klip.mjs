@@ -6,14 +6,16 @@
  *
  *   bun scripts/uji-klip.mjs [potongan-nama]   (potongan nama menjalankan uji yang namanya memuatnya, mis. "(q)")
  */
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, truncateSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
-  deteksiKemampuan, kreditLengkap, namaLisensi, periksaEfek, periksaKemampuanEfek, pilihMesinStabil,
-  sha256Berkas, uraiCube, validasiManifest,
+  adaHapusLatar, deteksiKemampuan, kreditLengkap, namaLisensi, periksaEfek, periksaKemampuanEfek, pilihMesinStabil,
+  rakitEfek, sha256Berkas, siapkanSegmentasi, uraiCube, validasiManifest,
 } from "./klip.mjs";
+import { GalatSegmentasi, JALUR_REGISTRI_BAWAAN } from "./segmentasi-lib.js";
 import { LUT, bangkitkanCube } from "../templates/klip-tertanam/buat-lut.mjs";
 import {
   batasiKemiringan, ekspresiEnvelope, tabelPemegang, titikPatah, validasiRencana,
@@ -35,17 +37,19 @@ function dekat(nyata, harapan, eps, nama) {
   tegas(Math.abs(nyata - harapan) <= eps, `${nama}: dapat ${nyata}, harapan ${harapan} (+-${eps})`);
 }
 function samaDengan(nyata, harapan, nama) {
-  tegas(nyata === harapan, `${nama}: dapat ${JSON.stringify(nyata)}, harapan ${JSON.stringify(harapan)}`);
+  const sama = typeof nyata === "object" && nyata !== null ? JSON.stringify(nyata) === JSON.stringify(harapan) : nyata === harapan; // array/objek dibandingkan lewat JSON
+  tegas(sama, `${nama}: dapat ${JSON.stringify(nyata)}, harapan ${JSON.stringify(harapan)}`);
 }
 function memuat(teks, potongan, nama) {
   tegas(teks.includes(potongan), `${nama}: "${potongan}" tidak ada dalam:\n${teks}`);
 }
-async function jalankan(cmd) {
-  const p = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
+async function jalankan(cmd, env) {
+  const p = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe", ...(env ? { env } : {}) });
   const [out, err, kode] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
   return { out, err, kode };
 }
 const bun = (...a) => jalankan(["bun", ...a]);
+const bunEnv = (env, ...a) => jalankan(["bun", ...a], env);
 async function ffmpeg(...a) {
   const r = await jalankan(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", ...a]);
   tegas(r.kode === 0, `ffmpeg gagal: ${r.err}`);
@@ -589,7 +593,7 @@ daftar("(k) efek: skema ditolak dengan pesan tepat (jenis, kunci asing, rentang,
   const galat = (efek) => periksaEfek(efek, tmp).join("\n");
   memuat(galat("lut"), '"efek" harus array', "bukan array");
   memuat(galat(["x"]), "efek[0]: harus objek", "butir bukan objek");
-  memuat(galat([{ jenis: "kunci-krom" }]), 'jenis "kunci-krom" tidak dikenal; yang ada: stabil, kunciWarna, lut, warna, keseimbangan', "jenis tak dikenal");
+  memuat(galat([{ jenis: "kunci-krom" }]), 'jenis "kunci-krom" tidak dikenal; yang ada: stabil, kunciWarna, hapusLatar, lut, warna, keseimbangan', "jenis tak dikenal");
   memuat(galat([{ jenis: "warna", saturasi: 1, tajam: 3 }]), "kunci tidak dikenal: tajam", "kunci asing");
   memuat(galat([{ jenis: "warna", saturasi: 9 }]), '"saturasi" harus angka 0..4', "saturasi di luar rentang");
   memuat(galat([{ jenis: "warna", kecerahan: "terang" }]), '"kecerahan" harus angka -1..1', "kecerahan bukan angka");
@@ -1143,6 +1147,330 @@ daftar("(s) cache klip: render kedua melewati ekstraksi (statistik hit/miss), --
   tegas(existsSync(join(a.out, "klip-props.json")) && existsSync(join(a.out, "atribusi.txt")), "berkas keluaran utuh");
   // hasil pemangkasan tetap hit
   memuat((await jalan()).out, "cache: 1 hit, 0 ekstraksi", "setelah --bersihkan folder terpakai tetap hit");
+});
+
+// ======================================================= (u) hapusLatar (segmentasi lokal)
+// ORT PALSU (modul CJS kecil): model palsu memberi mask = kanal merah masukan, jadi alfa hasil dapat
+// dibandingkan piksel demi piksel dengan RGB frame yang sama (uji sinkron frame, alfa, determinisme,
+// cache) tanpa onnxruntime sungguhan. Semua uji (u) kecuali (u5) jalan di CI tanpa ORT; (u5) memakai
+// ORT dan bobot sungguhan hanya bila AWVD_ORT dan AWVD_MODEL_DIR diset. Data sintetis saja.
+const envBersih = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(AWVD_(ORT|MODEL_DIR|REGISTRI_SEGMENTASI)|FAKE_ORT_.*)$/.test(k)));
+const ortPalsu = j("ort-palsu");
+function siapkanOrtPalsu() {
+  if (existsSync(join(ortPalsu, "index.js"))) return;
+  mkdirSync(ortPalsu, { recursive: true });
+  writeFileSync(join(ortPalsu, "package.json"), JSON.stringify({ name: "onnxruntime-palsu", main: "index.js" }));
+  writeFileSync(join(ortPalsu, "index.js"), `
+const fs = require("node:fs");
+const catat = (x) => { if (process.env.FAKE_ORT_LOG) fs.appendFileSync(process.env.FAKE_ORT_LOG, x + "\\n"); };
+class Tensor { constructor(type, data, dims) { this.type = type; this.data = data; this.dims = dims; } }
+exports.Tensor = Tensor;
+exports.env = { versions: { node: process.env.FAKE_ORT_VERSI || "0.0.0-palsu" } };
+exports.InferenceSession = { async create(bytes) {
+  catat("create");
+  return { inputNames: ["pixel_values"], outputNames: ["alphas"],
+    async run(feeds) {
+      catat("run");
+      const t = feeds.pixel_values, h = t.dims[2], w = t.dims[3];
+      const d = new Float32Array(h * w);
+      for (let i = 0; i < d.length; i++) d[i] = t.data[i]; // kanal merah
+      return { alphas: new Tensor("float32", d, [1, 1, h, w]) };
+    },
+    async release() { catat("release"); } }; } };
+`);
+}
+const sha256Teks = (b) => createHash("sha256").update(b).digest("hex");
+// registri kustom + folder bobot palsu per varian (isi bobot menentukan sha256 di kunci cache)
+function varianPalsu(nama, isi = "bobot palsu untuk uji klip hapusLatar") {
+  siapkanOrtPalsu();
+  const dir = j(`bobot-${nama}`);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "palsu.onnx"), isi);
+  const reg = j(`registri-${nama}.json`);
+  tulisJson(reg, { versi: 1, model: { palsu: {
+    nama: "Model palsu (mask = kanal merah)", berkas: "palsu.onnx", sha256: sha256Teks(isi), ukuranByte: Buffer.byteLength(isi),
+    lisensiKode: "MIT", lisensiBobot: "MIT",
+    masukan: { nama: "pixel_values", dinamis: { kelipatan: 1, min: 16, maks: 4096, sisiPanjangBawaan: 320 }, bagi: 255, kurang: 0 }, keluaran: { nama: "alphas" },
+  } } });
+  const log = j(`log-${nama}.txt`);
+  return { dir, reg, log, isi, sha: sha256Teks(isi) };
+}
+const envPalsu = (v, ekstra = {}) => ({ ...envBersih, AWVD_ORT: ortPalsu, AWVD_MODEL_DIR: v.dir, AWVD_REGISTRI_SEGMENTASI: v.reg, FAKE_ORT_LOG: v.log, ...ekstra });
+const hitungLog = (v, kata) => (existsSync(v.log) ? readFileSync(v.log, "utf8").split("\n").filter((x) => x === kata).length : 0);
+async function klipHapus(nama, ubah, env, { dasar = manifestDasar, ekstra = [], out = null } = {}) {
+  const m = await dasar();
+  ubah?.(m);
+  const berkas = j(`${nama}.json`);
+  tulisJson(berkas, m);
+  const keluar = out ?? j(`out-${nama}`);
+  const r = await bunEnv(env, klipMjs, berkas, "--fps", "30", "--out", keluar, ...ekstra);
+  return { ...r, teks: r.out, out: keluar, berkas };
+}
+const hapusLatar = (x = {}) => ({ jenis: "hapusLatar", model: "palsu", ...x });
+// RGBA mentah seluruh frame PNG sebuah folder cache
+async function semuaRgba(folder, nama) {
+  const tujuan = j(`${nama}.rgba`);
+  await ffmpeg("-framerate", "30", "-i", join(folder, "%06d.png"), "-f", "rawvideo", "-pix_fmt", "rgba", tujuan);
+  return readFileSync(tujuan);
+}
+async function pixFmt(berkas) {
+  const r = await jalankan(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=pix_fmt", "-of", "csv=p=0", berkas]);
+  tegas(r.kode === 0, `ffprobe gagal: ${r.err}`);
+  return r.out.trim();
+}
+
+daftar("(u) hapusLatar: skema ditolak dengan pesan tepat (model, ukuranInput, halus, ambang, ema, kunci asing, ganda, kunciWarna, ukuran klip)", () => {
+  const galat = (efek, klip = { lebar: 320, tinggi: 180 }) => periksaEfek(efek, tmp, klip).join("\n");
+  memuat(galat([{ jenis: "hapusLatar" }]), 'efek[0] (hapusLatar): "model" (id model segmentasi di registri', "model wajib");
+  memuat(galat([{ jenis: "hapusLatar", model: "Modnet!" }]), '"model" (id model segmentasi', "model bukan id");
+  memuat(galat([hapusLatar({ ukuranInput: 0 })]), '"ukuranInput" harus bilangan bulat positif (sisi panjang) atau [lebar, tinggi]', "ukuranInput 0");
+  memuat(galat([hapusLatar({ ukuranInput: [320] })]), '"ukuranInput" harus', "ukuranInput satu elemen");
+  memuat(galat([hapusLatar({ ukuranInput: "besar" })]), '"ukuranInput" harus', "ukuranInput teks");
+  memuat(galat([hapusLatar({ halus: -1 })]), '"halus" harus bilangan bulat 0..32', "halus negatif");
+  memuat(galat([hapusLatar({ halus: 1.5 })]), '"halus" harus bilangan bulat 0..32', "halus pecahan");
+  memuat(galat([hapusLatar({ halus: 33 })]), '"halus" harus bilangan bulat 0..32', "halus 33");
+  memuat(galat([hapusLatar({ halus: 20 })], { lebar: 320, tinggi: 30 }), '"halus" 20 terlalu besar untuk klip 320x30', "halus di atas setengah sisi");
+  memuat(galat([hapusLatar({ ambang: [0.8, 0.2] })]), '"ambang" harus [rendah, tinggi] dengan 0 <= rendah < tinggi <= 1', "ambang terbalik");
+  memuat(galat([hapusLatar({ ambang: [0.1] })]), '"ambang" harus', "ambang satu elemen");
+  memuat(galat([hapusLatar({ ambang: [-0.1, 0.5] })]), '"ambang" harus', "ambang negatif");
+  memuat(galat([hapusLatar({ ema: 0 })]), '"ema" harus angka di atas 0 dan paling besar 1', "ema 0");
+  memuat(galat([hapusLatar({ ema: 1.5 })]), '"ema" harus angka di atas 0', "ema 1,5");
+  memuat(galat([hapusLatar({ sama: 1 })]), "kunci tidak dikenal: sama", "kunci asing");
+  memuat(galat([hapusLatar(), hapusLatar({ model: "selfie" })]), "efek[1] (hapusLatar): maksimal 1 efek hapusLatar per klip", "dua hapusLatar");
+  memuat(galat([hapusLatar({ model: "modnet" })], { lebar: 9000, tinggi: 100 }), "ukuran klip 9000x100 melebihi batas segmentasi", "klip terlalu lebar");
+  const a = galat([{ jenis: "kunciWarna", warna: "#00ff00" }, hapusLatar()]);
+  memuat(a, "efek[1] (hapusLatar): tidak boleh digabung dengan efek[0] (kunciWarna): keduanya menghasilkan kanal alfa", "kunciWarna lalu hapusLatar");
+  const b = galat([hapusLatar(), { jenis: "kunciWarna", warna: "#00ff00" }]);
+  memuat(b, "efek[1] (kunciWarna): tidak boleh digabung dengan efek[0] (hapusLatar)", "hapusLatar lalu kunciWarna");
+  samaDengan(galat([hapusLatar({ model: "modnet", ukuranInput: [512, 288], halus: 4, ambang: [0.1, 0.9], ema: 0.6 })]), "", "parameter sah lengkap");
+  samaDengan(galat([hapusLatar({ model: "selfie" }), { jenis: "warna", saturasi: 0.5 }]), "", "dengan efek warna");
+});
+
+daftar("(u2) hapusLatar: ditolak sebelum ffprobe/ffmpeg: jpg eksplisit dan kunciWarna (exit 2), ORT/bobot/sha256/model tidak beres (fail-closed)", async () => {
+  const bersih = envBersih;
+  // skema: jpg eksplisit dan digabung kunciWarna -> exit 2 tanpa menyentuh ORT, folder keluaran tidak dibuat
+  const jpg = await klipHapus("hl-jpg", (m) => { m.klip[0].format = "jpg"; m.klip[0].efek = [hapusLatar()]; }, bersih);
+  samaDengan(jpg.kode, 2, "jpg + hapusLatar exit");
+  memuat(jpg.err, 'klip "k1": efek[0] (hapusLatar): menghasilkan kanal alfa, tetapi format "jpg" tidak mendukung alfa', "pesan jpg");
+  tegas(!existsSync(jpg.out), "jpg: folder keluaran tidak dibuat");
+  for (const [nama, efek] of [["hl-gabung1", [{ jenis: "kunciWarna", warna: "#00ff00" }, hapusLatar()]], ["hl-gabung2", [hapusLatar(), { jenis: "kunciWarna", warna: "#00ff00" }]]]) {
+    const r = await klipHapus(nama, (m) => { m.klip[0].efek = efek; }, bersih);
+    samaDengan(r.kode, 2, `${nama} exit`);
+    memuat(r.err, "tidak boleh digabung dengan efek[", `${nama} pesan`);
+    memuat(r.err, "tidak ada ekstraksi dan tidak ada render", `${nama} tanpa ekstraksi`);
+    tegas(!existsSync(r.out), `${nama}: folder keluaran tidak dibuat`);
+  }
+  // tanpa AWVD_ORT: kode keluar 1 (lingkungan), pesan jelas, tidak ada ekstraksi
+  const efekModnet = (m) => { m.klip[0].efek = [{ jenis: "hapusLatar", model: "modnet" }]; };
+  const tanpaOrt = await klipHapus("hl-tanpa-ort", efekModnet, bersih);
+  samaDengan(tanpaOrt.kode, 1, `tanpa ORT exit (${tanpaOrt.err})`);
+  memuat(tanpaOrt.err, "efek hapusLatar tidak bisa dijalankan; tidak ada ekstraksi dan tidak ada render", "tanpa ORT: kalimat awal");
+  memuat(tanpaOrt.err, "AWVD_ORT", "tanpa ORT: menyebut AWVD_ORT");
+  tegas(!existsSync(tanpaOrt.out), "tanpa ORT: folder keluaran tidak dibuat");
+  // ORT menunjuk jalur yang tidak ada: kode keluar 1
+  const ortSalah = await klipHapus("hl-ort-salah", efekModnet, { ...bersih, AWVD_ORT: j("tidak-ada") });
+  samaDengan(ortSalah.kode, 1, "ORT tidak ada exit");
+  memuat(ortSalah.err, "AWVD_ORT menunjuk jalur yang tidak ada", "ORT jalur salah");
+  // ORT ada, AWVD_MODEL_DIR tidak diset atau berkas bobot tidak ada: kode keluar 1
+  siapkanOrtPalsu();
+  const tanpaBobot = await klipHapus("hl-tanpa-bobot", efekModnet, { ...bersih, AWVD_ORT: ortPalsu });
+  samaDengan(tanpaBobot.kode, 1, "tanpa bobot exit");
+  memuat(tanpaBobot.err, "AWVD_MODEL_DIR", "tanpa bobot: menyebut AWVD_MODEL_DIR");
+  const dirKosong = j("bobot-kosong");
+  mkdirSync(dirKosong, { recursive: true });
+  const bobotHilang = await klipHapus("hl-bobot-hilang", efekModnet, { ...bersih, AWVD_ORT: ortPalsu, AWVD_MODEL_DIR: dirKosong });
+  samaDengan(bobotHilang.kode, 1, "bobot hilang exit");
+  memuat(bobotHilang.err, "tidak ditemukan", "bobot hilang: pesan");
+  // bobot registri bawaan: ukuran salah dan (ukuran benar, isi salah) -> exit 2, TIDAK PERNAH sampai ke ORT
+  const dirSalah = j("bobot-salah");
+  mkdirSync(dirSalah, { recursive: true });
+  const log = j("log-salah.txt");
+  const envSalah = { ...bersih, AWVD_ORT: ortPalsu, AWVD_MODEL_DIR: dirSalah, FAKE_ORT_LOG: log };
+  writeFileSync(join(dirSalah, "modnet.onnx"), "bukan modnet");
+  const ukuranSalah = await klipHapus("hl-ukuran-salah", efekModnet, envSalah);
+  samaDengan(ukuranSalah.kode, 2, `ukuran salah exit (${ukuranSalah.err})`);
+  memuat(ukuranSalah.err, 'ukuran bobot model "modnet" tidak cocok', "ukuran salah: pesan");
+  memuat(ukuranSalah.err, "bobot ditolak", "ukuran salah: ditolak");
+  truncateSync(join(dirSalah, "modnet.onnx"), 25888640); // ukuran registri, isi nol
+  const shaSalah = await klipHapus("hl-sha-salah", efekModnet, envSalah);
+  samaDengan(shaSalah.kode, 2, `sha256 salah exit (${shaSalah.err})`);
+  memuat(shaSalah.err, 'sha256 bobot model "modnet" tidak cocok', "sha256 salah: pesan");
+  memuat(shaSalah.err, "Bobot ditolak sebelum dimuat ke onnxruntime", "sha256 salah: ditolak sebelum ORT");
+  tegas(!existsSync(shaSalah.out) && !existsSync(log), "sha256 salah: tanpa ekstraksi dan ORT tidak dipanggil");
+  // model tidak dikenal dan ukuranInput yang tidak cocok model: exit 2 (tanpa memerlukan ORT)
+  const tidakDikenal = await klipHapus("hl-model-asing", (m) => { m.klip[0].efek = [{ jenis: "hapusLatar", model: "tidak-ada" }]; }, bersih);
+  samaDengan(tidakDikenal.kode, 2, "model tak dikenal exit");
+  memuat(tidakDikenal.err, 'model "tidak-ada" tidak dikenal; yang tersedia: selfie, modnet', "model tak dikenal: pesan");
+  const ukuranTetap = await klipHapus("hl-ukuran-tetap", (m) => { m.klip[0].efek = [{ jenis: "hapusLatar", model: "selfie", ukuranInput: [128, 128] }]; }, bersih);
+  samaDengan(ukuranTetap.kode, 2, "ukuranInput selfie exit");
+  memuat(ukuranTetap.err, 'klip "k1": efek[0] (hapusLatar): model berukuran masukan tetap 256x256', "ukuranInput tetap: pesan");
+  const kelipatan = await klipHapus("hl-kelipatan", (m) => { m.klip[0].efek = [{ jenis: "hapusLatar", model: "modnet", ukuranInput: [500, 288] }]; }, bersih);
+  samaDengan(kelipatan.kode, 2, "ukuranInput bukan kelipatan exit");
+  memuat(kelipatan.err, "kelipatan 32", "ukuranInput kelipatan: pesan");
+  // klip tanpa hapusLatar tidak butuh ORT sama sekali
+  const polos = await klipHapus("hl-polos", null, bersih);
+  samaDengan(polos.kode, 0, `klip tanpa efek tanpa ORT (${polos.err})`);
+  // fungsi pendukung
+  samaDengan(adaHapusLatar({ klip: [{ id: "a" }, { id: "b", efek: [{ jenis: "warna", saturasi: 0.5 }] }] }), false, "adaHapusLatar tanpa");
+  samaDengan(adaHapusLatar({ klip: [{ id: "a", efek: [hapusLatar()] }] }), true, "adaHapusLatar ada");
+  const kosong = siapkanSegmentasi({ klip: [{ id: "a", lebar: 10, tinggi: 10 }] }, bersih);
+  samaDengan([kosong.info.size, kosong.galat.length], [0, 0], "siapkanSegmentasi tanpa efek tidak menyentuh ORT");
+  let galatLib = null;
+  try { siapkanSegmentasi({ klip: [{ id: "a", lebar: 320, tinggi: 180, efek: [{ jenis: "hapusLatar", model: "selfie" }] }] }, bersih); } catch (e) { galatLib = e; }
+  tegas(galatLib instanceof GalatSegmentasi && galatLib.kode === "ort-tidak-diset" && galatLib.keluar === 1, `siapkanSegmentasi tanpa ORT: ${galatLib?.message}`);
+});
+
+daftar("(u3) hapusLatar: ORT palsu: PNG RGBA, alfa = mask frame yang sama di semua frame, RGB tak berubah, laporan model di meta.json", async () => {
+  const v = varianPalsu("a");
+  const a = await klipHapus("hl-sinkron", (m) => { m.klip[0].efek = [hapusLatar()]; }, envPalsu(v));
+  samaDengan(a.kode, 0, `exit\n${a.err}`);
+  memuat(a.teks, "efek hapusLatar(palsu)", "log efek");
+  memuat(a.teks, "segmentasi lokal: Model palsu (mask = kanal merah)", "log segmentasi");
+  memuat(a.teks, "60 mask dibekukan", "log jumlah mask");
+  const props = JSON.parse(readFileSync(join(a.out, "klip-props.json"), "utf8")).klip[0];
+  samaDengan([props.ekstensi, props.jumlah], ["png", 60], "format otomatis png dan jumlah frame");
+  const folder = join(a.out, props.folder);
+  samaDengan(await pixFmt(join(folder, "000000.png")), "rgba", "pix_fmt PNG");
+  // sinkron: alfa tiap piksel = kanal merah frame yang sama (testsrc2 berubah tiap frame, jadi satu frame meleset akan ketahuan)
+  const d = await semuaRgba(folder, "hl-sinkron");
+  samaDengan(d.length, 60 * 320 * 180 * 4, "ukuran RGBA mentah");
+  let beda = 0;
+  const nilai = new Set();
+  for (let i = 0; i < d.length; i += 4) { if (d[i] !== d[i + 3]) beda++; nilai.add(d[i + 3]); }
+  samaDengan(beda, 0, "alfa = kanal merah di setiap piksel setiap frame");
+  tegas(nilai.size > 50, `alfa bukan konstan (${nilai.size} nilai berbeda)`);
+  // RGB tidak berubah dibanding ekstraksi PNG tanpa efek
+  const dasar = await klipDengan("hl-dasar", (m) => { m.klip[0].format = "png"; });
+  samaDengan(dasar.kode, 0, `dasar exit ${dasar.err}`);
+  const rgbDasar = await semuaRgba(join(dasar.out, folderKlip(dasar.out)), "hl-dasar");
+  let bedaRgb = 0;
+  for (let i = 0; i < d.length; i += 4) if (d[i] !== rgbDasar[i] || d[i + 1] !== rgbDasar[i + 1] || d[i + 2] !== rgbDasar[i + 2]) bedaRgb++;
+  samaDengan(bedaRgb, 0, "RGB sama dengan klip tanpa efek");
+  // laporan di meta.json
+  const meta = bacaMeta(a.out, props.folder);
+  samaDengan([meta.segmentasi.model, meta.segmentasi.sha256, meta.segmentasi.versiOrt, meta.segmentasi.lisensiBobot, meta.segmentasi.lisensiKode, meta.segmentasi.lokal, meta.segmentasi.frameMask],
+    ["palsu", v.sha, "0.0.0-palsu", "MIT", "MIT", true, 60], "meta.segmentasi");
+  samaDengan([meta.efek[0].sha256, meta.efek[0].versiOrt, meta.efek[0].ukuranInput], [v.sha, "0.0.0-palsu", [320, 180]], "efek kanonik memuat sha256, versi ORT, ukuran input");
+  tegas(!JSON.stringify(meta).includes(tmp), "tidak ada jalur lokal di meta.json");
+  tegas(!existsSync(join(folder, "mask.gray")), "berkas mask sementara tidak tertinggal di cache");
+  // rentang di tengah sumber (dari + panjang): mask tetap sinkron dengan frame (-ss berlaku untuk dekode mask dan ekstraksi)
+  const potong = await klipHapus("hl-potong", (m) => { Object.assign(m.klip[0], { dari: 0.4, panjang: 1 }); m.klip[0].efek = [hapusLatar()]; }, envPalsu(v));
+  samaDengan(potong.kode, 0, `potong exit\n${potong.err}`);
+  const dp = await semuaRgba(join(potong.out, folderKlip(potong.out)), "hl-potong");
+  samaDengan(dp.length, 30 * 320 * 180 * 4, "potong: 30 frame");
+  let bedaPotong = 0;
+  for (let i = 0; i < dp.length; i += 4) if (dp[i] !== dp[i + 3]) bedaPotong++;
+  samaDengan(bedaPotong, 0, "potong: alfa = kanal merah di setiap piksel");
+  // latar hijau sintetis hilang dan kotak merah tetap: ambang smoothstep membuat alfa 0 atau 255
+  const h = await klipHapus("hl-kotak", (m) => { m.klip[0].efek = [hapusLatar({ ambang: [0.25, 0.75] })]; }, envPalsu(v), { dasar: manifestHijau });
+  samaDengan(h.kode, 0, `kotak exit\n${h.err}`);
+  const dk = await pikselRgba(frame0(h.out));
+  const w = pelanggaranAlfa(dk);
+  samaDengan([w.latarBuram, w.subjekTembus], [0, 0], `latar buram dan subjek tembus (latar ${w.latar}, subjek ${w.subjek})`);
+  const [rr, , , aa] = rgba(dk, 160, 90);
+  tegas(aa === 255 && rr > 230, `subjek tetap merah buram, dapat ${rgba(dk, 160, 90)}`);
+  samaDengan(rgba(dk, 5, 5)[3], 0, "sudut transparan");
+});
+
+daftar("(u4) hapusLatar: dua run identik, cache hit tanpa memanggil model, kunci memuat sha256 bobot, versi ORT, dan parameter kanonik", async () => {
+  const v = varianPalsu("k");
+  const ubah = (efek) => (m) => { m.klip[0].efek = [efek]; };
+  const dasar = hapusLatar({ ema: 0.5, halus: 2, ambang: [0.2, 0.8] });
+  const out = j("out-hl-cache");
+  const a = await klipHapus("hl-c1", ubah(dasar), envPalsu(v), { dasar: manifestHijau, out });
+  samaDengan(a.kode, 0, `a exit\n${a.err}`);
+  memuat(a.teks, "cache: 0 hit, 1 ekstraksi", "ekstraksi pertama");
+  const fa = folderKlip(out), ma = bacaMeta(out, fa);
+  samaDengan(hitungLog(v, "create"), 1, "satu sesi ORT untuk satu klip");
+  // run identik: --paksa mengekstrak ulang dengan hasil identik byte demi byte
+  const b = await klipHapus("hl-c1", ubah(dasar), envPalsu(v), { dasar: manifestHijau, out, ekstra: ["--paksa"] });
+  samaDengan(b.kode, 0, `paksa exit\n${b.err}`);
+  samaDengan(folderKlip(out), fa, "kunci sama");
+  samaDengan(bacaMeta(out, fa).framesSha256, ma.framesSha256, "dua run identik (framesSha256)");
+  const sesiSesudahB = hitungLog(v, "create"), runSesudahB = hitungLog(v, "run");
+  samaDengan(sesiSesudahB, 2, "run paksa membuat sesi baru");
+  // cache hit: model tidak dipanggil sama sekali (tidak ada sesi baru, tidak ada inferensi)
+  const c = await klipHapus("hl-c1", ubah(dasar), envPalsu(v), { dasar: manifestHijau, out });
+  samaDengan(c.kode, 0, `hit exit\n${c.err}`);
+  memuat(c.teks, "cache hit", "cache hit");
+  memuat(c.teks, "cache: 1 hit, 0 ekstraksi", "statistik hit");
+  samaDengan([hitungLog(v, "create"), hitungLog(v, "run")], [sesiSesudahB, runSesudahB], "cache hit: ORT tidak membuat sesi dan tidak menjalankan inferensi");
+  // penulisan lain dengan kanonik sama (ukuranInput sisi panjang vs [w, h]) -> kunci sama -> hit
+  const sama = await klipHapus("hl-c1", ubah(hapusLatar({ ukuranInput: 320, ema: 0.5, halus: 2, ambang: [0.2, 0.8] })), envPalsu(v), { dasar: manifestHijau, out });
+  memuat(sama.teks, "cache: 1 hit, 0 ekstraksi", "ukuranInput 320 = [320, 180] (kanonik)");
+  samaDengan(folderKlip(out), fa, "kunci kanonik sama");
+  // yang mengubah kunci: sha256 bobot, versi ORT, parameter efek
+  const bukanSama = async (nama, efek, env) => {
+    await klipHapus(nama, ubah(efek), env, { dasar: manifestHijau, out });
+    const f = folderKlip(out);
+    tegas(f !== fa, `${nama}: kunci harus berubah`);
+    return f;
+  };
+  const v2 = varianPalsu("k2", "bobot palsu lain untuk uji klip hapusLatar");
+  const fBobot = await bukanSama("hl-c-bobot", dasar, envPalsu(v2));
+  samaDengan(bacaMeta(out, fBobot).segmentasi.sha256, v2.sha, "meta mencatat sha256 bobot baru");
+  const fOrt = await bukanSama("hl-c-ort", dasar, envPalsu(v, { FAKE_ORT_VERSI: "9.9.9-palsu" }));
+  samaDengan(bacaMeta(out, fOrt).segmentasi.versiOrt, "9.9.9-palsu", "meta mencatat versi ORT baru");
+  const fEma = await bukanSama("hl-c-ema", { ...dasar, ema: 0.9 }, envPalsu(v));
+  const fHalus = await bukanSama("hl-c-halus", { ...dasar, halus: 0 }, envPalsu(v));
+  const fAmbang = await bukanSama("hl-c-ambang", { ...dasar, ambang: [0.3, 0.7] }, envPalsu(v));
+  tegas(new Set([fa, fBobot, fOrt, fEma, fHalus, fAmbang]).size === 6, "enam kunci berbeda");
+  // halus memang mengubah mask (tepi kotak lunak): frame berbeda dari halus 0
+  tegas(bacaMeta(out, fHalus).framesSha256 !== ma.framesSha256, "halus mengubah frame");
+  // klip tanpa efek tidak memuat kunci segmentasi
+  const polos = await klipDengan("hl-polos2", null);
+  const metaPolos = bacaMeta(polos.out, folderKlip(polos.out));
+  tegas(!("efek" in metaPolos) && !("segmentasi" in metaPolos), "klip tanpa efek: meta tanpa efek dan segmentasi");
+  // rakitEfek tanpa onnxruntime: kunci memuat sha256 dan versi ORT dari info segmentasi
+  const spec = JSON.parse(readFileSync(JALUR_REGISTRI_BAWAAN, "utf8")).model.modnet;
+  const info = (sha, versiOrt) => new Map([["modnet", { spec, info: { sha256: sha, versiOrt } }]]);
+  const klip = { lebar: 1280, tinggi: 720 };
+  const efekModnet = [{ jenis: "hapusLatar", model: "modnet" }];
+  const r1 = rakitEfek(efekModnet, tmp, null, { klip, segmentasi: info("a".repeat(64), "1.0.0") });
+  const r2 = rakitEfek(efekModnet, tmp, null, { klip, segmentasi: info("b".repeat(64), "1.0.0") });
+  const r3 = rakitEfek(efekModnet, tmp, null, { klip, segmentasi: info("a".repeat(64), "1.0.1") });
+  samaDengan([r1.kanonik[0].ukuranInput, r1.kanonik[0].sha256, r1.kanonik[0].versiOrt, r1.alfa.length], [[512, 288], "a".repeat(64), "1.0.0", 0], "kanonik rakitEfek");
+  tegas(r1.alfaDari && r1.alfaDari.berkas === "mask.gray" && r1.alfaDari.saring[0] === "format=gray", "alfaDari menyatakan masukan mask");
+  tegas(JSON.stringify(r1.kanonik) !== JSON.stringify(r2.kanonik), "sha256 berbeda = kanonik berbeda");
+  tegas(JSON.stringify(r1.kanonik) !== JSON.stringify(r3.kanonik), "versi ORT berbeda = kanonik berbeda");
+  samaDengan(rakitEfek([{ jenis: "kunciWarna", warna: "#00ff00" }], tmp, null).alfaDari, null, "kunciWarna tidak memakai masukan tambahan");
+  let tanpaInfo = null;
+  try { rakitEfek(efekModnet, tmp, null, { klip }); } catch (e) { tanpaInfo = e; }
+  tegas(tanpaInfo && tanpaInfo.message.includes("butuh info segmentasi"), "hapusLatar tanpa info segmentasi ditolak, bukan diam-diam tanpa bobot");
+});
+
+daftar("(u5) hapusLatar: ORT dan bobot sungguhan (hanya bila AWVD_ORT dan AWVD_MODEL_DIR diset): klip sintetis menjadi RGBA, dua run identik, hit cache", async () => {
+  const dir = process.env.AWVD_MODEL_DIR;
+  if (!process.env.AWVD_ORT || !dir) { console.log("       LEWATI: AWVD_ORT dan AWVD_MODEL_DIR tidak diset (uji ORT sungguhan)"); return; }
+  const reg = JSON.parse(readFileSync(JALUR_REGISTRI_BAWAAN, "utf8")).model;
+  const env = { ...process.env };
+  delete env.AWVD_REGISTRI_SEGMENTASI;
+  let diuji = 0;
+  for (const id of ["selfie", "modnet"]) {
+    if (!existsSync(join(dir, reg[id].berkas))) { console.log(`       LEWATI: bobot ${id} tidak ada di AWVD_MODEL_DIR`); continue; }
+    diuji++;
+    const out = j(`out-hl-nyata-${id}`);
+    const efek = (m) => { m.klip[0].efek = [{ jenis: "hapusLatar", model: id, ema: 0.6, ambang: [0.1, 0.9] }]; };
+    const a = await klipHapus(`hl-nyata-${id}`, efek, env, { out });
+    samaDengan(a.kode, 0, `${id}: exit\n${a.err}`);
+    const props = JSON.parse(readFileSync(join(out, "klip-props.json"), "utf8")).klip[0];
+    samaDengan([props.ekstensi, props.jumlah], ["png", 60], `${id}: png dan jumlah frame`);
+    const folder = join(out, props.folder);
+    samaDengan(await pixFmt(join(folder, "000000.png")), "rgba", `${id}: pix_fmt`);
+    const d = await semuaRgba(folder, `hl-nyata-${id}`);
+    const nilai = new Set();
+    for (let i = 3; i < d.length; i += 4) nilai.add(d[i]);
+    tegas(nilai.size > 1, `${id}: alfa dari mask tidak konstan (${[...nilai].join(",")})`);
+    const meta = bacaMeta(out, props.folder);
+    samaDengan([meta.segmentasi.model, meta.segmentasi.sha256, meta.segmentasi.lisensiBobot, meta.segmentasi.lokal], [id, reg[id].sha256, "Apache-2.0", true], `${id}: meta`);
+    tegas(/^\d/.test(meta.segmentasi.versiOrt), `${id}: versi ORT tercatat (${meta.segmentasi.versiOrt})`);
+    const b = await klipHapus(`hl-nyata-${id}`, efek, env, { out, ekstra: ["--paksa"] });
+    samaDengan(b.kode, 0, `${id}: paksa exit\n${b.err}`);
+    samaDengan(bacaMeta(out, props.folder).framesSha256, meta.framesSha256, `${id}: dua run identik`);
+    const c = await klipHapus(`hl-nyata-${id}`, efek, env, { out });
+    memuat(c.teks, "cache: 1 hit, 0 ekstraksi", `${id}: cache hit`);
+  }
+  tegas(diuji > 0, "tidak ada bobot yang diuji");
 });
 
 // ------------------------------------------------------------------ jalankan

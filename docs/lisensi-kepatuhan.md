@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.7.0`
+- Version: `v1.7.1`
 - Last updated: `2026-11-08`
-- Changeset: `Matriks model segmentasi latar (#88): lisensi kode dan bobot dari sumber asli, konversi ONNX komunitas dengan revisi terkunci, sha256 kanonik dan ukuran berkas, kebijakan sha256 fail-closed, hanya lisensi permisif di registri; baris onnxruntime-node dan model segmentasi di Pihak ketiga. Sebelumnya: bagian Model segmentasi latar (rancangan disetujui).`
+- Changeset: `Status Model segmentasi latar: efek klip hapusLatar kini ada (#89); bobot dan ORT tetap tidak dibundel, dan meta.json klip mencatat model, sha256, versi ORT, dan lisensi bobot. Sebelumnya: Matriks model segmentasi latar (#88): lisensi kode dan bobot dari sumber asli, sha256 kanonik, kebijakan fail-closed.`
 
 Catatan hukum di dokumen ini bukan nasihat hukum.
 
@@ -72,7 +72,7 @@ Perwujudannya di awvd:
 
 ## Model segmentasi latar
 
-Status: **modul dan registri ada ([#88](https://github.com/ahliweb/awvd/issues/88)); efek klip belum ([#89](https://github.com/ahliweb/awvd/issues/89))**. Fitur hapus latar lokal ([segmentasi-latar.md](segmentasi-latar.md)) bersifat opsional: `onnxruntime-node` (MIT) dan bobot model **tidak dibundel, tidak didistribusikan, dan bukan dependensi** (dimuat dari `AWVD_ORT`). Ini bukan nasihat hukum; lisensi dibaca dari sumber asli penulis pada 2026-11-08 dan wajib dibaca ulang pemakai.
+Status: **modul, registri, dan efek klip `hapusLatar` ada ([#88](https://github.com/ahliweb/awvd/issues/88), [#89](https://github.com/ahliweb/awvd/issues/89))**; `meta.json` klip mencatat model, sha256 bobot, versi ORT, dan lisensi bobot yang dideklarasikan registri (pencatatan lisensi di `ASET.md` repo proyek tetap tanggung jawab pemakai). Fitur hapus latar lokal ([segmentasi-latar.md](segmentasi-latar.md)) bersifat opsional: `onnxruntime-node` (MIT) dan bobot model **tidak dibundel, tidak didistribusikan, dan bukan dependensi** (dimuat dari `AWVD_ORT`). Ini bukan nasihat hukum; lisensi dibaca dari sumber asli penulis pada 2026-11-08 dan wajib dibaca ulang pemakai.
 
 | Model | Putusan | Lisensi (sumber asli) |
 | --- | --- | --- |
@@ -131,6 +131,10 @@ Ringkasan dari [AGENTS.md](../AGENTS.md) §Lisensi dan Aset:
 - Atribusi mulberry32 di `scripts/runtime.js` dipertahankan.
 
 ## Changelog
+
+### 2026-11-08 - v1.7.1
+
+- Status Model segmentasi latar: efek klip `hapusLatar` ada (#89); matriks lisensi tidak berubah.
 
 ### 2026-11-08 - v1.7.0
 

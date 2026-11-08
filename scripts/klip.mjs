@@ -14,10 +14,13 @@
  *      frame, ke cache berkunci (hash berkas + fps + ukuran + rentang + matriks + efek + ...).
  *      Cache hit tidak mengekstrak ulang (--verifikasi: hit hanya bila hash frame cocok meta.json;
  *      --bersihkan: hapus folder cache lama yang tak dipakai manifest ini). Audio klip diekstrak ke audio.wav (tanpa efek).
- *      Efek klip (`klip[].efek`: stabilisasi, chroma key menjadi PNG beralfa, LUT .cube, koreksi
- *      warna) diterapkan sekali di tahap ini, bukan per frame di Chromium; registri efek: lihat
- *      EFEK di bawah. Efek yang butuh kemampuan build ffmpeg (stabil: vidstab) dicek sebelum
- *      ekstraksi dan gagal dengan pesan jelas (kode keluar 2).
+ *      Efek klip (`klip[].efek`: stabilisasi, chroma key atau hapus latar lokal (segmentasi ORT)
+ *      menjadi PNG beralfa, LUT .cube, koreksi warna) diterapkan sekali di tahap ini, bukan per
+ *      frame di Chromium; registri efek: lihat EFEK di bawah. Efek yang butuh kemampuan build
+ *      ffmpeg (stabil: vidstab) dicek sebelum ekstraksi dan gagal dengan pesan jelas (kode keluar 2).
+ *      Efek hapusLatar butuh onnxruntime (AWVD_ORT) dan bobot model (AWVD_MODEL_DIR) yang
+ *      diverifikasi sha256: dicek sebelum ffprobe/ffmpeg (fail-closed; 1 = lingkungan, 2 = validasi);
+ *      ORT hanya dipanggil saat ekstraksi, render tidak pernah memanggil model (docs/segmentasi-latar.md).
  *   3b. Sumber berlisensi KUTIPAN-WAJAR atau berblok `kutipan` diperiksa kebijakan kutipan
  *      wajar (scripts/kutipan.mjs: batas durasi, proporsi, komentar aktif) dan gerbang hukum
  *      GH; gerbang belum disetujui = kode keluar 2, atau tanda draf dengan --draf.
@@ -31,12 +34,16 @@
 import { parseArgs } from "node:util";
 import { createHash } from "node:crypto";
 import {
-  copyFileSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync,
-  rmSync, statSync, writeFileSync,
+  closeSync, copyFileSync, createReadStream, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync,
+  rmSync, statSync, writeFileSync, writeSync,
 } from "node:fs";
 import { dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { barisRingkasan, dalamCakupan, periksaKutipan } from "./kutipan.mjs";
+import {
+  BATAS_PIKSEL, BATAS_SISI, GalatSegmentasi, VERSI_SEGMENTASI, buatSegmenter, cariBobot, muatRegistri, pastikanOrt,
+  ukuranMasukan, verifikasiBobot,
+} from "./segmentasi-lib.js";
 
 const VERSI_SKEMA = 1;
 const POLA_ID = /^[a-z0-9][a-z0-9_-]*$/;
@@ -126,7 +133,12 @@ export function kreditLengkap(a) {
  * menghasilkan alfa, jadi klip harus berformat PNG), `kemampuan(e, kemampuan)` -> { galat?, peringatan? }
  * (memeriksa kemampuan build ffmpeg yang dideteksi `deteksiKemampuan`, sebelum ekstraksi), dan
  * `saring` boleh mengembalikan `analisis` (filter pass pertama yang dijalankan sebelum ekstraksi,
- * dengan awalan rantai yang sama). Menambah jenis efek = satu entri di EFEK; tahap baru = satu
+ * dengan awalan rantai yang sama) dan `alfaDari` ({ berkas, argumen({ k, fps }), saring, kanonik }:
+ * masukan tambahan ffmpeg yang menjadi kanal alfa lewat `alphamerge`; `berkas` ada di folder kerja,
+ * `argumen` mengembalikan opsi masukan ffmpeg sebelum `-i`, `saring` adalah filter pada masukan itu;
+ * berkas dibuat dulu oleh pembuatnya, kini hanya buatMaskBeku untuk hapusLatar, lalu rantai
+ * berpindah ke -filter_complex).
+ * Dua efek beralfa pada satu klip ditolak (satu sumber alfa). Menambah jenis efek = satu entri di EFEK; tahap baru = satu
  * entri di TAHAP dan satu slot di argsEkstrak.
  */
 const TAHAP = ["pra", "alfa", "warna"];
@@ -134,6 +146,9 @@ const INTERPOLASI_LUT = ["nearest", "trilinear", "tetrahedral", "pyramid", "pris
 const BATAS_EFEK = 16;
 const POLA_HEX64 = /^[0-9a-f]{64}$/i;
 const POLA_WARNA = /^#[0-9a-f]{6}$/i;
+const POLA_MODEL = /^[a-z0-9][a-z0-9_-]{0,31}$/;
+const MAKS_HALUS_MASK = 32;
+const BERKAS_MASK = "mask.gray"; // mask beku (gray 8 bit mentah, satu frame berurutan) di folder kerja ekstraksi
 const METODE_KUNCI = ["rgb", "yuv"];
 const MESIN_STABIL = ["otomatis", "vidstab", "deshake"];
 const adaKunci = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -314,6 +329,61 @@ const EFEK = {
     },
   },
 
+  /**
+   * Hapus latar tanpa layar warna: segmentasi orang LOKAL (onnxruntime lewat scripts/segmentasi-lib.js,
+   * model registri bersha256) membekukan mask per frame saat ekstraksi, lalu `alphamerge` memasangnya
+   * sebagai kanal alfa; keluaran PNG RGBA seperti kunciWarna. Render tidak pernah memanggil model.
+   * Model berjalan pada frame ukuran klip (setelah `pra` dan penskalaan, sama dengan frame yang
+   * di-cache), jadi mask dan warna berasal dari piksel yang sama. Urutan mask: model, ambang (smoothstep),
+   * EMA temporal (di segmentasi-lib), lalu `halus` (feather: boxblur pada mask). Kunci cache memuat
+   * parameter kanonik, sha256 bobot, versi ORT, dan versi pra/pasca-proses.
+   */
+  hapusLatar: {
+    tahap: "alfa",
+    maks: 1,
+    alfa: true,
+    kunci: ["jenis", "model", "ukuranInput", "halus", "ambang", "ema"],
+    periksa(e, { klip }) {
+      const g = [];
+      if (typeof e.model !== "string" || !POLA_MODEL.test(e.model)) g.push('"model" (id model segmentasi di registri, mis. "modnet" atau "selfie") wajib');
+      if (e.ukuranInput !== undefined) {
+        const u = e.ukuranInput, bulat = (x) => Number.isInteger(x) && x > 0;
+        if (!(bulat(u) || (Array.isArray(u) && u.length === 2 && u.every(bulat)))) g.push('"ukuranInput" harus bilangan bulat positif (sisi panjang) atau [lebar, tinggi]; rentang dan kelipatan mengikuti model');
+      }
+      if (e.halus !== undefined && !(Number.isInteger(e.halus) && e.halus >= 0 && e.halus <= MAKS_HALUS_MASK)) g.push(`"halus" harus bilangan bulat 0..${MAKS_HALUS_MASK} (radius feather tepi mask dalam piksel klip; bawaan 0)`);
+      if (e.ambang !== undefined) {
+        const a = e.ambang;
+        if (!(Array.isArray(a) && a.length === 2 && a.every((x) => angkaDalam(x, 0, 1)) && a[0] < a[1])) g.push('"ambang" harus [rendah, tinggi] dengan 0 <= rendah < tinggi <= 1');
+      }
+      if (e.ema !== undefined && !(angkaDalam(e.ema, 0, 1) && e.ema > 0)) g.push('"ema" harus angka di atas 0 dan paling besar 1 (bobot frame baru; bawaan 1 = tanpa pelicinan)');
+      if (klip && bulatPositif(klip.lebar) && bulatPositif(klip.tinggi)) {
+        if (klip.lebar > BATAS_SISI || klip.tinggi > BATAS_SISI || klip.lebar * klip.tinggi > BATAS_PIKSEL) {
+          g.push(`ukuran klip ${klip.lebar}x${klip.tinggi} melebihi batas segmentasi (maks ${BATAS_SISI} per sisi dan ${BATAS_PIKSEL} piksel)`);
+        }
+        if (Number.isInteger(e.halus) && e.halus > 0 && e.halus * 2 > Math.min(klip.lebar, klip.tinggi)) {
+          g.push(`"halus" ${e.halus} terlalu besar untuk klip ${klip.lebar}x${klip.tinggi} (maks setengah sisi terpendek)`);
+        }
+      }
+      return g;
+    },
+    kanonik(e, { klip, segmentasi }) {
+      const s = segmentasi?.get(e.model);
+      if (!s) throw new Error(`efek hapusLatar butuh info segmentasi untuk model "${e.model}" (siapkanSegmentasi) untuk kunci cache`);
+      return {
+        jenis: "hapusLatar", model: e.model, ukuranInput: ukuranMasukan(s.spec, klip.lebar, klip.tinggi, e.ukuranInput ?? null),
+        halus: e.halus ?? 0, ambang: e.ambang ?? null, ema: e.ema ?? 1,
+        sha256: s.info.sha256, versiOrt: s.info.versiOrt, versiSegmentasi: VERSI_SEGMENTASI, spek: kunciCache({ masukan: s.spec.masukan, keluaran: s.spec.keluaran ?? null }),
+      };
+    },
+    saring(c) {
+      // saring (rantai utama) kosong: kanal alfa datang dari masukan kedua yang dibuat buatMaskBeku
+      const mask = ["format=gray"];
+      if (c.halus > 0) mask.push(`boxblur=luma_radius=${c.halus}:luma_power=2`);
+      const argumen = ({ k, fps }) => ["-f", "rawvideo", "-pixel_format", "gray", "-video_size", `${k.lebar}x${k.tinggi}`, "-framerate", String(fps)];
+      return { saring: [], berkas: [], alfaDari: { berkas: BERKAS_MASK, argumen, saring: mask, kanonik: c } };
+    },
+  },
+
   /** LUT 3D .cube lewat lut3d. */
   lut: {
     tahap: "warna",
@@ -410,10 +480,14 @@ const EFEK = {
   },
 };
 
-/** Pesan galat untuk `klip[].efek` (tanpa ffmpeg; berkas LUT dibaca dan diurai). */
-export function periksaEfek(efek, dirManifest) {
+/**
+ * Pesan galat untuk `klip[].efek` (tanpa ffmpeg; berkas LUT dibaca dan diurai). `klip` (opsional)
+ * memberi ukuran klip untuk efek yang membutuhkannya (hapusLatar).
+ */
+export function periksaEfek(efek, dirManifest, klip = null) {
   if (!Array.isArray(efek)) return ['"efek" harus array objek'];
   const galat = [];
+  let efekAlfa = null; // { i, jenis } efek beralfa pertama: dua sumber alfa ditolak
   if (efek.length > BATAS_EFEK) galat.push(`"efek" maksimal ${BATAS_EFEK} butir (dapat ${efek.length})`);
   const hitung = {};
   for (const [i, e] of efek.entries()) {
@@ -423,9 +497,13 @@ export function periksaEfek(efek, dirManifest) {
     const nama = `efek[${i}] (${e.jenis})`;
     hitung[e.jenis] = (hitung[e.jenis] ?? 0) + 1;
     if (def.maks && hitung[e.jenis] > def.maks) { galat.push(`${nama}: maksimal ${def.maks} efek ${e.jenis} per klip`); continue; }
+    if (def.alfa) {
+      if (efekAlfa) { galat.push(`${nama}: tidak boleh digabung dengan efek[${efekAlfa.i}] (${efekAlfa.jenis}): keduanya menghasilkan kanal alfa, dan satu klip hanya boleh punya satu sumber alfa`); continue; }
+      efekAlfa = { i, jenis: e.jenis };
+    }
     const asing = Object.keys(e).filter((k) => !def.kunci.includes(k));
     if (asing.length) { galat.push(`${nama}: kunci tidak dikenal: ${asing.join(", ")} (sah: ${def.kunci.join(", ")})`); continue; }
-    for (const p of def.periksa(e, { dirManifest })) galat.push(`${nama}: ${p}`);
+    for (const p of def.periksa(e, { dirManifest, klip })) galat.push(`${nama}: ${p}`);
   }
   return galat;
 }
@@ -460,25 +538,77 @@ export function formatKlip(k) {
 
 /**
  * Efek klip yang sudah lolos periksaEfek -> { kanonik[] (untuk kunci cache), pra[], alfa[], warna[]
- * (filter per tahap), analisis[] (filter pass pertama), berkas[] }. Efek netral dibuang; urutan
- * antar-tahap mengikuti TAHAP, dalam tahap mengikuti array. `kemampuan` (Set dari deteksiKemampuan)
- * wajib bila ada efek yang bergantung pada build ffmpeg (stabil).
+ * (filter per tahap), analisis[] (filter pass pertama), berkas[], alfaDari (masukan alfa tambahan
+ * atau null) }. Efek netral dibuang; urutan antar-tahap mengikuti TAHAP, dalam tahap mengikuti array.
+ * `kemampuan` (Set dari deteksiKemampuan) wajib bila ada efek yang bergantung pada build ffmpeg
+ * (stabil). `konteks` { klip, segmentasi } wajib bila ada hapusLatar: `segmentasi` = Map id model ->
+ * { spec, info } dari siapkanSegmentasi (sha256 bobot dan versi ORT masuk kunci cache).
  */
-export function rakitEfek(efek, dirManifest, kemampuan) {
-  const hasil = { kanonik: [], pra: [], alfa: [], warna: [], analisis: [], berkas: [] };
+export function rakitEfek(efek, dirManifest, kemampuan, konteks = {}) {
+  const hasil = { kanonik: [], pra: [], alfa: [], warna: [], analisis: [], berkas: [], alfaDari: null };
   const urut = (efek ?? []).map((e, i) => ({ e, i })).sort((a, b) => TAHAP.indexOf(EFEK[a.e.jenis].tahap) - TAHAP.indexOf(EFEK[b.e.jenis].tahap) || a.i - b.i);
   for (const { e } of urut) {
     const def = EFEK[e.jenis];
-    const c = def.kanonik(e, { dirManifest, kemampuan });
+    const c = def.kanonik(e, { dirManifest, kemampuan, ...konteks });
     if (!c) continue;
-    const { saring, berkas, analisis } = def.saring(c, hasil.berkas.length);
+    const { saring, berkas, analisis, alfaDari } = def.saring(c, hasil.berkas.length);
     hasil[def.tahap].push(...saring);
     hasil.analisis.push(...(analisis ?? []));
     hasil.berkas.push(...berkas);
+    if (alfaDari) hasil.alfaDari = alfaDari;
     const { jalur, ...bersih } = c; // jalur mutlak tidak ikut kunci cache; isinya diwakili sha256
     hasil.kanonik.push(bersih);
   }
   return hasil;
+}
+
+/** Apakah ada klip yang memakai efek hapusLatar (butuh ORT dan bobot model). */
+export function adaHapusLatar(manifest) {
+  return (manifest.klip ?? []).some((k) => Array.isArray(k.efek) && k.efek.some((e) => e?.jenis === "hapusLatar"));
+}
+
+/**
+ * Menyiapkan segmentasi untuk manifest yang sudah lolos validasi skema, SEBELUM ffprobe/ffmpeg:
+ * registri model (bawaan + AWVD_REGISTRI_SEGMENTASI), model dikenal, parameter yang bergantung model
+ * (ukuranInput), ORT termuat (AWVD_ORT), dan bobot (AWVD_MODEL_DIR) cocok ukuran dan sha256 (model
+ * registri: fail-closed). Mengembalikan { info: Map id -> { spec, info }, galat[] (kode keluar 2),
+ * peringatan[] }, atau melempar GalatSegmentasi (`keluar` 1 = lingkungan, 2 = validasi). Tanpa efek
+ * hapusLatar: kosong, tanpa menyentuh registri maupun ORT.
+ */
+export function siapkanSegmentasi(manifest, env = process.env) {
+  const info = new Map(), galat = [], peringatan = [];
+  const dipakai = new Set();
+  for (const k of manifest.klip ?? []) for (const e of Array.isArray(k.efek) ? k.efek : []) if (e?.jenis === "hapusLatar") dipakai.add(e.model);
+  if (dipakai.size === 0) return { info, galat, peringatan };
+  const reg = muatRegistri({ env });
+  peringatan.push(...reg.peringatan);
+  for (const id of dipakai) {
+    if (!reg.model[id]) galat.push(`efek hapusLatar: model "${id}" tidak dikenal; yang tersedia: ${Object.keys(reg.model).join(", ")}`);
+  }
+  for (const k of manifest.klip) {
+    for (const [i, e] of (Array.isArray(k.efek) ? k.efek : []).entries()) {
+      const spec = e?.jenis === "hapusLatar" ? reg.model[e.model] : null;
+      if (!spec) continue;
+      try { ukuranMasukan(spec, k.lebar, k.tinggi, e.ukuranInput ?? null); } catch (x) {
+        if (!(x instanceof GalatSegmentasi)) throw x;
+        galat.push(`klip "${k.id}": efek[${i}] (hapusLatar): ${x.message}`);
+      }
+    }
+  }
+  if (galat.length) return { info, galat, peringatan };
+  const { versi } = pastikanOrt(env);
+  for (const id of dipakai) {
+    const spec = reg.model[id];
+    const bobot = verifikasiBobot(id, spec, cariBobot(id, spec, { env }), { peringatan });
+    info.set(id, {
+      spec,
+      info: {
+        model: id, nama: spec.nama, sha256: bobot.sha256, ukuranByte: bobot.ukuranByte, kustom: spec.kustom === true,
+        lisensiKode: spec.lisensiKode, lisensiBobot: spec.lisensiBobot, versiOrt: versi, versiSegmentasi: VERSI_SEGMENTASI, lokal: true,
+      },
+    });
+  }
+  return { info, galat, peringatan };
 }
 
 // ---------------------------------------------------------------- validasi
@@ -618,7 +748,7 @@ export async function validasiManifest(manifest, dirManifest) {
     if (k.format !== undefined && !JENIS_FORMAT.includes(k.format)) g(`format harus salah satu dari ${JENIS_FORMAT.join(", ")}`);
     if (k.kualitas !== undefined && !(Number.isInteger(k.kualitas) && k.kualitas >= 1 && k.kualitas <= 31)) g("kualitas (q:v JPEG, 1 terbaik) harus bilangan bulat 1..31");
     if (k.efek !== undefined) {
-      for (const pesan of periksaEfek(k.efek, dirManifest)) g(pesan);
+      for (const pesan of periksaEfek(k.efek, dirManifest, k)) g(pesan);
       if (k.format === "jpg" && Array.isArray(k.efek)) {
         for (const [i, e] of k.efek.entries()) {
           if (e && EFEK[e.jenis]?.alfa) g(`efek[${i}] (${e.jenis}): menghasilkan kanal alfa, tetapi format "jpg" tidak mendukung alfa; pakai "format": "png" atau hapus "format" (otomatis png)`);
@@ -696,22 +826,49 @@ function argsAnalisis({ berkas, fps, k, info, efek }) {
   return a;
 }
 
-function argsEkstrak({ berkas, dir, fps, k, info, m, efek }) {
-  const format = formatKlip(k);
+/** Rantai dasar ekstraksi sampai frame ukuran klip dalam rgb24: fps, SAR, tahap "pra", skala + matriks warna. */
+function rantaiDasar({ fps, k, info, m, efek }) {
   const rantai = [...rantaiAwal({ fps, info }), ...efek.pra]; // tahap "pra": pada frame sumber
   let skala = `scale=${k.lebar}:${k.tinggi}:flags=bicubic`;
   if (m.matriks !== "rgb") skala += `:in_color_matrix=${m.matriks}:in_range=${m.rentang}:out_range=full`;
   rantai.push(skala, "format=rgb24");
-  // efek tahap "alfa": menghasilkan kanal alfa (RGBA); tahap berikutnya membawa alfa (gbrap) bila ada
-  const alfa = efek.alfa.length > 0;
-  if (alfa) rantai.push(...efek.alfa, "format=rgba");
-  // efek tahap "warna": di RGB planar 8 bit (konversi rgb24 <-> gbrp tanpa kehilangan; alfa tak disentuh)
-  if (efek.warna.length) rantai.push(alfa ? "format=gbrap" : "format=gbrp", ...efek.warna, alfa ? "format=rgba" : "format=rgb24");
+  return rantai;
+}
+
+/**
+ * Pass pembuat mask beku (hapusLatar): frame yang sama dengan yang akan di-cache (rantaiDasar) keluar
+ * sebagai rgb24 mentah ke pipa; Bun membacanya per frame untuk ORT (buatMaskBeku).
+ */
+function argsMask({ berkas, fps, k, info, m, efek }) {
   const a = ["-hide_banner", "-loglevel", "error", "-y"];
   if (k.dari) a.push("-ss", String(k.dari));
   a.push("-i", berkas);
   if (k.panjang) a.push("-t", String(k.panjang));
-  a.push("-an", "-sn", "-vf", rantai.join(","), "-fflags", "+bitexact", "-flags", "+bitexact");
+  a.push("-an", "-sn", "-vf", rantaiDasar({ fps, k, info, m, efek }).join(","), "-fflags", "+bitexact", "-flags", "+bitexact", "-f", "rawvideo", "-pix_fmt", "rgb24", "-");
+  return a;
+}
+
+function argsEkstrak({ berkas, dir, fps, k, info, m, efek }) {
+  const format = formatKlip(k);
+  const rantai = rantaiDasar({ fps, k, info, m, efek });
+  // efek tahap "alfa": menghasilkan kanal alfa (RGBA); tahap berikutnya membawa alfa (gbrap) bila ada
+  const alfaDari = efek.alfaDari, alfa = efek.alfa.length > 0 || alfaDari !== null;
+  if (efek.alfa.length) rantai.push(...efek.alfa, "format=rgba");
+  // efek tahap "warna": di RGB planar 8 bit (konversi rgb24 <-> gbrp tanpa kehilangan; alfa tak disentuh)
+  const warna = efek.warna.length ? [alfa ? "format=gbrap" : "format=gbrp", ...efek.warna, alfa ? "format=rgba" : "format=rgb24"] : [];
+  const a = ["-hide_banner", "-loglevel", "error", "-y"];
+  if (k.dari) a.push("-ss", String(k.dari));
+  a.push("-i", berkas);
+  // alfa dari masukan kedua (mask beku): rantai pindah ke -filter_complex; alphamerge memasang mask sebagai alfa
+  if (alfaDari) a.push(...alfaDari.argumen({ k, fps }), "-i", alfaDari.berkas);
+  if (k.panjang) a.push("-t", String(k.panjang));
+  if (alfaDari) {
+    const gabung = ["alphamerge", ...warna, "format=rgba"].join(",");
+    a.push("-an", "-sn", "-filter_complex", `[0:v]${[...rantai, "format=rgba"].join(",")}[c];[1:v]${alfaDari.saring.join(",")}[m];[c][m]${gabung}[v]`, "-map", "[v]");
+  } else {
+    a.push("-an", "-sn", "-vf", [...rantai, ...warna].join(","));
+  }
+  a.push("-fflags", "+bitexact", "-flags", "+bitexact");
   if (format === "jpg") a.push("-c:v", "mjpeg", "-pix_fmt", "yuvj444p", "-q:v", String(k.kualitas ?? 2));
   else a.push("-c:v", "png", "-pix_fmt", alfa ? "rgba" : "rgb24");
   a.push("-start_number", "0", join(dir, `%06d.${format}`));
@@ -756,13 +913,62 @@ async function hashFrame(dir, daftar) {
 }
 
 /**
+ * Membekukan mask hapusLatar: ffmpeg mendekode frame ukuran klip (rgb24 mentah) ke pipa, ORT
+ * (segmentasi-lib: model, ambang, EMA) memberi mask 8 bit per frame secara berurutan dari satu proses,
+ * dan mask ditulis berurutan ke `mask.gray` di folder kerja. Mengembalikan jumlah frame. Segmenter
+ * selalu ditutup; ffmpeg dihentikan bila galat. Galat segmentasi dilempar apa adanya (kode keluar).
+ */
+async function buatMaskBeku({ berkas, tmp, fps, k, info, m, efek, c, env }) {
+  const byteFrame = k.lebar * k.tinggi * 3;
+  const seg = await buatSegmenter({ model: c.model, env, ukuranInput: c.ukuranInput, ambang: c.ambang, ema: c.ema });
+  let fd = null, p = null, n = 0;
+  try {
+    // bobot dan ORT harus sama dengan yang dicatat di kunci cache (preflight vs pembuatan sesi)
+    if (seg.info.sha256 !== c.sha256 || seg.info.versiOrt !== c.versiOrt) {
+      throw new Error(`bobot atau onnxruntime berubah sejak pemeriksaan awal untuk klip "${k.id}" (sha256 ${seg.info.sha256} vs ${c.sha256}; ORT ${seg.info.versiOrt} vs ${c.versiOrt})`);
+    }
+    fd = openSync(join(tmp, BERKAS_MASK), "w");
+    p = Bun.spawn(["ffmpeg", ...argsMask({ berkas, fps, k, info, m, efek })], { stdout: "pipe", stderr: "pipe", cwd: tmp });
+    const errTeks = new Response(p.stderr).text();
+    const frame = new Uint8Array(byteFrame);
+    let isi = 0;
+    for await (const potongan of p.stdout) {
+      let o = 0;
+      while (o < potongan.length) {
+        const ambil = Math.min(byteFrame - isi, potongan.length - o);
+        frame.set(potongan.subarray(o, o + ambil), isi);
+        isi += ambil;
+        o += ambil;
+        if (isi < byteFrame) continue;
+        const mask = await seg.segmentasi(frame, k.lebar, k.tinggi); // berurutan: EMA bergantung frame sebelumnya
+        if (writeSync(fd, mask, 0, mask.length) !== mask.length) throw new Error(`mask klip "${k.id}" tidak tertulis penuh (disk penuh?)`);
+        n++;
+        isi = 0;
+      }
+    }
+    if (isi !== 0) throw new Error(`ffmpeg memberi frame terpotong untuk klip "${k.id}" (${isi} dari ${byteFrame} byte)`);
+    const kode = await p.exited;
+    const err = await errTeks;
+    if (kode !== 0) throw new Error(`ffmpeg gagal mendekode frame klip "${k.id}" untuk segmentasi (exit ${kode}):\n${err.trim()}`);
+    if (n === 0) throw new Error(`klip "${k.id}": tidak ada frame untuk disegmentasi (dari=${k.dari ?? 0}, panjang=${k.panjang ?? "sampai akhir"})`);
+    return n;
+  } catch (e) {
+    if (p && p.exitCode === null) p.kill();
+    throw e;
+  } finally {
+    if (fd !== null) closeSync(fd);
+    await seg.tutup();
+  }
+}
+
+/**
  * Ekstrak satu klip ke cache (atau cache hit). Mengembalikan { dir, kunci, meta, hit, rusak }.
  * `verifikasi`: cache hit hanya sah bila hash seluruh frame cocok dengan meta.framesSha256; bila tidak
  * (frame terpotong, berubah, atau hilang diganti) cache dibuang dan diekstrak ulang (`rusak: true`).
  */
-async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, paksa, verifikasi = false, versi, dirManifest, kemampuan }) {
+async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, paksa, verifikasi = false, versi, dirManifest, kemampuan, segmentasi, env = process.env }) {
   const format = formatKlip(k);
-  const efek = rakitEfek(k.efek, dirManifest, kemampuan);
+  const efek = rakitEfek(k.efek, dirManifest, kemampuan, { klip: k, segmentasi });
   const params = {
     skema: VERSI_SKEMA, sha256, fps, lebar: k.lebar, tinggi: k.tinggi, dari: k.dari ?? 0,
     panjang: k.panjang ?? null, matriks: m.matriks, rentang: m.rentang, format,
@@ -790,9 +996,19 @@ async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, pa
       throw new Error(`ffmpeg gagal menganalisis gerak klip "${k.id}" (exit ${ra.kode}):\n${ra.err.trim()}`);
     }
   }
+  let jumlahMask = null;
+  if (efek.alfaDari) {
+    try {
+      jumlahMask = await buatMaskBeku({ berkas, tmp, fps, k, info, m, efek, c: efek.alfaDari.kanonik, env });
+    } catch (e) {
+      rmSync(tmp, { recursive: true, force: true });
+      throw e;
+    }
+  }
   const r = await jalankan(["ffmpeg", ...argsEkstrak({ berkas, dir: tmp, fps, k, info, m, efek })], tmp);
   for (const b of efek.berkas) rmSync(join(tmp, b.nama), { force: true });
   rmSync(join(tmp, "stabil.trf"), { force: true });
+  rmSync(join(tmp, BERKAS_MASK), { force: true }); // mask beku sudah menjadi alfa di frame PNG; tidak ikut cache
   if (r.kode !== 0) {
     rmSync(tmp, { recursive: true, force: true });
     throw new Error(`ffmpeg gagal mengekstrak frame klip "${k.id}" (exit ${r.kode}):\n${r.err.trim()}`);
@@ -801,6 +1017,10 @@ async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, pa
   if (daftar.length === 0) {
     rmSync(tmp, { recursive: true, force: true });
     throw new Error(`klip "${k.id}": tidak ada frame hasil ekstraksi (dari=${k.dari ?? 0}, panjang=${k.panjang ?? "sampai akhir"}); periksa rentang`);
+  }
+  if (jumlahMask !== null && jumlahMask !== daftar.length) {
+    rmSync(tmp, { recursive: true, force: true });
+    throw new Error(`klip "${k.id}": jumlah frame mask (${jumlahMask}) tidak sama dengan frame hasil (${daftar.length}); mask dan frame tidak sinkron, tidak ada yang di-cache`);
   }
   let audio = null;
   if (info.adaAudio) {
@@ -811,8 +1031,11 @@ async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, pa
     }
     audio = "audio.wav";
   }
+  // laporan segmentasi (hapusLatar): model, sha256 bobot, versi ORT, dan lisensi yang dideklarasikan registri
+  const seg = efek.alfaDari ? segmentasi.get(efek.alfaDari.kanonik.model).info : null;
   const meta = {
     skema: VERSI_SKEMA, ...params, sumber, jumlah: daftar.length, ekstensi: format, digit: 6, audio,
+    ...(seg ? { segmentasi: { model: seg.model, nama: seg.nama, sha256: seg.sha256, versiOrt: seg.versiOrt, lisensiKode: seg.lisensiKode, lisensiBobot: seg.lisensiBobot, kustom: seg.kustom, lokal: true, versiSegmentasi: seg.versiSegmentasi, frameMask: jumlahMask } } : {}),
     framesSha256: await hashFrame(tmp, daftar),
   };
   writeFileSync(join(tmp, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
@@ -871,7 +1094,8 @@ const PETUNJUK = `Pemakaian:
 --verifikasi: cache hit hanya dipakai bila hash seluruh frame cocok dengan meta.json (cache rusak diekstrak ulang).
 --bersihkan: setelah berhasil, hapus folder cache lama yang tidak dipakai manifest ini dan sisa .tmp proses mati.
 Keluaran di --out: klip-props.json, atribusi.txt, <kunci>/ (frame + audio.wav + meta.json),
-dan props-gabungan.json bila --gabung. klip[].efek (stabil, kunciWarna, lut, warna, keseimbangan) diterapkan saat ekstraksi. Kode keluar 2 untuk manifest/argumen tidak valid.
+dan props-gabungan.json bila --gabung. klip[].efek (stabil, kunciWarna, hapusLatar, lut, warna, keseimbangan) diterapkan saat ekstraksi.
+hapusLatar butuh AWVD_ORT (paket onnxruntime-node) dan AWVD_MODEL_DIR (bobot bersha256); tanpa itu kode keluar 1, sha256 atau skema salah kode keluar 2 (docs/segmentasi-latar.md). Kode keluar 2 untuk manifest/argumen tidak valid.
 --draf: izinkan sumber KUTIPAN-WAJAR yang gerbang hukum GH-nya belum disetujui; props memuat
 "draf": true (komposisi wajib menampilkan tanda draf). Pelanggaran angka kutipan tidak bisa dilewati.`;
 
@@ -929,6 +1153,22 @@ async function utama() {
     console.error(`klip.mjs: manifest ditolak (${v.galat.length} pelanggaran); tidak ada ekstraksi dan tidak ada render:`);
     for (const g of v.galat) console.error(`  - ${g}`);
     process.exit(2);
+  }
+
+  // 1b. hapusLatar: model, ORT, dan bobot (sha256) diperiksa sebelum ffprobe/ffmpeg; fail-closed
+  let segmentasi = new Map();
+  try {
+    const sg = siapkanSegmentasi(manifest);
+    for (const p of sg.peringatan) console.error(`peringatan: ${p}`);
+    if (sg.galat.length) {
+      console.error(`klip.mjs: efek hapusLatar ditolak (${sg.galat.length} pelanggaran); tidak ada ekstraksi dan tidak ada render:`);
+      for (const g of sg.galat) console.error(`  - ${g}`);
+      process.exit(2);
+    }
+    segmentasi = sg.info;
+  } catch (e) {
+    if (!(e instanceof GalatSegmentasi)) throw e;
+    gagal(`efek hapusLatar tidak bisa dijalankan; tidak ada ekstraksi dan tidak ada render:\n${e.message}`, e.keluar);
   }
 
   // 2. ffprobe: HDR, matriks warna, rentang
@@ -1030,15 +1270,16 @@ async function utama() {
     let hasil;
     try {
       hasil = await ekstrakKlip({
-        k, sumber: s.id, berkas: mutlak(dirManifest, s.berkas), sha256: v.hash[s.id], info, m, fps, keluar, paksa: o.paksa, verifikasi: o.verifikasi, versi, dirManifest, kemampuan,
+        k, sumber: s.id, berkas: mutlak(dirManifest, s.berkas), sha256: v.hash[s.id], info, m, fps, keluar, paksa: o.paksa, verifikasi: o.verifikasi, versi, dirManifest, kemampuan, segmentasi,
       });
     } catch (e) {
-      gagal(e.message);
+      gagal(e.message, e instanceof GalatSegmentasi ? e.keluar : 1);
     }
     const { meta, kunci, hit, rusak } = hasil;
     statistik[hit ? "hit" : "ekstraksi"]++;
     if (rusak) statistik.rusak++;
-    console.log(`klip "${k.id}": ${hit ? "cache hit" : rusak ? "ekstraksi (cache rusak)" : "ekstraksi"} ${meta.jumlah} frame ${k.lebar}x${k.tinggi} @ ${fps} fps (matriks ${m.matriks}, rentang ${m.rentang}${meta.efek ? `, efek ${meta.efek.map((x) => (x.jenis === "stabil" ? `stabil(${x.mesin})` : x.jenis)).join("+")}` : ""}) -> ${kunci}`);
+    console.log(`klip "${k.id}": ${hit ? "cache hit" : rusak ? "ekstraksi (cache rusak)" : "ekstraksi"} ${meta.jumlah} frame ${k.lebar}x${k.tinggi} @ ${fps} fps (matriks ${m.matriks}, rentang ${m.rentang}${meta.efek ? `, efek ${meta.efek.map((x) => (x.jenis === "stabil" ? `stabil(${x.mesin})` : x.jenis === "hapusLatar" ? `hapusLatar(${x.model})` : x.jenis)).join("+")}` : ""}) -> ${kunci}`);
+    if (meta.segmentasi) console.log(`  segmentasi lokal: ${meta.segmentasi.nama}, sha256 ${meta.segmentasi.sha256.slice(0, 16)}, ORT ${meta.segmentasi.versiOrt}, lisensi bobot ${meta.segmentasi.lisensiBobot}${hit ? "" : `, ${meta.segmentasi.frameMask} mask dibekukan`}`);
     props.push({
       id: k.id, sumber: s.id, akar, folder: kunci, ekstensi: meta.ekstensi, digit: meta.digit,
       jumlah: meta.jumlah, fps, lebar: k.lebar, tinggi: k.tinggi,
