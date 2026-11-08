@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.1.1`
-- Last updated: `2026-11-07`
-- Changeset: `Alur renderer: skala di bawah 1 diperkecil ffmpeg dari tangkapan skala 1.`
+- Version: `v1.2.0`
+- Last updated: `2026-11-08`
+- Changeset: `Alur renderer: segmen tetap dengan pekerja paralel dan penggabungan tanpa encode ulang, pemanasan 2 frame, urutan protokol pekerja. Sebelumnya: skala di bawah 1 diperkecil ffmpeg dari tangkapan skala 1.`
 
 Dokumen ini menjelaskan cara awvd bekerja: dari komposisi web sampai MP4, kontrak antara komposisi dan renderer, aturan yang menjaga hasil tetap deterministik, serta peran awvd sebagai upstream bagi repo proyek video. Referensi rinci ada di [api-runtime.md](api-runtime.md) dan [cli.md](cli.md).
 
@@ -12,14 +12,16 @@ Dokumen ini menjelaskan cara awvd bekerja: dari komposisi web sampai MP4, kontra
 
 ```mermaid
 flowchart LR
-    K[Komposisi HTML<br/>defineVideo + render] --> C[Chromium headless<br/>renderFrame n]
-    C --> P[Screenshot PNG<br/>per frame]
-    P --> F[ffmpeg<br/>stdin pipe]
-    A[Audio / subtitle<br/>opsional] --> F
-    F --> M[MP4 H.264 High<br/>yuv420p, BT.709]
+    K[Komposisi HTML<br/>defineVideo + render] --> O[render.mjs<br/>probe, bagi segmen tetap]
+    O --> P1[Pekerja 1..N<br/>Chromium + renderFrame n<br/>screenshot PNG]
+    P1 --> F[ffmpeg per segmen<br/>x264 video-saja -> MPEG-TS]
+    F --> G[Gabung -c copy<br/>+faststart, verifikasi PTS]
+    A[Audio / subtitle<br/>opsional] --> Z[Tahap akhir tunggal<br/>-c:v copy]
+    G --> Z
+    Z --> M[MP4 H.264 High<br/>yuv420p, BT.709]
 ```
 
-Tidak ada berkas sementara per frame: PNG dialirkan langsung ke stdin ffmpeg.
+Rentang frame dibagi menjadi segmen berukuran tetap (`4 x round(fps/2)` frame, kelipatan GOP) yang tidak bergantung jumlah pekerja. Setiap segmen dirender pekerja `scripts/render-segmen.mjs` di proses Chromium sendiri: PNG dialirkan langsung ke stdin ffmpeg (tidak ada berkas sementara per frame) dan menghasilkan satu aliran H.264 video-saja yang diremux ke MPEG-TS. `render.mjs` menggabung segmen dengan concat demuxer `-c copy` (tanpa encode ulang), memverifikasi jumlah frame dan PTS, lalu, bila ada audio atau subtitle, memasangnya di satu tahap akhir dengan `-c:v copy` (kenyaringan dua-pass tetap tahap tunggal). Serial adalah satu pekerja di jalur yang sama, sehingga MP4 byte-identik untuk jumlah pekerja berapa pun. Alasan, parameter, dan batasannya ada di [cli.md](cli.md#render-paralel-dan-segmen).
 
 ## Konsep komposisi
 
@@ -46,7 +48,7 @@ Video adalah fungsi murni dari nomor frame. Komposisi memuat `scripts/runtime.js
 
 ## Protokol window.video dan renderFrame
 
-Kontrak antara komposisi dan renderer hanya tiga hal: `window.videoProps` (masuk), `window.video` (keluar), dan `renderFrame(n)` (dipanggil per frame). `defineVideo` ([api-runtime.md](api-runtime.md)) membuat `window.video`; `scripts/render.mjs` menjalankan urutan berikut.
+Kontrak antara komposisi dan renderer hanya tiga hal: `window.videoProps` (masuk), `window.video` (keluar), dan `renderFrame(n)` (dipanggil per frame). `defineVideo` ([api-runtime.md](api-runtime.md)) membuat `window.video`. Urutan berikut dijalankan dalam satu sesi browser (`scripts/render-sesi.mjs`): oleh `render.mjs` untuk probe konfigurasi dan mode `--still`, dan oleh setiap pekerja segmen (`scripts/render-segmen.mjs`) untuk segmennya sendiri; `R` di bawah adalah proses yang memegang sesi itu.
 
 ```mermaid
 sequenceDiagram
@@ -58,7 +60,8 @@ sequenceDiagram
     R->>H: buka halaman (file:// atau URL)
     H-->>R: window.video siap (batas 15 detik)
     R->>H: muat setiap @font-face, lalu tunggu document.fonts.ready dan semua gambar
-    loop setiap frame n
+    Note over R,H: pekerja segmen: 2 frame pemanasan (dirender, ditangkap, dibuang)
+    loop setiap frame n pada segmen
         R->>H: await renderFrame(n)
         H-->>R: DOM digambar ulang untuk n
         R->>F: screenshot PNG ke stdin
@@ -73,13 +76,13 @@ sequenceDiagram
 | `window.video` | komposisi ke renderer | `{ width, height, fps, durationInFrames, renderFrame(n) }`. Renderer menunggu paling lama 15 detik; tanpa itu render gagal dengan kode keluar `1`. Keempat angka harus positif. |
 | `renderFrame(n)` | renderer memanggil | Membulatkan `n`, menolak di luar `0..durationInFrames-1`, dan berjalan berurutan (satu pada satu waktu). Boleh `async`; renderer menunggu hasilnya. |
 
-Langkah renderer sesudah `window.video` siap: viewport diatur ke `width` x `height` komposisi; renderer memuat eksplisit setiap `@font-face` (`FontFace.load()` untuk semua `document.fonts`; render gagal bila ada yang gagal dimuat), menunggu `document.fonts.ready` dan semua `<img>` (render gagal bila ada gambar rusak); tiap frame ditangkap sebagai PNG lewat CDP dengan `clip.scale` = `max(--skala, 1)` (layout tetap, raster dibuat ulang tajam untuk skala di atas 1); untuk `--skala` di bawah 1 `ffmpeg` memperkecil tangkapan skala 1 ke ukuran akhir (lanczos), karena `clip.scale` di bawah 1 menghasilkan raster yang berbeda acak pada batas tile; PNG dialirkan ke stdin ffmpeg tanpa berkas sementara. Mode `--still N` memanggil `renderFrame(N)` satu kali dan menyimpan PNG.
+Langkah renderer sesudah `window.video` siap: viewport diatur ke `width` x `height` komposisi; renderer memuat eksplisit setiap `@font-face` (`FontFace.load()` untuk semua `document.fonts`; render gagal bila ada yang gagal dimuat), menunggu `document.fonts.ready` dan semua `<img>` (render gagal bila ada gambar rusak); tiap frame ditangkap sebagai PNG lewat CDP dengan `clip.scale` = `max(--skala, 1)` (layout tetap, raster dibuat ulang tajam untuk skala di atas 1); untuk `--skala` di bawah 1 `ffmpeg` memperkecil tangkapan skala 1 ke ukuran akhir (lanczos), karena `clip.scale` di bawah 1 menghasilkan raster yang berbeda acak pada batas tile; PNG dialirkan ke stdin ffmpeg tanpa berkas sementara. Sebelum frame pertama setiap segmen, dua frame pemanasan dirender dan ditangkap lalu dibuang (dua tangkapan pertama sebuah proses Chromium bisa berbeda beberapa piksel dari frame yang sama di tengah proses). `--tangkap jpeg` mengganti PNG dengan JPEG hanya untuk pratinjau draf. Mode `--still N` menjalankan pemanasan yang sama lalu `renderFrame(N)` satu kali dan menyimpan PNG.
 
 Mode URL untuk pratinjau dan debug (tanpa query, halaman diam menunggu renderer): `?preview`, `?frame=N`, `?props={...}`. Rinciannya ada di [api-runtime.md](api-runtime.md#mode-url).
 
 ## Aturan determinisme
 
-Dua render dari komposisi dan props yang sama harus menghasilkan frame identik (diverifikasi oleh `bun run uji` lewat `framemd5`).
+Dua render dari komposisi dan props yang sama harus menghasilkan frame identik (diverifikasi oleh `bun run uji` lewat `framemd5`), untuk jumlah pekerja `--paralel` berapa pun: MP4 byte-identik dan tangkapan PNG per frame sama dengan tangkapan berurutan satu proses (diverifikasi oleh `scripts/uji-render-paralel.mjs`). Syaratnya ada di renderer: segmen berukuran tetap, `-threads` x264 dipatok, dan pemanasan 2 frame ([cli.md](cli.md#render-paralel-dan-segmen)); komposisi hanya perlu mematuhi aturan di bawah.
 
 - Seluruh gerak hanya berasal dari `frame` atau `ctx.detik`.
 - Jangan pakai `Date.now()`, `performance.now()`, `setTimeout`/`setInterval`, atau `requestAnimationFrame` untuk menggerakkan animasi.
@@ -154,6 +157,12 @@ Prasyarat (Bun, `ffmpeg`, Chromium untuk Playwright) sama dengan [Mulai cepat di
 - Panduan video formal untuk pemerintah dan swasta mengikuti standar dokumen formal internal AhliWeb; awvd menjadi alat render videonya.
 
 ## Changelog
+
+### 2026-11-08 - v1.2.0
+
+- Alur render: segmen tetap dengan pekerja paralel (proses Chromium per segmen), gabung `-c copy`, tahap akhir tunggal untuk audio dan subtitle; serial = satu pekerja di jalur yang sama.
+- Protokol: sesi browser bersama (`render-sesi.mjs`), pemanasan 2 frame sebelum tiap segmen dan `--still`, `--tangkap jpeg` sebagai draf.
+- Aturan determinisme: keluaran identik untuk jumlah pekerja berapa pun dan syarat sisi renderer-nya.
 
 ### 2026-11-07 - v1.1.1
 
