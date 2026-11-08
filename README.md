@@ -74,7 +74,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.7` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.8` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.3.0` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.6.1` |
 | [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.9.0` |
