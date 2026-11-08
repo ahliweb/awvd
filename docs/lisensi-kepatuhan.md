@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.5.0`
-- Last updated: `2026-11-07`
-- Changeset: `Menambahkan bagian ASR lokal (whisper.cpp): kode MIT dan bobot Whisper (MIT menurut README OpenAI; metadata Hugging Face mencatat MIT atau Apache-2.0), tidak dibundel, berjalan lokal sehingga boleh untuk naskah internal, kewajiban tinjauan hasil, pencatatan, dan baris whisper.cpp di Pihak ketiga. Sebelumnya: menambahkan bagian Model TTS dan OpenRAIL-M: sherpa-onnx, Supertonic 3 (bobot OpenRAIL-M dengan butir yang relevan) dan Kokoro (Apache-2.0) sebagai mesin opsional yang tidak dibundel, kewajiban pemakai (label suara sintetis, larangan nasihat medis, izin suara), dan baris sherpa-onnx di Pihak ketiga.`
+- Version: `v1.6.0`
+- Last updated: `2026-11-08`
+- Changeset: `Menambahkan bagian Model segmentasi latar (rancangan disetujui, belum diimplementasikan): MediaPipe Selfie Segmentation dan MODNet (Apache-2.0) disetujui, BiRefNet tidak didukung, RVM (GPL-3.0), BRIA RMBG, dan model AGPL ditolak; lisensi dicatat dari sumber asli. Sebelumnya: Menambahkan bagian ASR lokal (whisper.cpp): kode MIT dan bobot Whisper (MIT menurut README OpenAI; metadata Hugging Face mencatat MIT atau Apache-2.0), tidak dibundel, berjalan lokal sehingga boleh untuk naskah internal, kewajiban tinjauan hasil, pencatatan, dan baris whisper.cpp di Pihak ketiga.`
 
 Catatan hukum di dokumen ini bukan nasihat hukum.
 
@@ -69,6 +69,24 @@ Perwujudannya di awvd:
 - **Data pribadi.** Rekaman suara dapat memuat data pribadi (UU 27/2022; status hukum rekaman suara sebagai data pribadi belum diverifikasi). Pakai rekaman yang sah Anda miliki, dan perlakukan transkrip yang memuat data pribadi sebagai data pribadi.
 - **Pencatatan**: catat versi whisper.cpp, nama dan hash model, lisensinya, dan tanggal unduh di `ASET.md` repo proyek; `laporan.json` mencatat nama dan ukuran model serta preset DTW.
 
+## Model segmentasi latar (rancangan)
+
+Status: **rancangan disetujui pemilik 2026-11-08, belum diimplementasikan** ([#88](https://github.com/ahliweb/awvd/issues/88), [#89](https://github.com/ahliweb/awvd/issues/89)). Fitur hapus latar lokal ([segmentasi-latar.md](segmentasi-latar.md)) bersifat opsional: `onnxruntime-node` (MIT) dan bobot model tidak dibundel. Ini bukan nasihat hukum; lisensi dibaca dari sumber asli penulis pada 2026-11-08 dan wajib dibaca ulang pemakai.
+
+| Model | Putusan | Lisensi (sumber asli) |
+| --- | --- | --- |
+| MediaPipe Selfie Segmentation | Disetujui (registri bawaan) | Kode dan bobot Apache-2.0 (kartu model resmi) |
+| MODNet | Disetujui (registri bawaan) | Kode dan bobot Apache-2.0 (README repo); data latih tidak dikaji, risiko sisa diterima pemilik |
+| BiRefNet | Tidak didukung | MIT; ditolak karena tidak praktis di CPU, bukan karena lisensi |
+| RobustVideoMatting | Ditolak | GPL-3.0 (copyleft) |
+| BRIA RMBG | Ditolak | Lisensi "other", berbayar untuk komersial |
+| Model keluarga YOLO-seg dan lain-lain berlisensi AGPL | Ditolak | AGPL-3.0 (copyleft) |
+
+- Lisensi dicatat dari **sumber asli**, bukan dari label mirror ONNX komunitas di Hugging Face; satu mirror RVM berlabel `apache-2.0` keliru.
+- Berjalan lokal: bingkai sumber tidak keluar dari mesin. Gambar orang tetap tunduk pada ketentuan "Foto orang" di bagian Aset di bawah (izin atau hak potret).
+- Pemakai mencatat model, sha256, lisensi, dan tanggal unduh bobot di `ASET.md` repo proyek.
+- Matriks lisensi lengkap (versi, sha256 kanonik, sumber) ditambahkan saat #88 diimplementasikan.
+
 ## Aset: matriks lisensi (ringkas)
 
 Manifest `aset.json` ([aset.md](aset.md)) mencatat sumber, lisensi, dan bukti tiap aset dan menolak lisensi di luar daftar. Ringkasan di bawah memetakan lisensi umum ke syarat yang divalidasi; ini ringkasan teknis atas teks lisensi yang dibaca pada 2026-11-07, bukan nasihat hukum, dan lisensi dapat berubah.
@@ -103,6 +121,10 @@ Ringkasan dari [AGENTS.md](../AGENTS.md) §Lisensi dan Aset:
 - Atribusi mulberry32 di `scripts/runtime.js` dipertahankan.
 
 ## Changelog
+
+### 2026-11-08 - v1.6.0
+
+- Menambahkan bagian Model segmentasi latar (rancangan): model yang disetujui dan ditolak, lisensi dari sumber asli, data pribadi; matriks lengkap menyusul di #88.
 
 ### 2026-11-07 - v1.5.0
 
