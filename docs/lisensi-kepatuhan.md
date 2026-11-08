@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.6.0`
+- Version: `v1.7.0`
 - Last updated: `2026-11-08`
-- Changeset: `Menambahkan bagian Model segmentasi latar (rancangan disetujui, belum diimplementasikan): MediaPipe Selfie Segmentation dan MODNet (Apache-2.0) disetujui, BiRefNet tidak didukung, RVM (GPL-3.0), BRIA RMBG, dan model AGPL ditolak; lisensi dicatat dari sumber asli. Sebelumnya: Menambahkan bagian ASR lokal (whisper.cpp): kode MIT dan bobot Whisper (MIT menurut README OpenAI; metadata Hugging Face mencatat MIT atau Apache-2.0), tidak dibundel, berjalan lokal sehingga boleh untuk naskah internal, kewajiban tinjauan hasil, pencatatan, dan baris whisper.cpp di Pihak ketiga.`
+- Changeset: `Matriks model segmentasi latar (#88): lisensi kode dan bobot dari sumber asli, konversi ONNX komunitas dengan revisi terkunci, sha256 kanonik dan ukuran berkas, kebijakan sha256 fail-closed, hanya lisensi permisif di registri; baris onnxruntime-node dan model segmentasi di Pihak ketiga. Sebelumnya: bagian Model segmentasi latar (rancangan disetujui).`
 
 Catatan hukum di dokumen ini bukan nasihat hukum.
 
@@ -22,6 +22,7 @@ Catatan hukum di dokumen ini bukan nasihat hukum.
 - **Material Components for Android:** Apache License 2.0 (Copyright Google LLC). Hanya **nilai** yang dipakai di `scripts/transisi.js`, diambil dari dokumentasi Motion dan sumber `MaterialFadeThrough`, `FadeThroughProvider`, `MaterialSharedAxis`, `MaterialFade`, dan `MaterialContainerTransform`: ambang fade through 35 %, skala awal 0,92, durasi 450 ms, token durasi, dan kurva bezier standard dan emphasized. Tidak ada kode yang disalin dan tidak ada dependensi; atribusi ada di komentar kepala `scripts/transisi.js` dan di [transisi-animasi.md](transisi-animasi.md#sumber). Nilai numerik tunggal bukan ekspresi yang dilindungi, tetapi atribusi dicatat sebagai kehati-hatian.
 - **sherpa-onnx, Supertonic 3, Kokoro:** mesin dan model TTS opsional untuk `bun run narasi` (adaptor `scripts/narasi-tts.mjs`). Dipanggil sebagai program eksternal yang dipasang pengguna; **tidak dibundel, tidak didistribusikan, dan tidak ditautkan** oleh awvd. Lisensi dan syaratnya di [Model TTS dan OpenRAIL-M](#model-tts-dan-openrail-m).
 - **whisper.cpp dan model Whisper (GGML):** ASR opsional untuk `bun run narasi` (adaptor `scripts/narasi-asr.mjs`). Dipanggil sebagai program eksternal yang dipasang pengguna; **tidak dibundel, tidak didistribusikan, dan tidak ditautkan** oleh awvd. Lisensi dan syaratnya di [ASR lokal (whisper.cpp)](#asr-lokal-whispercpp).
+- **onnxruntime-node dan model segmentasi (MediaPipe Selfie Segmentation, MODNet):** runtime dan bobot opsional untuk hapus latar lokal (`scripts/segmentasi-lib.js`). `onnxruntime-node` (MIT) dimuat dari jalur `AWVD_ORT` yang dipasang pengguna di luar repo; bukan dependensi, tidak ada di `package.json` maupun lockfile. Bobot (Apache-2.0) diunduh pengguna dan diverifikasi sha256; **tidak dibundel, tidak didistribusikan**. Lisensi dan sha256 di [Model segmentasi latar](#model-segmentasi-latar).
 - **Chromium/Chrome:** dipakai dari instalasi lokal dan tidak didistribusikan.
 - **ffmpeg:** dipanggil sebagai program sistem lewat CLI dan tidak didistribusikan atau ditautkan, sehingga kewajiban LGPL/GPL (libx264) tidak berlaku untuk repo ini. Video keluaran tidak terkena GPL.
 - **H.264:** lisensi paten AVC (dulu MPEG LA, kini Via LA) secara historis tidak memungut royalti untuk video internet yang gratis bagi pengguna akhir. Untuk distribusi berbayar, siaran, atau platform streaming komersial, cek ketentuan Via LA terbaru. Status 2026 belum diverifikasi dari halaman resmi.
@@ -69,9 +70,9 @@ Perwujudannya di awvd:
 - **Data pribadi.** Rekaman suara dapat memuat data pribadi (UU 27/2022; status hukum rekaman suara sebagai data pribadi belum diverifikasi). Pakai rekaman yang sah Anda miliki, dan perlakukan transkrip yang memuat data pribadi sebagai data pribadi.
 - **Pencatatan**: catat versi whisper.cpp, nama dan hash model, lisensinya, dan tanggal unduh di `ASET.md` repo proyek; `laporan.json` mencatat nama dan ukuran model serta preset DTW.
 
-## Model segmentasi latar (rancangan)
+## Model segmentasi latar
 
-Status: **rancangan disetujui pemilik 2026-11-08, belum diimplementasikan** ([#88](https://github.com/ahliweb/awvd/issues/88), [#89](https://github.com/ahliweb/awvd/issues/89)). Fitur hapus latar lokal ([segmentasi-latar.md](segmentasi-latar.md)) bersifat opsional: `onnxruntime-node` (MIT) dan bobot model tidak dibundel. Ini bukan nasihat hukum; lisensi dibaca dari sumber asli penulis pada 2026-11-08 dan wajib dibaca ulang pemakai.
+Status: **modul dan registri ada ([#88](https://github.com/ahliweb/awvd/issues/88)); efek klip belum ([#89](https://github.com/ahliweb/awvd/issues/89))**. Fitur hapus latar lokal ([segmentasi-latar.md](segmentasi-latar.md)) bersifat opsional: `onnxruntime-node` (MIT) dan bobot model **tidak dibundel, tidak didistribusikan, dan bukan dependensi** (dimuat dari `AWVD_ORT`). Ini bukan nasihat hukum; lisensi dibaca dari sumber asli penulis pada 2026-11-08 dan wajib dibaca ulang pemakai.
 
 | Model | Putusan | Lisensi (sumber asli) |
 | --- | --- | --- |
@@ -85,7 +86,16 @@ Status: **rancangan disetujui pemilik 2026-11-08, belum diimplementasikan** ([#8
 - Lisensi dicatat dari **sumber asli**, bukan dari label mirror ONNX komunitas di Hugging Face; satu mirror RVM berlabel `apache-2.0` keliru.
 - Berjalan lokal: bingkai sumber tidak keluar dari mesin. Gambar orang tetap tunduk pada ketentuan "Foto orang" di bagian Aset di bawah (izin atau hak potret).
 - Pemakai mencatat model, sha256, lisensi, dan tanggal unduh bobot di `ASET.md` repo proyek.
-- Matriks lisensi lengkap (versi, sha256 kanonik, sumber) ditambahkan saat #88 diimplementasikan.
+- sha256 wajib dan fail-closed untuk model registri; model kustom tanpa sha256 hanya diperingatkan (`data/model-segmentasi.json`, [segmentasi-latar.md](segmentasi-latar.md#modul-segmentasi-libjs)). Registri hanya menerima lisensi permisif (`Apache-2.0`, `MIT`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`); RVM, BRIA RMBG, dan model AGPL tidak boleh masuk.
+
+Matriks model registri (dibaca dari sumber asli penulis dan dicatat pada 2026-11-08; bobot yang diunduh dihitung sha256-nya sendiri dan tidak di-commit):
+
+| Model | Lisensi kode | Lisensi bobot | Sumber asli (dasar lisensi) | Konversi ONNX komunitas (revisi terkunci) | sha256 berkas ONNX (2026-11-08) |
+| --- | --- | --- | --- | --- | --- |
+| `selfie`: MediaPipe Selfie Segmentation 256x256 | Apache-2.0 | Apache-2.0 | [google-ai-edge/mediapipe](https://github.com/google-ai-edge/mediapipe); [kartu model resmi](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Selfie%20Segmentation.pdf) | `onnx-community/mediapipe_selfie_segmentation` @ `be49485c8e027524be38591817fc5cd31bd9d00e` (label mirror `apache-2.0`) | `3241ac4ad8aa35bdaf33946776db29f7c283a413aa0b0dacb9483594b4531aad` (462352 byte) |
+| `modnet`: MODNet | Apache-2.0 | Apache-2.0 | [ZHKKKe/MODNet](https://github.com/ZHKKKe/MODNet#license) (README) | `Xenova/modnet` @ `fa2fa546052fba4c08921230a26cc69a333fca12` (label mirror `apache-2.0`) | `07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9` (25888640 byte) |
+
+Catatan matriks: hash di atas adalah hash **berkas konversi komunitas**, bukan rilis resmi penulis (bobot asli MODNet di Google Drive tidak dapat diverifikasi otomatis; MediaPipe merilis `.tflite`). Lisensi **bobot** dinyatakan lewat README atau kartu model, dan data latih punya syaratnya sendiri yang tidak dikaji menyeluruh (MediaPipe: dataset privat Google; MODNet: tidak dikaji; risiko sisa diterima pemilik). Label lisensi di mirror tidak dijadikan dasar. Ada mirror RVM berlabel `apache-2.0` padahal kodenya GPL-3.0. Lisensi `onnxruntime-node` MIT (kode; tidak dibundel). Bila hash atau lisensi berubah di sumber, perbarui registri, matriks ini, dan [segmentasi-latar.md](segmentasi-latar.md) bersamaan (uji `bun run uji:segmentasi` menjaga ketiganya tetap sama).
 
 ## Aset: matriks lisensi (ringkas)
 
@@ -121,6 +131,10 @@ Ringkasan dari [AGENTS.md](../AGENTS.md) §Lisensi dan Aset:
 - Atribusi mulberry32 di `scripts/runtime.js` dipertahankan.
 
 ## Changelog
+
+### 2026-11-08 - v1.7.0
+
+- Matriks model segmentasi latar (#88): sha256 kanonik, ukuran, revisi unduhan terkunci, kebijakan sha256, daftar lisensi permisif registri; baris onnxruntime-node dan model segmentasi di Pihak ketiga; judul bagian tidak lagi "(rancangan)".
 
 ### 2026-11-08 - v1.6.0
 
