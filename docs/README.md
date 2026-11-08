@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.16.3`
+- Version: `v1.16.4`
 - Last updated: `2026-11-08`
-- Changeset: `Versi timeline.md menjadi v1.1.0 (templat render generik) dan deskripsinya diperbarui; roadmap.md dan log-keputusan.md diperbarui. Sebelumnya: Versi cli.md v1.8.0, arsitektur.md v1.2.0, batasan.md v1.8.0 (render paralel per segmen), roadmap.md, dan log-keputusan.md diperbarui.`
+- Changeset: `Versi cli.md dan batasan.md menjadi v1.8.1 (durasi MP4 dikunci rentang frame, isu #79). Sebelumnya: Versi timeline.md menjadi v1.1.0 (templat render generik) dan deskripsinya diperbarui; roadmap.md dan log-keputusan.md diperbarui.`
 
 Pintu masuk ke seluruh dokumentasi rinci awvd. Ringkasan proyek, mulai cepat, dan perintah utama ada di [README akar](../README.md); aturan kerja kontributor dan AI agent ada di [AGENTS.md](../AGENTS.md); riwayat perubahan software ada di [CHANGELOG.md](../CHANGELOG.md).
 
@@ -16,7 +16,7 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | --- | --- | --- |
 | [arsitektur.md](arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`/`renderFrame`, pemblokiran jaringan, aturan determinisme, peran upstream, memakai awvd di repo proyek | `v1.2.0` |
 | [api-runtime.md](api-runtime.md) | Referensi seluruh API `scripts/runtime.js`, pemetaan waktu klip, mode URL, sumber riset helper | `v1.6.0` |
-| [cli.md](cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode BT.709, kenyaringan, daftar perintah lain | `v1.8.0` |
+| [cli.md](cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode BT.709, kenyaringan, daftar perintah lain | `v1.8.1` |
 | [aset.md](aset.md) | `bun run aset`: manifest `aset.json`, matriks lisensi, SVG berdaftar-izin, resolusi, sRGB, atribusi, helper runtime (logo, ikon, kredit, font) | `v1.1.0` |
 | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) | `bun run periksa` (termasuk `--konsep`): pemeriksaan, ambang, kilatan fotosensitif | `v1.0.1` |
 | [konsep-jenis-alur.md](konsep-jenis-alur.md) | `bun run konsep`, `konsep.json`, 13 jenis video, 5 alur produksi, tingkat bukti, profil audiens | `v1.2.0` |
@@ -27,7 +27,7 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | [visual-audiens.md](visual-audiens.md) | Profil audiens, ukuran teks, buta warna dan jarak warna, ketajaman (garis 2 px, 4:2:0, supersampling), efek dekoratif | `v1.0.0` |
 | [transisi-animasi.md](transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, kustomisasi, profil dan `kurangiGerak`, biaya kompresi | `v1.1.0` |
 | [aksesibilitas.md](aksesibilitas.md) | Subtitle, kontras, kilatan, kontrol pratinjau, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.7.0` |
-| [batasan.md](batasan.md) | Batasan yang diketahui dan penunjuk ke batasan per fitur | `v1.8.0` |
+| [batasan.md](batasan.md) | Batasan yang diketahui dan penunjuk ke batasan per fitur | `v1.8.1` |
 | [lisensi-kepatuhan.md](lisensi-kepatuhan.md) | Lisensi MIT, asal kode, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab atas aset, matriks lisensi aset, video pihak ketiga dan kutipan wajar | `v1.5.0` |
 | [pedoman-produksi.md](pedoman-produksi.md) | Pedoman produksi berbasis riset, dipetakan ke fitur awvd, checklist, rencana | `v1.1.0` |
 | [roadmap.md](roadmap.md) | Roadmap: visi, fase F1–F6 dan kriteria keluarnya, paritas fitur, label dan milestone GitHub | `v1.15.0` |
@@ -93,6 +93,10 @@ flowchart TD
 - Dokumen berbahasa Indonesia dan tidak menyebut nama, path, atau tautan repo internal AhliWeb yang privat.
 
 ## Changelog
+
+### 2026-11-08 - v1.16.4
+
+- Kolom Versi `cli.md` dan `batasan.md` menjadi v1.8.1 (tahap akhir audio/subtitle memakai `-t`, subtitle pendek tidak memotong video; isu #79).
 
 ### 2026-11-08 - v1.16.3
 
