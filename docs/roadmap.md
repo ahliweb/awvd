@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.22.0`
+- Version: `v1.23.0`
 - Last updated: `2026-11-08`
-- Changeset: `F5/05 (#88) selesai: modul segmentasi lokal (segmentasi-lib.js, registri model bersha256, ORT opsional, EMA) ada; paritas Hapus latar berstatus sebagian (efek klip hapusLatar, #89, belum). Sebelumnya: F6/02 (#54) selesai: tampilan baca-saja penyunting (scrubber, daftar track, frame identik dengan render) berjalan; paritas Penyunting visual berstatus sebagian.`
+- Changeset: `F6/03 (#55) selesai: penyuntingan dasar (pindah, potong, ubah durasi, urungkan) dan ekspor timeline.json ber-validator berjalan; paritas Penyunting visual berstatus ada (kriteria keluar F6 terpenuhi; F6 tetap berjalan sampai F6/04 #94). Sebelumnya: F5/05 (#88) selesai: modul segmentasi lokal (segmentasi-lib.js, registri model bersha256, ORT opsional, EMA) ada; paritas Hapus latar berstatus sebagian (efek klip hapusLatar, #89, belum).`
 
 ## Visi
 
@@ -47,7 +47,7 @@ Status memakai `rencana | berjalan | selesai | ditunda | dibatalkan`.
 | F3 | F3 Pemrosesan klip | Olah klip di tahap ekstraksi dengan cache | `klip.mjs` mendukung LUT/filter warna, chroma key, stabilisasi, peredam bising, dan speed ramp; uji lolos | selesai | [#37](https://github.com/ahliweb/awvd/issues/37) |
 | F4 | F4 Kinerja render | Render footage panjang dalam waktu layak | Render lewat segmen dengan MP4 byte-identik untuk jumlah pekerja berapa pun dan tangkapan PNG per frame identik dengan tangkapan serial (KP-068); percepatan terukur dan didokumentasikan | selesai | [#43](https://github.com/ahliweb/awvd/issues/43) |
 | F5 | F5 Fitur cerdas lokal | Fitur cerdas lokal yang opsional | ASR whisper.cpp opsional, deteksi ketukan, reframe, dan hapus latar opsional dengan model berlisensi permisif yang tidak dibundel; masing-masing beruji dan terdokumentasi | berjalan (F5/01 sampai F5/05 selesai; hapus latar: modul segmentasi ada ([#88](https://github.com/ahliweb/awvd/issues/88)), efek klip belum ([#89](https://github.com/ahliweb/awvd/issues/89)), [segmentasi-latar.md](segmentasi-latar.md)) | [#47](https://github.com/ahliweb/awvd/issues/47) |
-| F6 | F6 Penyunting pratinjau | Alat bantu visual penyusun timeline | Halaman pratinjau lokal dengan scrubber dan daftar track yang mengekspor `timeline.json`; uji E2E Playwright lolos | berjalan (F6/01 rancangan dan F6/02 tampilan baca-saja selesai, [penyunting.md](penyunting.md); F6/03 penyuntingan dan ekspor [#55](https://github.com/ahliweb/awvd/issues/55) belum) | [#52](https://github.com/ahliweb/awvd/issues/52) |
+| F6 | F6 Penyunting pratinjau | Alat bantu visual penyusun timeline | Halaman pratinjau lokal dengan scrubber dan daftar track yang mengekspor `timeline.json`; uji E2E Playwright lolos | berjalan (F6/01 rancangan, F6/02 tampilan, dan F6/03 penyuntingan dan ekspor selesai, [penyunting.md](penyunting.md); kriteria keluar terpenuhi, tersisa F6/04 [#94](https://github.com/ahliweb/awvd/issues/94) perbaikan tampilan butir sangat pendek) | [#52](https://github.com/ahliweb/awvd/issues/52) |
 
 ```mermaid
 flowchart LR
@@ -94,7 +94,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Sinkron ketukan musik | sebagian: deteksi ketukan dan tempo tetap dari audio lokal ke `ketukan.json` dengan helper komposisi ada ([ketukan.md](ketukan.md)); diuji pada sinyal sintetis, musik nyata dan tempo berubah belum diuji | F5/02 (selesai) |
 | Reframe 16:9 ke 9:16 | sebagian: crop berkeyframe manual deterministik dengan validasi teks terpotong dan area aman 9:16 (`window.Reframe`, `bun run reframe`) dan saran fokus heuristik tanpa model ([reframe.md](reframe.md)); diuji pada video sintetis, pelacakan wajah atau objek belum | F5/03 (selesai) |
 | Hapus latar tanpa layar hijau | sebagian: modul segmentasi lokal ada (`scripts/segmentasi-lib.js`, registri `selfie` dan `modnet` bersha256, ORT opsional lewat `AWVD_ORT`, EMA deterministik, `bun run segmentasi periksa`; hanya Linux x64, uji sintetis) di [segmentasi-latar.md](segmentasi-latar.md); efek klip `hapusLatar` belum ada ([#89](https://github.com/ahliweb/awvd/issues/89)) | F5/04 (riset, selesai), F5/05 (selesai), F5/06 |
-| Penyunting visual | sebagian: tampilan baca-saja (`bun run penyunting`: scrubber, daftar track, panel masalah dari validator, frame identik piksel dengan render) selesai di #54; penyuntingan (pindah, potong, ubah durasi) dan ekspor ber-validator belum (#55); rancangan di [penyunting.md](penyunting.md) | F6/02 (selesai), F6/03 |
+| Penyunting visual | ada (dasar): `bun run penyunting` menampilkan scrubber, daftar track, panel masalah dari validator, dan frame identik piksel dengan render (#54), serta menyunting dasar (pindah, potong butir sederhana, ubah durasi, urungkan dan ulangi; semua tanpa seret, seret hanya tambahan) dan mengekspor `timeline.json` hanya bila validator lolos (#55); bukan NLE penuh (tanpa menambah butir atau track, efek, keyframe visual, multi-seleksi, audio); [penyunting.md](penyunting.md) | F6/02, F6/03 (selesai) |
 
 ## Label dan milestone
 
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-08 - v1.23.0
+
+- Status F6/03 selesai (#55): penyuntingan dasar dan ekspor ber-validator; paritas "Penyunting visual" menjadi ada (dasar); kriteria keluar F6 terpenuhi, F6 tetap berjalan sampai F6/04 (#94).
 
 ### 2026-11-08 - v1.22.0
 
