@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.2.0`
 - Last updated: `2026-11-08`
-- Changeset: `Modul segmentasi diimplementasikan (#88): bagian Modul segmentasi-lib.js (API, registri, env, galat dan kode keluar, pra/pasca-proses bilangan bulat, EMA, uji dan hasil uji lokal dengan ORT), sha256 kanonik registri dengan sumber dan tanggal, status dokumen berubah; integrasi efek klip hapusLatar (#89) tetap rancangan. Sebelumnya: dokumen baru hasil riset #51 dan rancangan yang disetujui pemilik.`
+- Changeset: `Efek klip hapusLatar diimplementasikan (#89): rancangan integrasi menjadi bagian Efek klip hapusLatar (kondisi nyata: skema, urutan pra-ekstraksi, mask beku mask.gray, alphamerge, kunci cache, fail-closed sebelum ffmpeg, laporan di meta.json, uji dengan ORT palsu di CI dan ORT sungguhan lokal), penyimpangan dari rancangan dicatat; status dokumen dan pemecahan pekerjaan diperbarui. Sebelumnya: Modul segmentasi diimplementasikan (#88): bagian Modul segmentasi-lib.js dan sha256 kanonik registri.`
 
-> **Status: modul segmentasi sudah ada ([#88](https://github.com/ahliweb/awvd/issues/88)); efek klip `hapusLatar` belum ([#89](https://github.com/ahliweb/awvd/issues/89)).** Dokumen ini berasal dari riset issue #51, yang rekomendasinya disetujui pemilik pada 2026-11-08. Yang nyata di repo: `scripts/segmentasi-lib.js`, registri `data/model-segmentasi.json`, pemeriksa `bun run segmentasi`, dan uji `bun run uji:segmentasi`; bagian [Modul `segmentasi-lib.js`](#modul-segmentasi-libjs) menjelaskannya. Yang masih rencana: bagian "Rancangan integrasi `hapusLatar`" (`scripts/klip.mjs` belum memiliki efek `hapusLatar`). `onnxruntime-node` bukan dependensi repo. Ini bukan nasihat hukum.
+> **Status: modul segmentasi ([#88](https://github.com/ahliweb/awvd/issues/88)) dan efek klip `hapusLatar` ([#89](https://github.com/ahliweb/awvd/issues/89)) sudah ada.** Dokumen ini berasal dari riset issue #51, yang rekomendasinya disetujui pemilik pada 2026-11-08. Yang nyata di repo: `scripts/segmentasi-lib.js`, registri `data/model-segmentasi.json`, pemeriksa `bun run segmentasi`, efek `hapusLatar` di `scripts/klip.mjs`, dan uji `bun run uji:segmentasi` serta `bun run uji:klip`; bagian [Modul `segmentasi-lib.js`](#modul-segmentasi-libjs) dan [Efek klip `hapusLatar`](#efek-klip-hapuslatar) menjelaskannya. `onnxruntime-node` bukan dependensi repo. **Kualitas mask pada orang nyata belum diukur** (hanya uji sintetis; lihat [Batas bukti](#batas-bukti)). Ini bukan nasihat hukum.
 
 Tujuan: menghapus latar dari klip tertanam (subjek orang di depan kamera) tanpa layar hijau, sepenuhnya lokal, dengan model berlisensi permisif yang **tidak dibundel**. Fitur ini mengisi baris "Hapus latar tanpa layar hijau" di [roadmap.md](roadmap.md) (F5/04 riset, F5/05 dan F5/06 implementasi). Dasarnya [olah-klip.md](olah-klip.md) (efek klip, kunci cache), [video-tertanam-audio.md](video-tertanam-audio.md) (klip), dan [lisensi-kepatuhan.md](lisensi-kepatuhan.md).
 
@@ -95,7 +95,7 @@ Skor kriteria AGENTS.md aturan 8 untuk opsi ini:
 
 ## Modul `segmentasi-lib.js`
 
-Kondisi nyata setelah #88. Modul untuk tahap pembuatan aset beku; render tidak memanggilnya. Integrasi ke klip belum ada (#89).
+Kondisi nyata setelah #88. Modul untuk tahap pembuatan aset beku; render tidak memanggilnya. Dipakai efek klip `hapusLatar` ([#89](https://github.com/ahliweb/awvd/issues/89), bagian [Efek klip `hapusLatar`](#efek-klip-hapuslatar)).
 
 ```mermaid
 flowchart LR
@@ -135,37 +135,53 @@ Berkas dibaca sekali ke memori, di-hash, lalu byte yang sama diberikan ke ORT (t
 
 **Ambang dan EMA.** `ambang: [rendah, tinggi]` menerapkan smoothstep lewat tabel 256 entri (hanya `+ - * /`); bawaan identitas. `ema` adalah bobot bingkai baru (0 sampai 1; bawaan 1 = tanpa pelicinan): keadaan disimpan sebagai bilangan bulat dengan pecahan 8 bit sehingga konvergen tepat ke 0 dan 255 dan identik di semua mesin. Urutan per bingkai: mentah, ambang, EMA. Mask bingkai n bergantung pada bingkai 0..n-1: berikan **berurutan dari satu proses**, panggil `ulangEma()` pada pergantian adegan, dan jangan paralelkan antar-bingkai (paralel antar-klip atau antar-segmen yang masing-masing berawal dari bingkai pertama aman). Erosi, feather, dan mode "tahan" dari rancangan belum diimplementasikan.
 
-**API ringkas** (`scripts/segmentasi-lib.js`): `buatSegmenter({ model, jalur?, env?, registriKustom?, thread?, ukuranInput?, ambang?, ema?, peringatan? })` mengembalikan `{ info, segmentasi(rgb, lebar, tinggi), mentah(...), ulangEma(), tutup() }`; `info` memuat `model`, `sha256`, `versiOrt`, `lisensiKode`, `lisensiBobot`, `thread`, `ema`, dan `lokal: true` (bahan kunci cache dan `laporan.json` di #89). Fungsi pendukung yang diekspor: `muatRegistri`, `validasiRegistri`, `cariBobot`, `verifikasiBobot`, `pastikanOrt`, `ukuranMasukan`, `praProses`, `pascaProses`, `ubahUkuran`, `buatLut`, `buatEma`. Galat berupa `GalatSegmentasi` dengan `kode` stabil dan `keluar` (1 = lingkungan: ORT atau bobot tidak ada, ORT gagal; 2 = validasi: registri, sha256, ukuran, opsi, model tak cocok). `bun run segmentasi periksa|daftar` membungkusnya untuk pemakai (kode keluar 0, 1, 2; tanpa keluaran standar saat gagal).
+**API ringkas** (`scripts/segmentasi-lib.js`): `buatSegmenter({ model, jalur?, env?, registriKustom?, thread?, ukuranInput?, ambang?, ema?, peringatan? })` mengembalikan `{ info, segmentasi(rgb, lebar, tinggi), mentah(...), ulangEma(), tutup() }`; `info` memuat `model`, `sha256`, `versiOrt`, `lisensiKode`, `lisensiBobot`, `thread`, `ema`, dan `lokal: true` (bahan kunci cache dan blok `segmentasi` di `meta.json` klip, #89). Fungsi pendukung yang diekspor: `muatRegistri`, `validasiRegistri`, `cariBobot`, `verifikasiBobot`, `pastikanOrt`, `ukuranMasukan`, `praProses`, `pascaProses`, `ubahUkuran`, `buatLut`, `buatEma`. Galat berupa `GalatSegmentasi` dengan `kode` stabil dan `keluar` (1 = lingkungan: ORT atau bobot tidak ada, ORT gagal; 2 = validasi: registri, sha256, ukuran, opsi, model tak cocok). `bun run segmentasi periksa|daftar` membungkusnya untuk pemakai (kode keluar 0, 1, 2; tanpa keluaran standar saat gagal).
 
 **Uji** (`bun run uji:segmentasi`, ikut `bun run uji` dan CI tanpa ORT): skema registri dan penolakan registri cacat; fail-closed (ORT tidak ada, bobot tidak ada, ukuran atau sha256 salah, kustom); ORT palsu (modul CJS kecil) yang membuktikan bobot yang ditolak tidak pernah sampai ke `InferenceSession.create` dan menguji jalur sesi; ubah ukuran, pra/pasca-proses, ambang, dan EMA dengan nilai acuan; CLI (kode keluar). Bila `AWVD_ORT` diset, uji tambahan memakai model ONNX mini buatan skrip uji (ReduceMean, protobuf ditulis tangan tanpa dependensi) sebagai model kustom: nilai mask dibandingkan dengan acuan JS dan hasilnya identik antar-run dan antar-thread (1 dan 4), termasuk urutan EMA; bila `AWVD_MODEL_DIR` memuat bobot registri, selfie dan modnet ikut diuji (sha256 diverifikasi, mask tidak seragam, identik antar-run dan antar-thread). Selain itu uji tersebut dilewati dengan pesan `LEWATI`. Semua data sintetis.
 
 **Hasil uji lokal dengan ORT sungguhan (2026-11-08; satu mesin, Linux x64, Bun 1.4.4, `onnxruntime-node` 1.31.1, CPU 20 inti logis, bobot registri terverifikasi sha256).** Bingkai sintetis 1280x720 (gradasi, elips, derau bersemai), 5 bingkai, `ema` 0.6 dan `ambang` [0.1, 0.9]; hash SHA-256 seluruh mask: `selfie` `8993d16cebec4483` dan `modnet` `54d2d7ea0b6ab6a6` (16 heksa pertama) **identik** pada thread bawaan, 1, dan 4, dan antar dua proses terpisah. Waktu per bingkai termasuk pra/pasca-proses JS pada beban rendah: selfie sekitar 12 sampai 19 ms; MODNet 512x288 sekitar 71 ms (thread bawaan), 222 sampai 226 ms (1 thread), 79 sampai 85 ms (4 thread). Batas bukti tidak berubah dari [Batas bukti](#batas-bukti): bingkai sintetis, satu mesin, tidak diuji antar-CPU, antar-versi ORT, antar-OS, dan int8/fp16, dan **kualitas mask pada orang nyata tidak diukur**.
 
-## Rancangan integrasi `hapusLatar`
+## Efek klip `hapusLatar`
 
-Modul segmentasi dan registri ([#88](https://github.com/ahliweb/awvd/issues/88)) sudah ada (lihat [Modul `segmentasi-lib.js`](#modul-segmentasi-libjs)); yang di bawah ini, yaitu efek klip ([#89](https://github.com/ahliweb/awvd/issues/89)), **belum diimplementasikan** dan tetap rencana. Butir 4 (konfigurasi runtime) sebagian sudah terwujud di modul: `AWVD_ORT` dan `AWVD_MODEL_DIR`; flag `--model-segmentasi` belum ada.
+Kondisi nyata setelah [#89](https://github.com/ahliweb/awvd/issues/89), diimplementasikan di `scripts/klip.mjs` di atas modul segmentasi ([#88](https://github.com/ahliweb/awvd/issues/88)). Rinci pemakaian ada di [olah-klip.md](olah-klip.md#skema-efek); bagian ini mencatat desain dan penyimpangannya dari rancangan awal.
 
 ```mermaid
 flowchart TD
-    S[Sumber klip<br/>sumber.json] --> D[ffmpeg dekode<br/>rgb24 mentah, fps komposisi]
-    D --> O[Bun + ORT per bingkai<br/>model terverifikasi sha256]
-    O --> E[Pelicinan EMA<br/>berurutan, deterministik]
-    E --> M[(Mask beku / cache<br/>kunci hash)]
-    M -.->|hit: lewati ORT| A
-    M --> A[ffmpeg alphamerge<br/>frame + mask]
-    A --> P[PNG RGBA<br/>seperti kunciWarna]
-    P --> R[Render Chromium<br/>hanya membaca PNG]
+    M[sumber.json<br/>klip.efek hapusLatar] --> P{{"Pemeriksaan sebelum ffprobe/ffmpeg:<br/>skema, model, ORT AWVD_ORT,<br/>bobot sha256 (fail-closed)"}}
+    P -->|ORT atau bobot tidak ada: exit 1<br/>sha256, model, skema salah: exit 2| X[berhenti, tanpa ekstraksi]
+    P --> K[kunci cache: parameter kanonik<br/>+ sha256 bobot + versi ORT]
+    K -->|hit: ORT tidak dipanggil| C
+    K -->|miss| D[ffmpeg dekode rgb24 mentah<br/>fps komposisi, ukuran klip,<br/>setelah tahap pra]
+    D --> O[Bun + ORT per frame, berurutan:<br/>model, ambang, EMA]
+    O --> G[(mask.gray beku<br/>folder kerja sementara)]
+    G --> A[ffmpeg alphamerge frame + mask,<br/>boxblur halus, lalu efek warna]
+    A --> C[PNG RGBA di cache<br/>+ meta.json segmentasi]
+    C --> R[Render Chromium<br/>hanya membaca PNG]
 ```
 
-1. **Tahap pra-ekstraksi** (hanya bila efek ada): ffmpeg mendekode sumber ke `rgb24` mentah lewat pipa pada fps komposisi; Bun menjalankan ORT per bingkai; mask abu-abu 8 bit ditulis sebagai urutan PNG ke cache berkunci hash. Kunci memuat sha256 bobot, versi ORT, ukuran input, parameter pasca-proses, sha256 sumber, fps, dan rentang.
-2. **Penggabungan alfa** di ffmpeg lewat `alphamerge` dengan urutan mask sebagai masukan kedua, sehingga keluaran tetap PNG RGBA seperti `kunciWarna`. Kontrak efek di `EFEK` (`scripts/klip.mjs`) saat ini hanya mengembalikan string filter dan perlu diperluas kecil agar `saring` dapat menyatakan masukan tambahan; preseden: jejak gerak vidstab sudah memakai berkas pembantu.
-3. **Skema efek** (kanonik, ketat): `{ jenis: "hapusLatar", model: "modnet" | "selfie" | "<id registri>", ukuranInput?, halus?, ambang?, ema? }` dengan `tahap: "alfa"`, `maks: 1`, `alfa: true` (otomatis `png`, menolak `jpg` seperti `kunciWarna`). Tidak boleh digabung dengan `kunciWarna` pada klip yang sama (dua sumber alfa).
-4. **Konfigurasi runtime lewat env atau flag, bukan manifest**, agar manifest portabel: `AWVD_ORT` (jalur modul onnxruntime-node), `AWVD_MODEL_DIR` atau flag `--model-segmentasi <id>=<jalur>`. Manifest hanya menyebut `model` dan, bila perlu, `sha256` bobot yang diharapkan. ORT tidak ada atau bobot tidak ada menjadi kegagalan ekstraksi (kode keluar 1); sha256 tidak cocok atau skema salah menjadi galat pemvalidasi (kode keluar 2); semuanya dengan pesan jelas.
-5. **Lisensi keluaran:** bobot tidak didistribusikan; pemakai mencatat lisensi bobot di `ASET.md` repo proyek (pola whisper.cpp). `laporan.json` klip mencatat model, sha256 bobot, versi ORT, lisensi yang dideklarasikan, dan `lokal: true`.
+1. **Pemeriksaan awal** (`siapkanSegmentasi`, sebelum ffprobe dan ffmpeg): skema efek, registri model (bawaan dan `AWVD_REGISTRI_SEGMENTASI`), model dikenal, `ukuranInput` cocok model, ORT termuat dari `AWVD_ORT`, bobot di `AWVD_MODEL_DIR` cocok ukuran dan sha256. Model, ukuran masukan, atau skema salah dan sha256 salah berhenti dengan kode keluar `2`; ORT atau bobot tidak ada, atau ORT gagal dimuat, berhenti dengan kode keluar `1`; semuanya dengan pesan jelas dan tanpa folder hasil. ORT dan bobot diperlukan juga pada cache hit karena kunci cache memuat sha256 bobot dan versi ORT; cache hit tidak membuat sesi dan tidak menjalankan inferensi.
+2. **Pra-ekstraksi** (cache miss): ffmpeg mendekode klip ke `rgb24` mentah lewat pipa pada fps komposisi, **pada ukuran klip**, setelah tahap `pra` (mis. `stabil`) dan penskalaan dengan matriks warna (frame yang sama dengan yang akan di-cache). Bun memanggil `buatSegmenter` dan `segmentasi` per frame, berurutan dari satu proses (EMA), lalu menulis mask 8 bit ke `mask.gray` di folder kerja.
+3. **Penggabungan alfa**: ffmpeg kedua membaca klip (rantai yang sama) dan `mask.gray` (`-f rawvideo -pixel_format gray -video_size WxH -framerate fps`) sebagai masukan kedua; `halus` memberi `boxblur` pada mask; `alphamerge` memasangnya sebagai alfa sebelum efek warna. Keluaran PNG RGBA seperti `kunciWarna`. Kontrak `EFEK` (`scripts/klip.mjs`) diperluas kecil: `saring` boleh mengembalikan `alfaDari` (masukan tambahan; preseden: berkas pembantu vidstab), dan dua efek beralfa pada satu klip ditolak. Jumlah frame mask harus sama dengan jumlah frame hasil; bila tidak, ekstraksi gagal dan tidak ada yang di-cache.
+4. **Skema efek** (kanonik, ketat): `{ jenis: "hapusLatar", model, ukuranInput?, halus?, ambang?, ema? }` dengan `tahap: "alfa"`, `maks: 1`, `alfa: true` (otomatis `png`; `jpg` eksplisit ditolak seperti `kunciWarna`), tidak boleh digabung dengan `kunciWarna`. `halus` bilangan bulat 0..32 (radius feather dalam piksel klip, bawaan 0).
+5. **Konfigurasi runtime lewat env, bukan manifest**, agar manifest portabel: `AWVD_ORT`, `AWVD_MODEL_DIR`, `AWVD_REGISTRI_SEGMENTASI`.
+6. **Lisensi dan laporan:** bobot tidak didistribusikan; pemakai mencatat lisensi bobot di `ASET.md` repo proyek (pola whisper.cpp). `meta.json` klip (dan satu baris log) mencatat `model`, `sha256` bobot, `versiOrt`, `lisensiKode` dan `lisensiBobot` dari registri, `kustom`, dan `lokal: true`.
+
+**Penyimpangan dari rancangan awal** (KP-100 sampai KP-103 di [log-keputusan.md](log-keputusan.md)):
+
+| Rancangan awal | Kondisi nyata | Alasan |
+| --- | --- | --- |
+| Flag `--model-segmentasi <id>=<jalur>` | Tidak dibuat; hanya env | `klip.mjs` tidak punya flag per model, dan env sudah memetakan model ke folder lewat nama berkas registri |
+| Manifest boleh memuat `sha256` bobot yang diharapkan | Tidak ada; sha256 diverifikasi terhadap registri dan masuk kunci cache | Dua sumber kebenaran hash membuka celah beda; model kustom yang butuh kunci menulis sha256 di registri kustomnya |
+| Mask ditulis sebagai urutan PNG ke cache | Mask beku `mask.gray` (gray 8 bit mentah) di folder kerja sementara; yang di-cache adalah PNG RGBA hasil `alphamerge` | Tanpa encoder PNG tambahan; mask menjadi alfa di PNG yang dibaca render, jadi render tetap tidak memanggil model. Biayanya `lebar x tinggi` byte per frame sementara |
+| `halus` tidak dirinci | Feather `boxblur` pada mask, 0..32 piksel | Erosi dan mode "tahan" tetap belum ada |
+| Kunci memuat sha256 sumber, fps, rentang | Sudah ada di kunci klip; efek menambah parameter kanonik, sha256 bobot, versi ORT, dan hash spesifikasi masukan model | Kunci klip tanpa efek tidak berubah |
+| Mask dari frame sumber | Mask dari frame ukuran klip (setelah `pra` dan skala) | Mask dan warna berasal dari piksel yang sama; memori mask dibatasi ukuran klip |
+
+**Uji.** `bun run uji:klip` (ikut `bun run uji` dan CI **tanpa ORT**; uji `(u)` sampai `(u5)`): skema dan penolakan (jpg eksplisit, gabungan dengan `kunciWarna`, batas ukuran), fail-closed (ORT tidak ada, bobot tidak ada, ukuran atau sha256 salah, model tidak dikenal, `ukuranInput` salah; folder hasil tidak dibuat dan ORT tidak dipanggil), dan jalur penuh dengan **ORT palsu** (model palsu yang memberi mask sama dengan kanal merah masukan): PNG RGBA, alfa sama dengan kanal merah frame yang sama di setiap piksel setiap frame (membuktikan mask dan frame sinkron, juga untuk `dari` dan `panjang`), RGB tidak berubah dibanding klip tanpa efek, dua run identik, cache hit tanpa membuat sesi ORT, dan kunci berubah menurut sha256 bobot, versi ORT, dan parameter. Bila `AWVD_ORT` dan `AWVD_MODEL_DIR` diset, `(u5)` menjalankan model sungguhan pada klip sintetis (RGBA, dua run identik, hit cache); selain itu dilewati dengan pesan `LEWATI`. **Kualitas mask pada orang nyata tidak diukur.**
 
 ### Pelicinan temporal dan determinisme
 
-- Semua model permisif bekerja per bingkai sehingga mask dapat berkedip. Mitigasi: perataan eksponensial alfa antar-bingkai dengan urutan tetap (bingkai n memakai bingkai n-1 yang sudah dibekukan), ambang halus (smoothstep), erosi atau feather kecil, dan mode "tahan" untuk bingkai rapuh. **Manfaatnya belum dibuktikan pada footage nyata**; uji di awvd hanya sintetis, dan bukti kualitas diharapkan datang dari repo proyek berizin lalu kembali sebagai perbaikan generik atau catatan batas.
+- Semua model permisif bekerja per bingkai sehingga mask dapat berkedip. Mitigasi: perataan eksponensial alfa antar-bingkai dengan urutan tetap (bingkai n memakai bingkai n-1 yang sudah dibekukan), ambang halus (smoothstep), dan feather kecil (`halus`, `boxblur` pada mask); erosi dan mode "tahan" untuk bingkai rapuh belum diimplementasikan. **Manfaatnya belum dibuktikan pada footage nyata**; uji di awvd hanya sintetis, dan bukti kualitas diharapkan datang dari repo proyek berizin lalu kembali sebagai perbaikan generik atau catatan batas.
 - Pasca-proses memakai aritmetika bilangan bulat atau urutan tetap (bukan hasil kernel yang bergantung thread) agar identik lintas mesin; ini syarat uji.
 - Render mempertahankan determinisme ([arsitektur.md](arsitektur.md#aturan-determinisme)) karena hanya membaca PNG beku.
 
@@ -195,7 +211,7 @@ Hanya **Linux x64** yang diuji, dan hanya itu yang dijamin untuk fitur ini. macO
 
 ## Keputusan pemilik
 
-Disetujui pemilik pada 2026-11-08; rincinya di [log-keputusan.md](log-keputusan.md) (KP-079 sampai KP-082).
+Keputusan pemilik disetujui pada 2026-11-08; rincinya di [log-keputusan.md](log-keputusan.md) (KP-079 sampai KP-082). Keputusan implementasi: KP-095 sampai KP-098 (#88) dan KP-100 sampai KP-103 (#89).
 
 | Keputusan | Isi | KP |
 | --- | --- | --- |
@@ -203,6 +219,7 @@ Disetujui pemilik pada 2026-11-08; rincinya di [log-keputusan.md](log-keputusan.
 | Model | Registri bawaan MediaPipe Selfie Segmentation dan MODNet (Apache-2.0); BiRefNet tidak didukung; RVM (GPL-3.0), BRIA RMBG, dan model AGPL ditolak | KP-080 |
 | Sumber dan hash | Mirror ONNX komunitas boleh ditunjuk; sha256 wajib fail-closed untuk model registri dan peringatan untuk model kustom; lisensi dari sumber asli | KP-081 |
 | Temporal, bukti, platform | EMA temporal deterministik ikut fitur; uji awvd hanya sintetis dengan batas bukti dicatat jujur; jaminan hanya Linux x64 | KP-082 |
+| Implementasi efek klip (#89) | Mask pada frame ukuran klip, mask beku `mask.gray` lalu `alphamerge`, hanya env, fail-closed sebelum ffprobe (1 lingkungan, 2 validasi), `halus` sebagai feather, uji dengan ORT palsu di CI | KP-100 sampai KP-103 |
 
 ## Pemecahan pekerjaan
 
@@ -210,11 +227,15 @@ Disetujui pemilik pada 2026-11-08; rincinya di [log-keputusan.md](log-keputusan.
 | --- | --- | --- |
 | [#51](https://github.com/ahliweb/awvd/issues/51) | Riset (dokumen ini) | selesai dengan PR dokumen ini |
 | [#88](https://github.com/ahliweb/awvd/issues/88) | F5/05: modul segmentasi (`scripts/segmentasi-lib.js`, registri model bersha256, EMA) | selesai dengan PR modul ini |
-| [#89](https://github.com/ahliweb/awvd/issues/89) | F5/06: efek klip `hapusLatar` (skema, masukan tambahan, pra-ekstraksi, cache, `alphamerge`) | belum (modul #88 sudah tersedia) |
+| [#89](https://github.com/ahliweb/awvd/issues/89) | F5/06: efek klip `hapusLatar` (skema, masukan tambahan, pra-ekstraksi, cache, `alphamerge`) | selesai dengan PR efek ini |
 
 Bukti kualitas pada footage berizin dikerjakan di repo proyek, bukan di awvd.
 
 ## Changelog
+
+### 2026-11-08 - v1.2.0
+
+- Efek klip `hapusLatar` diimplementasikan (#89): "Rancangan integrasi" menjadi bagian "Efek klip `hapusLatar`" (kondisi nyata, tabel penyimpangan dari rancangan, uji); status dokumen, rujukan modul, dan pemecahan pekerjaan diperbarui.
 
 ### 2026-11-08 - v1.1.0
 

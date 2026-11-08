@@ -2,22 +2,25 @@
 
 ## Metadata
 
-- Version: `v1.2.1`
-- Last updated: `2026-11-07`
-- Changeset: `Bagian Cache menunjuk --verifikasi dan --bersihkan (#46, sebagian). Sebelumnya: Menambahkan efek kunciWarna (chroma key, keluaran PNG beralfa; tahap alfa) dan stabil (vidstab dua pass dengan cadangan deshake, deteksi kemampuan ffmpeg dengan pesan jelas; tahap pra), urutan tahap pra, alfa, warna, serta format PNG otomatis untuk efek beralfa.`
+- Version: `v1.3.0`
+- Last updated: `2026-11-08`
+- Changeset: `Menambahkan efek hapusLatar (#89): hapus latar lokal tanpa layar hijau lewat segmentasi ORT, mask dibekukan saat ekstraksi lalu alphamerge ke PNG RGBA; tahap alfa, kontrak masukan tambahan (alfaDari), kunci cache memuat sha256 bobot dan versi ORT, fail-closed sebelum ffmpeg, dan dua sumber alfa ditolak. Sebelumnya: Bagian Cache menunjuk --verifikasi dan --bersihkan (#46, sebagian).`
 
-`scripts/klip.mjs` dapat mengolah klip **sekali, saat ekstraksi frame**, lewat blok `efek` di `sumber.json` (stabilisasi, chroma key, LUT, koreksi warna). Frame yang sampai ke komposisi sudah berefek, jadi komposisi tetap menggambar frame ke-n klip sebagai fungsi murni dari nomor frame (`klipGambar`) tanpa tahu efeknya. Tidak ada grading per frame di Chromium. Manifest, lisensi, cache, dan pemakaian klip di komposisi ada di [video-tertanam-audio.md](video-tertanam-audio.md); dokumen ini hanya mengurai efek. Keputusan di baliknya ada di [log-keputusan.md](log-keputusan.md).
+`scripts/klip.mjs` dapat mengolah klip **sekali, saat ekstraksi frame**, lewat blok `efek` di `sumber.json` (stabilisasi, chroma key, hapus latar lokal tanpa layar hijau, LUT, koreksi warna). Frame yang sampai ke komposisi sudah berefek, jadi komposisi tetap menggambar frame ke-n klip sebagai fungsi murni dari nomor frame (`klipGambar`) tanpa tahu efeknya. Tidak ada grading per frame di Chromium. Manifest, lisensi, cache, dan pemakaian klip di komposisi ada di [video-tertanam-audio.md](video-tertanam-audio.md); dokumen ini hanya mengurai efek. Keputusan di baliknya ada di [log-keputusan.md](log-keputusan.md).
 
 ```mermaid
 flowchart LR
     M[sumber.json<br/>klip.efek] --> V[validasi<br/>jenis, rentang, LUT .cube]
     V -->|pelanggaran: exit 2,<br/>sebelum ekstraksi| X[berhenti]
-    V --> Q{efek bergantung<br/>build ffmpeg?}
+    V --> L{"hapusLatar:<br/>ORT, bobot sha256,<br/>model, ukuranInput?"}
+    L -->|tidak beres: exit 1 atau 2,<br/>sebelum ffprobe dan ffmpeg| X
+    L --> Q{efek bergantung<br/>build ffmpeg?}
     Q -->|filter tidak ada: exit 2,<br/>sebelum ekstraksi| X
     Q --> K[kunci cache<br/>efek kanonik + sha256 LUT + mesin]
     K -->|cache hit| H[pakai frame lama]
     K -->|cache miss| A["pass 1, hanya vidstab:<br/>analisis gerak"]
-    A --> F["ffmpeg: fps, [stabil], skala + matriks,<br/>[kunciWarna], efek warna"]
+    A --> S["hanya hapusLatar: dekode rgb24 ke pipa,<br/>ORT per frame, mask beku mask.gray"]
+    S --> F["ffmpeg: fps, [stabil], skala + matriks,<br/>[kunciWarna | alphamerge mask], efek warna"]
     F --> C[frame JPEG, atau PNG<br/>bila beralfa, di cache]
     H --> P[klip-props.json]
     C --> P
@@ -52,6 +55,7 @@ Contoh stabilisasi dan chroma key (klip berlatar hijau, keluaran PNG beralfa):
 | --- | --- | --- |
 | `stabil` | `mesin` (`otomatis` bawaan: vidstab bila ada, cadangan deshake; `vidstab`; `deshake`), `goyangan` bilangan bulat 1..10 (bawaan 5), `halus` bilangan bulat 1..100 (bawaan 15; hanya vidstab). Maksimal satu per klip. | `vidstabdetect` dan `vidstabtransform` (dua pass), atau `deshake` |
 | `kunciWarna` | `warna` (`#rrggbb`, warna latar; wajib), `toleransi` 0.01..1 (bawaan 0.3), `halus` 0..1 (kelembutan tepi, bawaan 0.1), `metode` (`rgb` bawaan, atau `yuv`). Maksimal satu per klip. Menghasilkan kanal alfa. | `colorkey` (`rgb`) atau `chromakey` (`yuv`) |
+| `hapusLatar` | `model` (id model segmentasi di registri: `modnet`, `selfie`, atau id registri kustom; wajib), `ukuranInput` (bilangan bulat = sisi panjang, atau `[lebar, tinggi]`; rentang dan kelipatan mengikuti model; bawaan model), `halus` bilangan bulat 0..32 (radius feather tepi mask dalam piksel klip, bawaan 0), `ambang` (`[rendah, tinggi]`, 0 <= rendah < tinggi <= 1; smoothstep; bawaan tanpa ambang), `ema` angka di atas 0 sampai 1 (bobot frame baru; bawaan 1 = tanpa pelicinan temporal). Maksimal satu per klip; tidak boleh digabung dengan `kunciWarna`. Menghasilkan kanal alfa. | segmentasi ORT lokal (`scripts/segmentasi-lib.js`), `alphamerge`, dan `boxblur` pada mask bila `halus` > 0 |
 | `lut` | `berkas` (jalur `.cube`, relatif terhadap folder manifest; wajib), `interpolasi` (`nearest`, `trilinear`, `tetrahedral` bawaan, `pyramid`, `prism`), `sha256` (opsional; bila diisi harus cocok dengan isi berkas) | `lut3d` |
 | `warna` | `kecerahan` -1..1 (bawaan 0), `kontras` 0..4 (bawaan 1), `saturasi` 0..4 (bawaan 1; 0 = abu-abu), `gamma` 0.1..10 (bawaan 1; di atas 1 mencerahkan tengah). Sedikitnya satu parameter wajib. | `lutrgb` dan `colorchannelmixer` |
 | `keseimbangan` | `bayangan`, `tengah`, `sorotan`: masing-masing `[merah, hijau, biru]` berisi tiga angka -1..1; `jagaTerang` (boolean, mempertahankan kecerahan). Sedikitnya satu dari tiga wajib. | `colorbalance` |
@@ -62,7 +66,15 @@ Contoh stabilisasi dan chroma key (klip berlatar hijau, keluaran PNG beralfa):
 
 **`kunciWarna`.** Chroma key: piksel yang mirip `warna` menjadi transparan. `toleransi` adalah `similarity` ffmpeg (seberapa jauh warna boleh menyimpang dan tetap dikunci) dan `halus` adalah `blend` (lebar peralihan alfa di tepi; 0 = tepi keras). `rgb` memakai `colorkey`, jarak di ruang RGB: sederhana dan memadai untuk latar rata. `yuv` memakai `chromakey`, jarak pada kroma saja (terang diabaikan): lebih tahan terhadap latar yang tidak rata terangnya, seperti layar hijau berbayang. Pada `yuv`, hanya kanal alfa yang diambil dari salinan YUV 4:4:4 dan digabung kembali ke RGB asli (`alphamerge`), sehingga warna subjek tidak berubah oleh konversi YUV. Efek dipasang setelah penskalaan dan **sebelum** efek `warna`, `lut`, dan `keseimbangan` apa pun yang ditulis di array (urutan antar-tahap tetap: stabil, kunciWarna, lalu efek warna): `warna` kunci mengacu ke warna sumber, bukan hasil koreksi, dan alfa dibawa melewati efek warna tanpa berubah. Tidak ada despill (penghilangan pantulan hijau pada tepi subjek); tepi subjek berbayang hijau perlu `toleransi` lebih besar atau koreksi `warna` setelahnya.
 
-**Format PNG.** Efek beralfa menghasilkan PNG RGBA. Bila `format` tidak ditulis, klip otomatis berformat `png` (`ekstensi` di `klip-props.json` menjadi `png`; kualitas JPEG tidak berlaku). `"format": "jpg"` bersama `kunciWarna` ditolak dengan kode keluar `2` sebelum ffmpeg (JPEG tidak punya alfa). `klipGambar` menggambar PNG ke `<canvas>` setelah `clearRect`, jadi area transparan menampilkan latar komposisi; PNG jauh lebih besar daripada JPEG dan memperbesar cache.
+**`hapusLatar`.** Menghapus latar subjek orang **tanpa layar hijau**, sepenuhnya lokal: model segmentasi (MediaPipe Selfie Segmentation atau MODNet, lisensi Apache-2.0, bobot tidak dibundel; lihat [segmentasi-latar.md](segmentasi-latar.md)) membuat mask per frame, dan mask itu **dibekukan** ke PNG RGBA di cache. Render hanya membaca PNG dan **tidak pernah memanggil model**. Cara kerja pada cache miss:
+
+1. ffmpeg mendekode klip ke `rgb24` mentah lewat pipa pada fps komposisi, pada **ukuran klip** (`lebar` x `tinggi`) dan sesudah tahap `pra` (mis. `stabil`) serta penskalaan dengan matriks warna: frame yang dilihat model sama dengan frame yang akan di-cache. Model mengubah ukuran sendiri ke ukuran masukannya (bilinear bilangan bulat).
+2. Bun menjalankan ORT per frame, **berurutan dari satu proses** (EMA bergantung frame sebelumnya): hasil model, lalu `ambang` (smoothstep), lalu `ema`; mask 8 bit ditulis berurutan ke berkas sementara `mask.gray` di folder kerja (`lebar x tinggi` byte per frame; dihapus sesudahnya, tidak ikut cache).
+3. ffmpeg kedua membaca klip dengan rantai yang sama dan `mask.gray` sebagai masukan kedua, memberi `halus` (feather `boxblur`, hanya bila > 0), dan `alphamerge` memasang mask sebagai kanal alfa sebelum efek `warna`, `lut`, dan `keseimbangan`. Keluaran PNG RGBA seperti `kunciWarna`; RGB subjek tidak berubah (diuji identik dengan klip tanpa efek). Jumlah frame mask harus sama dengan frame hasil, bila tidak ekstraksi gagal dan tidak ada yang di-cache.
+
+Konfigurasi runtime lewat lingkungan, bukan manifest, supaya manifest portabel: `AWVD_ORT` (folder paket `onnxruntime-node`), `AWVD_MODEL_DIR` (folder bobot), dan opsional `AWVD_REGISTRI_SEGMENTASI` (registri model kustom). Pemeriksaan dilakukan **sebelum ffprobe dan ffmpeg** dan fail-closed: model tidak dikenal, `ukuranInput` yang tidak cocok model, atau sha256 atau ukuran bobot registri salah berhenti dengan kode keluar `2`; ORT tidak ditunjuk atau tidak termuat, atau bobot tidak ada, berhenti dengan kode keluar `1`. Pesannya menyebut yang kurang dan langkah memperbaikinya, tanpa folder hasil. ORT dan bobot diperlukan juga pada cache hit, karena kunci cache memuat sha256 bobot dan versi ORT; cache hit sendiri tidak membuat sesi ORT dan tidak menjalankan inferensi. Hanya Linux x64 yang dijamin; kualitas mask pada orang nyata tidak diukur di repo ini (hanya klip sintetis); lihat [batasan.md](batasan.md#segmentasi-latar-lokal).
+
+**Format PNG.** Efek beralfa menghasilkan PNG RGBA. Bila `format` tidak ditulis, klip otomatis berformat `png` (`ekstensi` di `klip-props.json` menjadi `png`; kualitas JPEG tidak berlaku). `"format": "jpg"` bersama `kunciWarna` atau `hapusLatar` ditolak dengan kode keluar `2` sebelum ffmpeg (JPEG tidak punya alfa). `klipGambar` menggambar PNG ke `<canvas>` setelah `clearRect`, jadi area transparan menampilkan latar komposisi; PNG jauh lebih besar daripada JPEG dan memperbesar cache.
 
 **`lut`.** Hanya LUT 3D format `.cube` (Adobe/Resolve). Berkas diurai dan diperiksa sebelum ekstraksi dengan sikap yang sama seperti ffmpeg (fail-closed): `LUT_3D_SIZE` wajib dan 2..256, jumlah baris data harus tepat `ukuran^3`, baris data harus tiga bilangan, `DOMAIN_MIN` dan `DOMAIN_MAX` diterima, LUT 1D dan kata kunci lain ditolak. Urutan data: merah paling cepat berubah. Interpolasi `tetrahedral` adalah bawaan ffmpeg dan yang paling setia pada sumbu abu-abu; `trilinear` dipakai bila hasil bit-eksak untuk LUT identitas dibutuhkan (lihat di bawah). Berkas LUT disalin ke folder kerja ekstraksi dan dihapus lagi, sehingga jalur dengan spasi atau karakter khusus filter ffmpeg aman tanpa escape.
 
@@ -74,20 +86,20 @@ Efek yang semua parameternya netral (mis. `warna` dengan `kecerahan: 0`, `kontra
 
 ## Rantai ekstraksi dan urutan
 
-Rantai filter ffmpeg untuk satu klip: `fps` (dan koreksi SAR bila perlu), tahap **pra** (`stabil`, pada frame sumber), `scale` ke ukuran klip dengan matriks dan rentang warna eksplisit (lihat Warna di [video-tertanam-audio.md](video-tertanam-audio.md#scriptsklipmjs)), `format=rgb24`, tahap **alfa** (`kunciWarna`: `format=rgba`, filter kunci, `format=rgba`), lalu tahap **warna** bila ada efek: `format=gbrp` (atau `gbrap` bila ada alfa), filter efek berurutan, `format=rgb24` (atau `rgba`). Efek warna diterapkan **setelah penskalaan**, pada frame ukuran akhir dalam RGB 8 bit ber-gamma (konversi `rgb24` dan `gbrp` tanpa kehilangan), sehingga LUT melihat nilai yang sama dengan yang akan ditampilkan; filter warna tidak menyentuh kanal alfa. Untuk vidstab, pass analisis memakai awalan rantai yang sama (`fps`, koreksi SAR) lalu `vidstabdetect`, tanpa keluaran frame. Audio klip (`audio.wav`) tidak diolah.
+Rantai filter ffmpeg untuk satu klip: `fps` (dan koreksi SAR bila perlu), tahap **pra** (`stabil`, pada frame sumber), `scale` ke ukuran klip dengan matriks dan rentang warna eksplisit (lihat Warna di [video-tertanam-audio.md](video-tertanam-audio.md#scriptsklipmjs)), `format=rgb24`, tahap **alfa** (`kunciWarna`: `format=rgba`, filter kunci, `format=rgba`; `hapusLatar`: rantai berpindah ke `-filter_complex` dengan `[0:v]...format=rgba[c];[1:v]format=gray[,boxblur][m];[c][m]alphamerge`, `[1:v]` = `mask.gray` mentah pada fps yang sama), lalu tahap **warna** bila ada efek: `format=gbrp` (atau `gbrap` bila ada alfa), filter efek berurutan, `format=rgb24` (atau `rgba`). Efek warna diterapkan **setelah penskalaan**, pada frame ukuran akhir dalam RGB 8 bit ber-gamma (konversi `rgb24` dan `gbrp` tanpa kehilangan), sehingga LUT melihat nilai yang sama dengan yang akan ditampilkan; filter warna tidak menyentuh kanal alfa. Satu klip hanya boleh punya satu sumber alfa: `kunciWarna` dan `hapusLatar` pada klip yang sama ditolak dengan kode keluar `2` sebelum ffmpeg. Untuk vidstab, pass analisis memakai awalan rantai yang sama (`fps`, koreksi SAR) lalu `vidstabdetect`, tanpa keluaran frame. Audio klip (`audio.wav`) tidak diolah.
 
 Urutan antar-tahap tetap (pra, alfa, warna) dan tidak mengikuti urutan array; dalam satu tahap, urutan efek mengikuti urutan array (urutan penting: LUT lalu koreksi berbeda dengan koreksi lalu LUT).
 
 ## Cache
 
-Kunci cache menambahkan `efek` ke kunci lama: daftar efek kanonik (parameter berisi nilai bawaan yang sudah terisi, tanpa efek netral) dan, untuk `lut`, **sha256 isi berkas LUT** dan interpolasi; untuk `stabil`, mesin yang terpilih (`vidstab` atau `deshake`, sesudah `otomatis` diselesaikan); untuk `kunciWarna`, warna (huruf kecil), toleransi, halus, dan metode. Format berkas frame (`png` otomatis untuk efek beralfa) juga ikut kunci. Akibatnya:
+Kunci cache menambahkan `efek` ke kunci lama: daftar efek kanonik (parameter berisi nilai bawaan yang sudah terisi, tanpa efek netral) dan, untuk `lut`, **sha256 isi berkas LUT** dan interpolasi; untuk `stabil`, mesin yang terpilih (`vidstab` atau `deshake`, sesudah `otomatis` diselesaikan); untuk `kunciWarna`, warna (huruf kecil), toleransi, halus, dan metode; untuk `hapusLatar`, id model, `ukuranInput` kanonik (`[lebar, tinggi]` hasil penyelesaian, jadi `320` dan `[320, 180]` yang sama memberi kunci sama), `halus`, `ambang`, `ema`, **sha256 bobot**, **versi ORT**, versi pra/pasca-proses segmentasi, dan hash spesifikasi masukan model. Format berkas frame (`png` otomatis untuk efek beralfa) juga ikut kunci. Akibatnya:
 
 - manifest yang sama menghasilkan cache hit dan tidak menjalankan ffmpeg;
 - mengubah parameter, urutan, atau **isi LUT** (walau jalurnya sama) menghasilkan kunci baru; folder cache lama dibiarkan (seperti perubahan fps) kecuali dipangkas dengan `--bersihkan`; `--verifikasi` mengekstrak ulang folder yang hash frame-nya tidak cocok dengan `meta.json` ([video-tertanam-audio.md](video-tertanam-audio.md#scriptsklipmjs));
 - memindahkan proyek ke jalur lain tidak mengubah kunci, karena jalur mutlak tidak ikut dihash;
 - klip tanpa efek tidak berubah kuncinya, jadi cache lama tetap berlaku.
 
-`meta.json` di folder cache memuat daftar `efek` kanonik dan `framesSha256` seluruh frame; baris log `klip "id": ...` menyebut efek yang dipakai (`efek lut+warna`).
+`meta.json` di folder cache memuat daftar `efek` kanonik dan `framesSha256` seluruh frame; untuk `hapusLatar` juga blok `segmentasi` (laporan klip: `model`, `nama`, `sha256` bobot, `versiOrt`, `lisensiKode`, `lisensiBobot` dari registri, `kustom`, `lokal: true`, `versiSegmentasi`, `frameMask`), dan satu baris log `segmentasi lokal: ...` mencatat hal yang sama; baris log `klip "id": ...` menyebut efek yang dipakai (`efek lut+warna`).
 
 ## LUT identitas dan ketepatan
 
@@ -111,13 +123,16 @@ Uji `scripts/uji-klip.mjs` menegakkan keduanya. LUT nyata bukan identitas, jadi 
 - LUT dianggap berlaku pada RGB BT.709 hasil dekode (ruang tampil). LUT yang dirancang untuk masukan log (konversi log ke Rec. 709) hanya benar bila sumbernya memang log; hal ini belum diverifikasi dengan footage log nyata.
 - Tidak ada grading per frame atau keyframe efek; efek konstan sepanjang klip. Jadwal tampil klip tetap milik komposisi.
 - Stabilisasi hanya meredam gerak kamera global (geser, dan rotasi kecil oleh vidstab) dengan perkiraan satu lintasan per klip; objek yang bergerak besar di bingkai dapat menyesatkan perkiraan, dan klip yang terlalu pendek (beberapa frame) tidak berguna. deshake jauh lebih lemah daripada vidstab pada sumber yang tidak bertekstur. Kualitas pada rekaman genggam nyata belum diverifikasi; uji memakai kamera sintetis (tekstur statis dengan offset acak ber-seed).
-- Chroma key tidak punya despill, penghalus matte (erode atau blur alfa), atau pemisahan layar hijau yang tidak rata di luar yang dikerjakan `chromakey`. Hasilnya diuji pada latar hijau sintetis berwarna rata, bukan pada rekaman layar hijau nyata. Penghapusan latar tanpa layar warna (segmentasi AI) bukan bagian fitur ini.
+- Chroma key tidak punya despill, penghalus matte (erode atau blur alfa), atau pemisahan layar hijau yang tidak rata di luar yang dikerjakan `chromakey`. Hasilnya diuji pada latar hijau sintetis berwarna rata, bukan pada rekaman layar hijau nyata. Penghapusan latar tanpa layar warna ada di `hapusLatar`.
+- `hapusLatar`: mask berasal dari model per frame dan dapat berkedip walau ada `ema`; manfaat EMA dan kualitas mask pada orang nyata (tepi rambut, tangan, banyak orang, cahaya buruk) **belum diukur**, karena repo ini hanya memuat klip sintetis (AGENTS.md aturan 4 dan 11). Bukti pada footage berizin dikerjakan di repo proyek. Gambar orang tetap data pribadi yang izinnya diurus pemakai ([lisensi-kepatuhan.md](lisensi-kepatuhan.md)).
+- `hapusLatar` berjalan di CPU, berurutan: MODNet 512x288 sekitar 70 ms per frame dan MediaPipe selfie sekitar 12 sampai 19 ms per frame pada satu mesin 20 inti ([segmentasi-latar.md](segmentasi-latar.md#modul-segmentasi-libjs)); klip panjang berarti ekstraksi panjang (satu kali, hasilnya di-cache). `mask.gray` sementara memakai `lebar x tinggi` byte per frame (klip 1920x1080 selama 10 detik 30 fps: sekitar 622 MB) dan dihapus setelah ekstraksi. Mask memakai frame ukuran klip, jadi klip yang sangat kecil membatasi detail mask; ukuran klip dibatasi 8192 per sisi dan 16 juta piksel.
+- Tidak ada erosi atau mode "tahan"; `halus` hanya feather (`boxblur`) pada mask.
 - Efek beralfa hanya berformat PNG: berkas jauh lebih besar daripada JPEG.
 - Kunci cache memuat versi ffmpeg; mengganti versi ffmpeg mengekstrak ulang.
 
 ## Menambah jenis efek
 
-Jenis efek berikutnya (mis. yang tercatat di [roadmap.md](roadmap.md) fase F3) didaftarkan di registri `EFEK` pada `scripts/klip.mjs` tanpa mengubah skema: satu entri berisi `tahap` (`pra`, `alfa`, atau `warna`), `kunci` (kunci manifest yang sah), `periksa` (validasi, pesan galat), `kanonik` (bentuk untuk kunci cache; `null` bila netral), dan `saring` (filter ffmpeg, berkas yang perlu disalin, dan bila perlu `analisis`: filter pass pertama). Kunci opsional: `maks` (jumlah maksimal per klip), `alfa: true` (klip menjadi PNG), dan `kemampuan(e, kemampuan)` (memeriksa filter yang ada di build ffmpeg sebelum ekstraksi). Efek yang butuh tahap lain menambah satu entri di `TAHAP` dan satu slot di `argsEkstrak`; efek yang sudah ada tidak berubah.
+Jenis efek berikutnya (mis. yang tercatat di [roadmap.md](roadmap.md) fase F3) didaftarkan di registri `EFEK` pada `scripts/klip.mjs` tanpa mengubah skema: satu entri berisi `tahap` (`pra`, `alfa`, atau `warna`), `kunci` (kunci manifest yang sah), `periksa` (validasi, pesan galat), `kanonik` (bentuk untuk kunci cache; `null` bila netral), dan `saring` (filter ffmpeg, berkas yang perlu disalin, dan bila perlu `analisis`: filter pass pertama, serta `alfaDari`: masukan tambahan ffmpeg yang menjadi kanal alfa lewat `alphamerge`, dipakai `hapusLatar`). Kunci opsional: `maks` (jumlah maksimal per klip), `alfa: true` (klip menjadi PNG), dan `kemampuan(e, kemampuan)` (memeriksa filter yang ada di build ffmpeg sebelum ekstraksi). Efek yang butuh tahap lain menambah satu entri di `TAHAP` dan satu slot di `argsEkstrak`; efek yang sudah ada tidak berubah.
 
 ## Templat
 
@@ -129,6 +144,10 @@ bun templates/klip-tertanam/buat-lut.mjs .cache/awvd/lut   # membangkitkan ulang
 ```
 
 ## Changelog
+
+### 2026-11-08 - v1.3.0
+
+- Efek `hapusLatar` (F5/06, #89): hapus latar lokal tanpa layar hijau (segmentasi ORT, mask beku, `alphamerge`, PNG RGBA), skema (`model`, `ukuranInput`, `halus`, `ambang`, `ema`), pemeriksaan ORT dan bobot sha256 sebelum ffmpeg (kode keluar 1 dan 2), kunci cache dengan sha256 bobot dan versi ORT, laporan `segmentasi` di `meta.json`, penolakan gabungan dengan `kunciWarna`, kontrak `alfaDari`, dan batasan.
 
 ### 2026-11-08 - v1.2.1
 

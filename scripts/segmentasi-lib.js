@@ -33,8 +33,9 @@ export const VERSI_SEGMENTASI = 1;
 export const VERSI_REGISTRI = 1;
 /** Ukuran bobot maksimum (byte) yang dibaca ke memori. */
 export const BATAS_BOBOT_BYTE = 512 * 1024 * 1024;
-const BATAS_SISI = 8192;
-const BATAS_PIKSEL = 16 * 1024 * 1024;
+/** Batas bingkai yang diterima segmenter (per sisi dan jumlah piksel); dipakai klip.mjs untuk validasi dini. */
+export const BATAS_SISI = 8192;
+export const BATAS_PIKSEL = 16 * 1024 * 1024;
 /** Lisensi bobot dan kode yang diterima registri bawaan (permisif). */
 export const LISENSI_PERMISIF = ["Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC"];
 

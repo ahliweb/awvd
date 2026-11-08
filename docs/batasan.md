@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.10.0`
+- Version: `v1.11.0`
 - Last updated: `2026-11-08`
-- Changeset: `Bagian Segmentasi latar lokal: hanya Linux x64 yang diuji dan dijamin, ORT dan bobot bukan dependensi, bukti hanya sintetis pada satu mesin dan satu versi ORT, mask berurutan karena EMA, hash bobot milik konversi komunitas. Sebelumnya: batasan cache segmen.`
+- Changeset: `Bagian Segmentasi latar lokal diperbarui untuk efek klip hapusLatar (#89): terhubung ke klip, ORT dan bobot juga dibutuhkan pada cache hit, mask sementara per frame di disk, mask pada ukuran klip, berurutan dan di CPU, halus hanya feather. Sebelumnya: bagian Segmentasi latar lokal (#88): hanya Linux x64, bukan dependensi, bukti hanya sintetis.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -41,15 +41,21 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 
 ## Segmentasi latar lokal
 
-Modul `scripts/segmentasi-lib.js` ([segmentasi-latar.md](segmentasi-latar.md#modul-segmentasi-libjs)) bersifat opsional dan belum terhubung ke klip (#89).
+Modul `scripts/segmentasi-lib.js` ([segmentasi-latar.md](segmentasi-latar.md#modul-segmentasi-libjs)) bersifat opsional dan dipakai efek klip `hapusLatar` ([olah-klip.md](olah-klip.md#skema-efek), #89).
 
 - **Hanya Linux x64** yang diuji dan dijamin. macOS, Windows, dan ARM tidak diuji (paket `onnxruntime-node` memuat biner untuk platform itu, tetapi awvd tidak menjalankannya di sana).
 - **Bukan dependensi.** `onnxruntime-node` dan bobot model tidak dibundel dan tidak ada di `package.json`: pemakai memasangnya sendiri (`AWVD_ORT`, `AWVD_MODEL_DIR`). Tanpa itu fitur gagal tertutup (kode keluar 1, tanpa keluaran); CI tidak memasangnya sehingga uji inferensi nyata hanya jalan secara lokal.
 - **Bukti hanya sintetis.** Uji dan angka di repo memakai bingkai sintetis pada satu mesin dan satu versi ORT (1.31.1). Determinisme antar-run, antar-proses, dan antar-jumlah thread (1, 4, bawaan) terbukti di sana; antar-CPU (AVX2 vs AVX-512), antar-versi ORT, antar-OS, dan model int8 atau fp16 belum diuji. **Kualitas mask pada orang nyata (tepi rambut, tangan, banyak orang, cahaya buruk, kedip antar-bingkai) belum diukur**; manfaat EMA pada footage nyata belum dibuktikan.
-- Mask bergantung pada urutan bingkai (EMA): tidak dapat dihitung paralel antar-bingkai dalam satu klip.
-- Hash bobot yang dikunci adalah hash berkas konversi komunitas, bukan rilis resmi penulis; erosi, feather, dan mode "tahan" belum ada.
+- Mask bergantung pada urutan bingkai (EMA): tidak dapat dihitung paralel antar-bingkai dalam satu klip; ekstraksi berjalan di CPU dan berurutan (MODNet 512x288 sekitar 70 ms per frame pada satu mesin 20 inti), jadi klip panjang berarti ekstraksi panjang, sekali, lalu di-cache.
+- `hapusLatar` membutuhkan `AWVD_ORT` dan bobot yang cocok sha256 **juga pada cache hit** (kunci cache memuat sha256 bobot dan versi ORT); tanpa itu manifest ditolak sebelum ffprobe (kode keluar 1 atau 2). Cache hit sendiri tidak memanggil model.
+- Mask sementara `mask.gray` memakai `lebar x tinggi` byte per frame di folder kerja (klip 1920x1080, 10 detik, 30 fps: sekitar 622 MB) dan dihapus setelah ekstraksi. Mask dihitung pada frame ukuran klip (maksimal 8192 per sisi dan 16 juta piksel); frame PNG RGBA jauh lebih besar daripada JPEG.
+- `halus` hanya feather (`boxblur` 0..32 piksel) pada mask; erosi, mode "tahan", dan despill belum ada. Hash bobot yang dikunci adalah hash berkas konversi komunitas, bukan rilis resmi penulis.
 
 ## Changelog
+
+### 2026-11-08 - v1.11.0
+
+- Bagian Segmentasi latar lokal: `hapusLatar` terhubung ke klip (#89); batasan cache hit, disk sementara, ukuran klip, CPU berurutan, dan `halus`.
 
 ### 2026-11-08 - v1.10.0
 
