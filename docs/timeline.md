@@ -8,7 +8,7 @@
 
 `timeline.json` adalah rencana video yang bisa ditinjau sebagai data: daftar track berisi butir (klip video, gambar, warna, teks, kredit, audio) dengan posisi absolut dalam frame. Dokumen ini menjelaskan format dan validatornya, `bun run timeline periksa`, yang menolak timeline yang salah **sebelum Chromium diluncurkan**, dengan pola yang sama seperti `aset.json` dan `sumber.json`.
 
-> **Status.** Yang ada: skema, validator, dan contoh (issue #31), helper pemetaan waktu klip di `runtime.js` (#33) yang dipakai validator, keyframe properti generik di `runtime.js` (#35), rencana audio (#34), dan templat render generik `templates/timeline/` dengan penjadwal `scripts/timeline.js` (#32). rencana audio turunan timeline lewat `bun run audio -- --timeline` (#34, bagian Rencana audio). **Menyusul:** dokumen penutup F2 (#36).
+> **Status.** Yang ada: skema, validator, dan contoh (issue #31), helper pemetaan waktu klip di `runtime.js` (#33) yang dipakai validator, keyframe properti generik di `runtime.js` (#35), rencana audio (#34), dan templat render generik `templates/timeline/` dengan penjadwal `scripts/timeline.js` (#32). Rencana audio turunan dibuat lewat `bun run audio -- --timeline` (#34, bagian Rencana audio). **Menyusul:** dokumen penutup F2 (#36).
 
 ## Alur
 
