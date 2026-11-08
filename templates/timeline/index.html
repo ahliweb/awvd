@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Templat timeline awvd</title>
+<style>
+  html, body { margin: 0; background: #000; }
+  #layar {
+    position: relative; overflow: hidden; background: #000;
+    font-family: system-ui, "Segoe UI", Roboto, "DejaVu Sans", sans-serif;
+  }
+  .lapis, .luar { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  .ov { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+  .kredit-layar { position: absolute; margin: 0; padding: 6px 14px; color: #fff; background: rgba(0, 0, 0, .65); line-height: 1.3; }
+</style>
+</head>
+<body>
+<div id="layar"></div>
+<script src="../../scripts/runtime.js"></script>
+<script src="../../scripts/transisi.js"></script>
+<script src="../../scripts/timeline.js"></script>
+<script>
+  // Templat generik: merender timeline.json apa pun (skema 1; docs/timeline.md). Props:
+  //   { timeline, klip, aset, akarAset }
+  //   timeline = isi timeline.json; klip = klip[] dari klip-props.json (bun run klip);
+  //   aset = peta aset dari aset-props.json (bun run aset periksa); akarAset = URL file:// folder aset.json.
+  // Siapkan semuanya dengan:  bun templates/timeline/siapkan.mjs <timeline.json> --out .cache/awvd/timeline
+  // lalu render dengan:       --props-file .cache/awvd/timeline/props.json
+  // Jadwal, transisi, animasi, dan pemetaan waktu klip dihitung scripts/timeline.js, transisi.js, dan
+  // runtime.js; berkas ini hanya menempelkan hasilnya ke DOM, sebagai fungsi murni dari nomor frame.
+  // Audio belum dirender di sini (rencana audio: issue lain). Track audio dan penanda dilewati.
+  (function () {
+    function bacaProps() {
+      if (window.videoProps) return window.videoProps;
+      try { const q = new URLSearchParams(window.location.search); if (q.has("props")) return JSON.parse(q.get("props")); } catch (e) { /* props tak terbaca */ }
+      return {};
+    }
+    const props = bacaProps();
+    if (!props.timeline) {
+      throw new Error("props.timeline wajib: jalankan bun templates/timeline/siapkan.mjs <timeline.json> lalu render dengan --props-file hasilnya");
+    }
+    const T = window.Timeline, Tr = window.Transisi;
+    const R = T.rencana(props.timeline);
+    const P = R.proyek;
+    const layar = document.getElementById("layar");
+    layar.style.width = P.lebar + "px";
+    layar.style.height = P.tinggi + "px";
+    layar.style.background = P.latar;
+
+    const tulis = (el, gaya) => { for (const k in gaya) { const v = gaya[k]; el.style[k] = typeof v === "number" ? String(v) : v; } };
+    const GAMBAR_KOSONG = window.gambarKosong;
+
+    // satu pembungkus per track visual (urutan tumpukan = indeks track, 0 paling bawah); overlay transisi
+    // ada di dalam pembungkus track yang bertransisi
+    const pembungkus = new Map();
+    for (const tr of R.track) {
+      if (!tr.aktif || !["video", "overlay", "teks"].includes(tr.jenis)) continue;
+      const w = document.createElement("div");
+      w.className = "lapis"; w.style.zIndex = String(tr.indeks + 1);
+      const ov = document.createElement("div"); ov.className = "ov";
+      w.appendChild(ov); layar.appendChild(w);
+      pembungkus.set(tr.id, { w, ov });
+    }
+
+    const dom = new Map(); // id butir -> { luar, dalam, media, kr }
+    function buat(e) {
+      const b = e.butir, wrap = pembungkus.get(e.track.id);
+      const luar = document.createElement("div"); luar.className = "luar";
+      const dalam = document.createElement("div");
+      luar.appendChild(dalam);
+      let media = null, kr = null;
+      if (b.jenis === "video") {
+        media = document.createElement("canvas");
+        media.setAttribute("role", "img"); media.setAttribute("aria-label", "Klip " + b.klip);
+        tulis(media, { display: "block", width: "100%", height: "100%" });
+        dalam.appendChild(media);
+      } else if (b.jenis === "gambar") {
+        media = document.createElement("img");
+        media.alt = ""; media.src = GAMBAR_KOSONG;
+        tulis(media, { display: "block", width: "100%", height: "100%" });
+        dalam.appendChild(media);
+      }
+      if ((b.jenis === "video" || b.jenis === "gambar") && b.kreditLayar) {
+        kr = document.createElement("p"); kr.className = "kredit-layar";
+        luar.appendChild(kr);
+      }
+      wrap.w.insertBefore(luar, wrap.ov);
+      const d = { luar, dalam, media, kr };
+      dom.set(b.id, d);
+      return d;
+    }
+
+    // bungkus kata agar huruf tidak terpotong di tengah kata saat baris pindah (animasi per huruf)
+    function isiUnit(dalam, unit) {
+      const frag = document.createDocumentFragment();
+      let kata = null;
+      for (const u of unit) {
+        if (u.spasi) { kata = null; frag.appendChild(document.createTextNode(u.teks)); continue; }
+        if (!kata) { kata = document.createElement("span"); kata.style.whiteSpace = "nowrap"; frag.appendChild(kata); }
+        const s = document.createElement("span");
+        s.textContent = u.teks;
+        s.style.display = "inline-block";
+        tulis(s, u.gaya);
+        kata.appendChild(s);
+      }
+      dalam.replaceChildren(frag);
+    }
+
+    const klipPerId = {};
+    for (const k of props.klip || []) klipPerId[k.id] = k;
+    let teksKreditAkhir = null;
+
+    defineVideo({
+      width: P.lebar, height: P.tinggi, fps: P.fps, durationInFrames: P.durasi,
+      async render(frame, ctx) {
+        const S = T.keadaan(R, frame);
+        const A = areaAman(ctx.width, ctx.height).aksi;
+        const tampil = new Set(S.butir.map((e) => e.butir.id));
+        for (const [id, d] of dom) if (!tampil.has(id)) d.luar.style.display = "none";
+
+        // transisi: filter SVG, wadah, dan overlay hanya untuk track yang bertransisi; track lain bersih
+        if (S.transisi) {
+          const h = S.transisi.hasil, wp = pembungkus.get(S.transisi.track.id);
+          Tr.terapkan({ wadah: h.wadah, overlay: h.overlay, svg: h.svg }, { wadah: wp.w, overlay: wp.ov });
+        } else Tr.terapkan({}, {});
+        for (const [id, wp] of pembungkus) {
+          if (S.transisi && S.transisi.track.id === id) continue;
+          tulis(wp.w, { perspective: "none", perspectiveOrigin: "50% 50%", background: "" });
+          wp.ov.replaceChildren();
+        }
+
+        for (const e of S.butir) {
+          const b = e.butir, d = dom.get(b.id) || buat(e);
+          tulis(d.luar, e.gayaLuar);
+          const s = T.sifat(R, b, e.lokal);
+          d.dalam.style.cssText = "";
+          const media = b.jenis === "video" || b.jenis === "gambar" || b.jenis === "warna";
+          tulis(d.dalam, Object.assign({ position: "absolute", boxSizing: "border-box", overflow: media ? "hidden" : "visible" }, s.gaya));
+
+          if (b.jenis === "video") {
+            const k = klipPerId[b.klip];
+            if (!k) throw new Error("klip tidak ada di props.klip: " + b.klip);
+            await klipGambar(d.media, k, e.lokal, T.opsiKlip(b));
+            d.media.style.objectFit = s.kotak.fit;
+          } else if (b.jenis === "gambar") {
+            await asetGambar(b.aset, { ctx, akar: props.akarAset, target: d.media });
+            tulis(d.media, { objectFit: s.kotak.fit, transform: s.kenBurns || "none", transformOrigin: "50% 50%" });
+          } else if (b.jenis === "warna") {
+            d.dalam.style.background = b.warna;
+          } else {
+            // teks dan kredit
+            const g = T.gayaTeks(R, b);
+            const fontId = g.fontId; delete g.fontId;
+            tulis(d.dalam, g);
+            d.dalam.style.whiteSpace = "pre-wrap";
+            if (fontId) {
+              const fam = (await pasangFont(fontId, { ctx, akar: props.akarAset }))[0];
+              d.dalam.style.fontFamily = '"' + fam + '", system-ui, sans-serif';
+            }
+            if (b.jenis === "kredit") {
+              teksKreditAkhir = teksKreditAkhir || T.teksKredit(R, props).join("\n");
+              d.dalam.textContent = teksKreditAkhir;
+            } else if (s.unit) isiUnit(d.dalam, s.unit);
+            else d.dalam.textContent = b.isi;
+          }
+          if (d.kr) {
+            d.kr.textContent = T.teksKreditLayar(b, props);
+            tulis(d.kr, { left: A.x + "px", bottom: (ctx.height - A.y - A.h) + "px", fontSize: ukuranTeks(ctx.height, "keterangan").px + "px", maxWidth: (A.w - 28) + "px" });
+          }
+        }
+      },
+    });
+  })();
+</script>
+</body>
+</html>
