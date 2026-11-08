@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.30.0`
+- Version: `v2.30.1`
 - Last updated: `2026-11-08`
-- Changeset: `§Perintah utama: penyunting memuat tombol Unduh cadangan (#98); §Struktur repo: model.js memuat serialisasi bersama server; indeks dokumentasi: penyunting.md v2.2.0, aksesibilitas.md v1.9.2, roadmap.md v1.26.0, docs/README.md v1.17.12. Sebelumnya: indeks dokumentasi penyunting.md v2.1.0 (#94), aksesibilitas.md v1.9.1, roadmap.md v1.25.0, docs/README.md v1.17.11.`
+- Changeset: `Indeks dokumentasi: versi roadmap.md v1.26.1 dan docs/README.md v1.17.13. Sebelumnya: §Perintah utama: penyunting memuat tombol Unduh cadangan (#98); §Struktur repo: model.js memuat serialisasi bersama server; indeks dokumentasi: penyunting.md v2.2.0, aksesibilitas.md v1.9.2, roadmap.md v1.26.0, docs/README.md v1.17.12.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -74,7 +74,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.12` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.13` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.3.0` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.6.1` |
 | [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.9.0` |
@@ -91,7 +91,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.11.0` |
 | [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab aset, matriks lisensi aset, matriks model segmentasi, video pihak ketiga | `v1.7.1` |
 | [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.1.0` |
-| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.26.0` |
+| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.26.1` |
 | [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.29.0` |
 | [docs/narasi-caption.md](docs/narasi-caption.md) | `bun run narasi`: `naskah.json`, estimasi berjangkar jeda, cue VTT/SRT dengan lint cps, rencana audio, mode dan posisi caption | `v1.3.0` |
 | [docs/ketukan.md](docs/ketukan.md) | `bun run ketukan`: onset fluks spektral, tempo autokorelasi, ketukan berselaras grid, `ketukan.json`, helper `window.Ketukan`, batas bukti | `v1.0.0` |
@@ -164,6 +164,10 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 **Peringatan hukum: video pihak ketiga.** awvd tidak menyediakan dan tidak akan menyediakan pengunduh atau perekam video platform (YouTube, TikTok, Facebook, Instagram, X, dan sejenisnya); fitur sumber hanya menerima berkas yang sah Anda miliki, dengan manifest dan atribusi. Kutipan untuk video reaction dan ulasan diperiksa terhadap kebijakan internal yang terukur dan gerbang tinjauan hukum, bukan jaminan kutipan sah. Dokumentasi ini bukan nasihat hukum; rincian di [docs/pelajari-reaction.md](docs/pelajari-reaction.md).
 
 ## Changelog
+
+### 2026-11-08 - v2.30.1
+
+- Indeks dokumentasi memperbarui versi `roadmap.md` v1.26.1 dan `docs/README.md` v1.17.13.
 
 ### 2026-11-08 - v2.30.0
 
