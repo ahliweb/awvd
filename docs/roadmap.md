@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.26.0`
+- Version: `v1.26.1`
 - Last updated: `2026-11-08`
-- Changeset: `F5 berstatus selesai (epik #47 ditutup) dan F6/05 (#98) selesai: tombol unduh cadangan timeline hasil suntingan; F6 selesai (F6/01 sampai F6/05). Sebelumnya: F6/04 (#94) selesai.`
+- Changeset: `Status F1 dikoreksi menjadi selesai (epik #17 dan semua sub-issue F1/01 sampai F1/10 sudah ditutup); kini F1 sampai F6 selesai. Sebelumnya: F5 berstatus selesai (epik #47 ditutup) dan F6/05 (#98) selesai: tombol unduh cadangan timeline hasil suntingan; F6 selesai (F6/01 sampai F6/05).`
 
 ## Visi
 
@@ -42,7 +42,7 @@ Status memakai `rencana | berjalan | selesai | ditunda | dibatalkan`.
 
 | Fase | Milestone | Tujuan | Kriteria keluar | Status | Epik |
 | --- | --- | --- | --- | --- | --- |
-| F1 | F1 Fondasi produksi | Melengkapi alat produksi dasar | Pemeriksa visual, transisi, aset (P0–P1 dan helper runtime), reaction dan kutipan wajar, serta narasi (caption sinkron voice over, adaptor TTS opsional) ter-merge dengan uji dan dokumen; bug determinisme `--skala` diperbaiki | berjalan | [#17](https://github.com/ahliweb/awvd/issues/17) |
+| F1 | F1 Fondasi produksi | Melengkapi alat produksi dasar | Pemeriksa visual, transisi, aset (P0–P1 dan helper runtime), reaction dan kutipan wajar, serta narasi (caption sinkron voice over, adaptor TTS opsional) ter-merge dengan uji dan dokumen; bug determinisme `--skala` diperbaiki | selesai | [#17](https://github.com/ahliweb/awvd/issues/17) |
 | F2 | F2 Timeline deklaratif | Mengubah "tulis kode per video" menjadi "isi `timeline.json`" yang dirender templat generik | Format `timeline.json` (track video/audio/teks/overlay; klip in, out, speed, reverse, freeze; keyframe; transisi) tervalidasi dan dirender templat generik; contoh dan uji determinisme lolos | selesai | [#29](https://github.com/ahliweb/awvd/issues/29) |
 | F3 | F3 Pemrosesan klip | Olah klip di tahap ekstraksi dengan cache | `klip.mjs` mendukung LUT/filter warna, chroma key, stabilisasi, peredam bising, dan speed ramp; uji lolos | selesai | [#37](https://github.com/ahliweb/awvd/issues/37) |
 | F4 | F4 Kinerja render | Render footage panjang dalam waktu layak | Render lewat segmen dengan MP4 byte-identik untuk jumlah pekerja berapa pun dan tangkapan PNG per frame identik dengan tangkapan serial (KP-068); percepatan terukur dan didokumentasikan | selesai | [#43](https://github.com/ahliweb/awvd/issues/43) |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-08 - v1.26.1
+
+- Status F1 dikoreksi dari berjalan menjadi selesai: epik #17 dan semua sub-issue F1 sudah tertutup (status basi).
 
 ### 2026-11-08 - v1.26.0
 
