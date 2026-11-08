@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.5.0`
-- Last updated: `2026-11-07`
-- Changeset: `Menambahkan pemetaan waktu klip: petaWaktuKlip, frameSumber, kecepatanPermil, dan opsi waktu/durasi/dari pada indeksFrameKlip (trim, speed konstan dan ramp, reverse, freeze; bagian Pemetaan waktu klip). Sebelumnya: helper mode dan posisi caption.`
+- Version: `v1.6.0`
+- Last updated: `2026-11-08`
+- Changeset: `Menambahkan keyframe(frame, titik, opsi): lintasan nilai (angka atau larik) dengan easing per segmen, memakai ulang easing runtime. Sebelumnya: pemetaan waktu klip.`
 
 Referensi API `scripts/runtime.js`, yang dimuat komposisi lewat `<script src=".../scripts/runtime.js">`. Konsep komposisi dan protokol dengan renderer ada di [arsitektur.md](arsitektur.md); dasar riset dan checklist pemakaian helper ada di [pedoman-produksi.md](pedoman-produksi.md).
 
@@ -20,6 +20,7 @@ Semua fungsi tersedia sebagai global dan di `window.VideoTerprogram`.
 | `ctx` (argumen kedua `render`) | `{ fps, durationInFrames, width, height, props, detik }`; `detik = frame / fps`. |
 | `window.video` | `{ width, height, fps, durationInFrames, renderFrame(n) }`. `renderFrame` membulatkan `n`, menolak di luar `0..durationInFrames-1`, dan menjalankan render secara berurutan (satu pada satu waktu). |
 | `interpolasi(frame, masukan[], keluaran[], { clamp = true, easing })` | Pemetaan piecewise-linear. `masukan` naik tegas, panjang sama dengan `keluaran`, minimal 2 titik. `clamp: false` mengekstrapolasi linear. Easing hanya berlaku di dalam segmen. |
+| `keyframe(frame, [{ pada, nilai, easing? }], { clamp = true, easing })` | Lintasan nilai sembarang properti dengan easing per segmen. `pada` = frame (angka terhingga, naik tegas, boleh pecahan); `nilai` = angka atau larik angka (panjang sama di semua titik, mis. `[x, y]` atau `[r, g, b]`; hasil larik baru tiap panggilan). `easing` pada titik i berlaku untuk segmen i ke i+1 dan berupa nama easing, `[x1, y1, x2, y2]`, atau fungsi; titik terakhir tidak boleh punya `easing`. Titik tanpa `easing` memakai `opsi.easing`, lalu linear. Nilai di setiap titik persis `nilai`-nya (tanpa galat pembulatan easing), di antara titik mengikuti easing segmen; `clamp: false` mengekstrapolasi linear dari segmen pertama atau terakhir. Argumen tak sah (kurang dari 2 titik, `pada` tak naik, tipe nilai campur, easing tak dikenal) melempar galat. Pemakaian ulang `easing.*`; murni dari frame. Contoh: `keyframe(frame, [{ pada: 0, nilai: [0, 0], easing: "keluarCubic" }, { pada: 30, nilai: [100, 40], easing: "linear" }, { pada: 60, nilai: [100, 0] }])`. |
 | `easing.*` | `linear`, `masukQuad`, `keluarQuad`, `masukKeluarQuad`, `masukCubic`, `keluarCubic`, `masukKeluarCubic`, `masukBack`, `keluarBack`, `keluarElastis`, dan `bezier(x1, y1, x2, y2)` (setara `cubic-bezier` CSS). |
 | `pegas(frame, fps, { dari = 0, ke = 1, kekakuan = 100, redaman = 10, massa = 1, tunda = 0 })` | Pegas teredam bentuk-tertutup, mulai diam; murni fungsi dari frame. |
 | `urutan(frame, { dari = 0, durasi = Infinity })` | Segmen waktu: mengembalikan `{ aktif, lokal, progres }`. Aktif di `[dari, dari + durasi)`. |
@@ -132,6 +133,10 @@ Sumber tiap helper (rincian dan tingkat buktinya ada di baris tabel di atas dan 
 | `presetJenis` | Preset bertingkat bukti ([konsep-jenis-alur.md](konsep-jenis-alur.md#tingkat-bukti)) |
 
 ## Changelog
+
+### 2026-11-08 - v1.6.0
+
+- Menambahkan `keyframe` (lintasan nilai angka atau larik dengan easing per segmen; nilai tepat di tiap titik). API lain tidak berubah.
 
 ### 2026-11-07 - v1.5.0
 

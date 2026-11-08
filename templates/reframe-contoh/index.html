@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Contoh reframe 16:9 ke 9:16</title>
+<meta name="viewport" content="width=1080">
+<style>
+  html, body { margin: 0; background: #0b1220; }
+  /* Bingkai keluaran 9:16. Panggung sumber 16:9 (1920x1080) di dalamnya di-crop lewat transform. */
+  #layar { position: relative; width: 1080px; height: 1920px; overflow: hidden; font-family: system-ui, "Segoe UI", Roboto, "DejaVu Sans", sans-serif; color: #f8fafc; }
+  #panggung { position: absolute; left: 0; top: 0; background: linear-gradient(180deg, #1e3a8a 0%, #38bdf8 62%, #166534 62%, #14532d 100%); }
+  #papan { position: absolute; left: 700px; top: 380px; width: 520px; height: 90px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, .8); font-size: 44px; font-weight: 700; }
+  #subjek { position: absolute; top: 560px; width: 200px; height: 200px; margin-left: -100px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 0 16px rgba(245, 158, 11, .35); }
+  .teks { position: absolute; box-sizing: border-box; display: flex; align-items: center; padding: 0 24px; background: rgba(15, 23, 42, .72); border-radius: 16px; font-weight: 800; }
+  #judul { font-size: 64px; }
+  #ket { font-size: 44px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="layar">
+  <div id="panggung"><div id="papan">Papan sumber 16:9</div><div id="subjek"></div></div>
+  <div id="judul" class="teks"></div>
+  <div id="ket" class="teks"></div>
+</div>
+<script src="../../scripts/runtime.js"></script>
+<script src="../../scripts/reframe.js"></script>
+<script src="reframe-data.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const D = window.REFRAME_DATA;
+  const [kJudul, kKet] = D.teksKeluar;
+  const letak = (el, k) => { el.style.left = k.x + "px"; el.style.top = k.y + "px"; el.style.width = k.w + "px"; el.style.height = k.h + "px"; };
+  letak($("judul"), kJudul);
+  letak($("ket"), kKet);
+  $("judul").textContent = "Contoh Reframe";
+  $("ket").textContent = "Fokus mengikuti subjek";
+
+  defineVideo({
+    width: D.keluar.lebar, height: D.keluar.tinggi, fps: D.fps, durationInFrames: 150,
+    render(frame, ctx) {
+      Object.assign($("panggung").style, Reframe.gayaCrop(D, frame));
+      // Subjek bergerak dengan easing yang sama dengan keyframe crop (60..120), jadi tetap di tengah jendela.
+      const x = interpolasi(frame, [0, 60, 120], [960, 960, 1500], { easing: easing.masukKeluarCubic });
+      $("subjek").style.left = x + "px";
+      $("papan").style.opacity = String(frame <= 60 ? 1 : 0);
+    },
+  });
+</script>
+</body>
+</html>

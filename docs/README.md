@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.15.2`
-- Last updated: `2026-11-07`
-- Changeset: `Versi log-keputusan.md menjadi v1.16.1 (rujukan PR KP-053 sampai KP-062). Sebelumnya: versi timeline.md menjadi v1.0.1.`
+- Version: `v1.16.0`
+- Last updated: `2026-11-08`
+- Changeset: `Mendaftarkan reframe.md dan memperbarui versi cli.md, roadmap.md, dan log-keputusan.md. Sebelumnya: Versi api-runtime.md menjadi v1.6.0 (keyframe) dan roadmap.md diperbarui.`
 
 Pintu masuk ke seluruh dokumentasi rinci awvd. Ringkasan proyek, mulai cepat, dan perintah utama ada di [README akar](../README.md); aturan kerja kontributor dan AI agent ada di [AGENTS.md](../AGENTS.md); riwayat perubahan software ada di [CHANGELOG.md](../CHANGELOG.md).
 
@@ -15,8 +15,8 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
 | [arsitektur.md](arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`/`renderFrame`, pemblokiran jaringan, aturan determinisme, peran upstream, memakai awvd di repo proyek | `v1.1.1` |
-| [api-runtime.md](api-runtime.md) | Referensi seluruh API `scripts/runtime.js`, pemetaan waktu klip, mode URL, sumber riset helper | `v1.5.0` |
-| [cli.md](cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode BT.709, kenyaringan, daftar perintah lain | `v1.4.0` |
+| [api-runtime.md](api-runtime.md) | Referensi seluruh API `scripts/runtime.js`, pemetaan waktu klip, mode URL, sumber riset helper | `v1.6.0` |
+| [cli.md](cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode BT.709, kenyaringan, daftar perintah lain | `v1.7.0` |
 | [aset.md](aset.md) | `bun run aset`: manifest `aset.json`, matriks lisensi, SVG berdaftar-izin, resolusi, sRGB, atribusi, helper runtime (logo, ikon, kredit, font) | `v1.1.0` |
 | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) | `bun run periksa` (termasuk `--konsep`): pemeriksaan, ambang, kilatan fotosensitif | `v1.0.1` |
 | [konsep-jenis-alur.md](konsep-jenis-alur.md) | `bun run konsep`, `konsep.json`, 13 jenis video, 5 alur produksi, tingkat bukti, profil audiens | `v1.2.0` |
@@ -30,10 +30,11 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | [batasan.md](batasan.md) | Batasan yang diketahui dan penunjuk ke batasan per fitur | `v1.7.0` |
 | [lisensi-kepatuhan.md](lisensi-kepatuhan.md) | Lisensi MIT, asal kode, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab atas aset, matriks lisensi aset, video pihak ketiga dan kutipan wajar | `v1.5.0` |
 | [pedoman-produksi.md](pedoman-produksi.md) | Pedoman produksi berbasis riset, dipetakan ke fitur awvd, checklist, rencana | `v1.1.0` |
-| [roadmap.md](roadmap.md) | Roadmap: visi, fase F1–F6 dan kriteria keluarnya, paritas fitur, label dan milestone GitHub | `v1.10.0` |
-| [log-keputusan.md](log-keputusan.md) | Log keputusan awvd (KP-001 dst.) beserta alasan dan rujukan PR | `v1.16.1` |
+| [roadmap.md](roadmap.md) | Roadmap: visi, fase F1–F6 dan kriteria keluarnya, paritas fitur, label dan milestone GitHub | `v1.12.0` |
+| [log-keputusan.md](log-keputusan.md) | Log keputusan awvd (KP-001 dst.) beserta alasan dan rujukan PR | `v1.17.0` |
 | [narasi-caption.md](narasi-caption.md) | `bun run narasi`: skema `naskah.json`, estimasi timing berjangkar jeda, cue VTT/SRT dengan lint cps profil audiens, rencana audio, mode dan posisi caption, mesin suara pluggable, TTS dan ASR lokal opsional | `v1.3.0` |
 | [ketukan.md](ketukan.md) | `bun run ketukan`: onset fluks spektral, tempo autokorelasi, ketukan berselaras grid, skema `ketukan.json`, helper `window.Ketukan`, batas bukti | `v1.0.0` |
+| [reframe.md](reframe.md) | Reframe 16:9 ke 9:16: crop berkeyframe deterministik, skema `reframe.json`, `window.Reframe`, saran fokus opsional tanpa model, templat `reframe-contoh` | `v1.0.0` |
 | [timeline.md](timeline.md) | `timeline.json` (skema 1): track, butir, transisi tumpang tindih, pemetaan waktu klip; validator `bun run timeline periksa`, aturan R01-R17 dan W01-W09, kebijakan kutipan turunan; render dan audio menyusul | `v1.0.1` |
 | [README.md](README.md) | Indeks ini | `v1.15.2` |
 
@@ -92,6 +93,14 @@ flowchart TD
 - Dokumen berbahasa Indonesia dan tidak menyebut nama, path, atau tautan repo internal AhliWeb yang privat.
 
 ## Changelog
+
+### 2026-11-08 - v1.16.0
+
+- Mendaftarkan `reframe.md` (v1.0.0) di indeks; versi `cli.md`, `roadmap.md`, dan `log-keputusan.md` diperbarui.
+
+### 2026-11-08 - v1.15.3
+
+- Kolom Versi `api-runtime.md` v1.6.0 (helper `keyframe`) dan `roadmap.md` diperbarui.
 
 ### 2026-11-07 - v1.15.2
 

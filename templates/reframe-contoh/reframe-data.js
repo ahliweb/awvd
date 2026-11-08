@@ -1,0 +1,71 @@
+// Salinan reframe.json (bun scripts/uji-reframe.mjs menolak salinan yang basi). Jangan diedit tangan.
+window.REFRAME_DATA = {
+  "versi": 1,
+  "sumber": {
+    "lebar": 1920,
+    "tinggi": 1080
+  },
+  "keluar": {
+    "lebar": 1080,
+    "tinggi": 1920
+  },
+  "fps": 30,
+  "keyframe": [
+    {
+      "frame": 0,
+      "fokus": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 60,
+      "fokus": [
+        0.5,
+        0.5
+      ],
+      "easing": "masukKeluarCubic"
+    },
+    {
+      "frame": 120,
+      "fokus": [
+        0.78,
+        0.5
+      ]
+    },
+    {
+      "frame": 149,
+      "fokus": [
+        0.78,
+        0.5
+      ]
+    }
+  ],
+  "teksSumber": [
+    {
+      "x": 700,
+      "y": 380,
+      "w": 520,
+      "h": 90,
+      "dari": 0,
+      "sampai": 60,
+      "catatan": "papan judul sumber"
+    }
+  ],
+  "teksKeluar": [
+    {
+      "x": 100,
+      "y": 300,
+      "w": 800,
+      "h": 140,
+      "catatan": "judul"
+    },
+    {
+      "x": 100,
+      "y": 1250,
+      "w": 800,
+      "h": 120,
+      "catatan": "keterangan"
+    }
+  ]
+};
