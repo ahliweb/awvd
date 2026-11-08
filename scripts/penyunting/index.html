@@ -12,6 +12,14 @@
   <h1>awvd penyunting</h1>
   <p id="berkas" class="redup"></p>
   <p id="status" role="status" aria-live="polite">Memuat timeline...</p>
+  <div id="aksi-atas" class="baris-kontrol" role="group" aria-label="Riwayat dan ekspor">
+    <button type="button" id="urungkan" aria-disabled="true">Urungkan</button>
+    <button type="button" id="ulangi" aria-disabled="true">Ulangi</button>
+    <button type="button" id="ekspor" aria-disabled="true" aria-describedby="alasan-ekspor">Ekspor</button>
+    <button type="button" id="ekspor-ketat" aria-disabled="true" aria-describedby="alasan-ekspor">Ekspor ketat</button>
+  </div>
+  <p id="alasan-ekspor" class="redup kecil">Memeriksa timeline...</p>
+  <p id="galat-ekspor" role="alert" hidden></p>
 </header>
 
 <main id="utama">
@@ -54,7 +62,7 @@
       <details id="bantuan">
         <summary>Pintasan papan ketik</summary>
         <table>
-          <caption class="kecil">Pintasan hanya aktif saat fokus di dalam widget bersangkutan.</caption>
+          <caption class="kecil">Pintasan satu karakter hanya aktif saat fokus di dalam widget bersangkutan; pintasan global memakai Ctrl (atau Cmd).</caption>
           <thead><tr><th scope="col">Tombol</th><th scope="col">Fungsi</th></tr></thead>
           <tbody>
             <tr><th scope="row">Panah, Home, End (scrubber)</th><td>Geser 1 frame, ke awal, ke akhir</td></tr>
@@ -63,7 +71,15 @@
             <tr><th scope="row">Kiri, Kanan (track)</th><td>Butir sebelumnya atau berikutnya di track yang sama</td></tr>
             <tr><th scope="row">Atas, Bawah (track)</th><td>Track di atas atau di bawah, butir terdekat waktunya</td></tr>
             <tr><th scope="row">Home, End (track)</th><td>Butir pertama atau terakhir di track</td></tr>
-            <tr><th scope="row">Enter (track)</th><td>Pindahkan playhead ke awal butir</td></tr>
+            <tr><th scope="row">Enter (track)</th><td>Pindahkan playhead ke awal butir dan masuk mode sunting</td></tr>
+            <tr><th scope="row">F2 (track)</th><td>Masuk mode sunting tanpa memindahkan playhead</td></tr>
+            <tr><th scope="row">Kiri, Kanan (mode sunting)</th><td>Pindahkan butir 1 frame; dengan Shift 1 detik</td></tr>
+            <tr><th scope="row">Alt+Kiri, Alt+Kanan (mode sunting)</th><td>Ubah durasi sisi akhir 1 frame; dengan Shift 1 detik</td></tr>
+            <tr><th scope="row">S (track)</th><td>Potong butir di playhead (bila diperbolehkan)</td></tr>
+            <tr><th scope="row">Esc (mode sunting)</th><td>Keluar dari mode sunting</td></tr>
+            <tr><th scope="row">Ctrl+Z</th><td>Urungkan (di kolom angka berlaku urungkan ketikan bawaan peramban)</td></tr>
+            <tr><th scope="row">Ctrl+Shift+Z atau Ctrl+Y</th><td>Ulangi</td></tr>
+            <tr><th scope="row">Ctrl+S</th><td>Ekspor (hanya bila validator lolos)</td></tr>
           </tbody>
         </table>
       </details>
@@ -71,7 +87,7 @@
     <div id="gulir-track" role="region" aria-label="Area gulir timeline" tabindex="0">
       <div id="kanvas">
         <div id="penggaris" aria-hidden="true"></div>
-        <div id="grid" role="grid" aria-label="Track timeline" aria-readonly="true"></div>
+        <div id="grid" role="grid" aria-label="Track timeline"></div>
         <div id="playhead" aria-hidden="true"></div>
       </div>
     </div>
@@ -81,6 +97,34 @@
 <aside id="properti" aria-labelledby="h-properti">
   <h2 id="h-properti">Properti butir</h2>
   <div id="isi-properti"><p class="redup">Pilih butir di daftar track.</p></div>
+  <div id="sunting" hidden>
+    <h3 id="h-sunting">Sunting butir</h3>
+    <p id="mode-sunting" class="redup kecil" hidden>Mode sunting aktif: Kiri dan Kanan memindahkan 1 frame, Alt+Kiri dan Alt+Kanan mengubah durasi, S memotong, Esc keluar.</p>
+    <div class="baris-kontrol">
+      <label for="f-mulai">Mulai (frame)</label>
+      <input type="number" id="f-mulai" min="0" step="1" inputmode="numeric">
+      <button type="button" id="geser-min">Geser -1</button>
+      <button type="button" id="geser-plus">Geser +1</button>
+    </div>
+    <div class="baris-kontrol">
+      <label for="f-durasi">Durasi (frame)</label>
+      <input type="number" id="f-durasi" min="1" step="1" inputmode="numeric">
+      <button type="button" id="durasi-min">Durasi -1</button>
+      <button type="button" id="durasi-plus">Durasi +1</button>
+    </div>
+    <div class="baris-kontrol">
+      <label for="f-sisi">Sisi yang diubah</label>
+      <select id="f-sisi" aria-describedby="alasan-sisi">
+        <option value="kanan">Akhir (kanan)</option>
+        <option value="kiri">Awal (kiri)</option>
+      </select>
+    </div>
+    <p id="alasan-sisi" class="redup kecil" hidden></p>
+    <div class="baris-kontrol">
+      <button type="button" id="potong" aria-describedby="alasan-potong">Potong di playhead</button>
+    </div>
+    <p id="alasan-potong" class="redup kecil"></p>
+  </div>
 </aside>
 
 <section id="masalah" aria-labelledby="h-masalah">
@@ -88,6 +132,7 @@
   <ul id="daftar-masalah"></ul>
 </section>
 
+<script src="/model.js"></script>
 <script src="/penyunting.js"></script>
 </body>
 </html>

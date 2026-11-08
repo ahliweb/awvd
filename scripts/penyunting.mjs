@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * awvd / penyunting.mjs — penyunting pratinjau lokal untuk `timeline.json` (tampilan baca-saja, #54).
+ * awvd / penyunting.mjs — penyunting pratinjau lokal untuk `timeline.json` (tampilan #54, penyuntingan dan ekspor #55).
  *
- *   bun scripts/penyunting.mjs <timeline.json> [--port N] [--buka] [--draf] [--cache DIR]
+ *   bun scripts/penyunting.mjs <timeline.json> [--port N] [--buka] [--draf] [--cache DIR] [--timpa]
  *
  * Server kecil `Bun.serve` yang HANYA mendengarkan 127.0.0.1 dan melayani halaman penyunting
  * (`scripts/penyunting/`), templat render `templates/timeline/index.html` apa adanya (props disuntik
@@ -17,26 +17,36 @@
  * masalah muat (kode MUAT), bukan menghentikan server. Hanya JSON rusak atau berkas hilang yang
  * menghentikan CLI (kode keluar 2).
  *
+ * Penyuntingan (#55): halaman memegang model suntingan dan riwayat urungkan (scripts/penyunting/model.js) dan
+ * mengirim timeline PENUH ke dua rute POST: `/api/periksa` (validasi dengan konteks manifest yang di-cache,
+ * hasilnya jadi salinan kerja server yang dirender iframe) dan `/api/ekspor` (tulis hanya bila validator
+ * lolos). Hanya butir di dalam track yang boleh berubah; bagian lain harus sama dengan berkas sesi (konteks
+ * manifest yang di-cache hanya sah untuk itu). Jalur keluaran ditentukan CLI saja (`<nama>.sunting.json` di folder
+ * yang sama; `--timpa` menimpa sumber), tidak pernah oleh klien; penulisan atomik (berkas sementara, fsync, rename).
+ *
  * Keamanan (diuji di scripts/uji-penyunting.mjs): ikat 127.0.0.1; token acak 128 bit per sesi
  * (header X-Awvd-Token, parameter ?token=, atau cookie HttpOnly SameSite=Strict yang dipasang dari
- * halaman pertama untuk subsumber); pemeriksaan Host, Origin, dan Sec-Fetch-Site; rute daftar putih;
- * CSP ketat (skrip inline templat hanya lewat hash sha256); tautan simbolik keluar folder ditolak.
- * Versi ini tidak menulis berkas apa pun selain cache klip dan aset; semua metode selain GET ditolak.
+ * halaman pertama untuk subsumber; POST WAJIB header X-Awvd-Token); pemeriksaan Host, Origin, dan Sec-Fetch-Site;
+ * rute daftar putih; POST hanya application/json dengan badan <= 5 MB; CSP ketat (skrip inline templat hanya
+ * lewat hash sha256); tautan simbolik keluar folder ditolak. Selain cache klip dan aset, satu-satunya penulisan
+ * adalah berkas keluaran ekspor.
  * Kode keluar: 0 berhenti normal; 2 argumen, berkas, atau JSON tidak valid; 1 galat tak terduga.
  * Karya asli repo ini.
  */
 import { parseArgs } from "node:util";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeSync } from "node:fs";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BATAS_BERKAS_BYTE, periksaTimeline } from "./timeline.mjs";
+import { BATAS_BERKAS_BYTE, muatKonteks, periksaTimeline, validasiSkema } from "./timeline.mjs";
 
 const akar = join(dirname(fileURLToPath(import.meta.url)), "..");
 const dirHalaman = join(akar, "scripts", "penyunting");
 const berkasTemplat = join(akar, "templates", "timeline", "index.html");
 const skripPublik = new Set(["runtime.js", "transisi.js", "timeline.js"]);
+const berkasHalaman = new Set(["penyunting.js", "penyunting.css", "model.js"]);
 const BATAS_PESAN_MUAT = 2000;
+const BATAS_BODI_BYTE = BATAS_BERKAS_BYTE; // badan POST (timeline penuh, ringkas) sebesar-besarnya sama dengan berkas timeline
 
 const adaObjek = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
@@ -61,9 +71,11 @@ const potong = (s) => (s.length > BATAS_PESAN_MUAT ? `${s.slice(0, BATAS_PESAN_M
 /**
  * Menyiapkan sesi dari satu timeline.json. Tidak melempar untuk timeline yang hanya ditolak validator
  * atau gagal di langkah klip/aset; hanya berkas hilang, terlalu besar, atau bukan JSON.
- * @returns {Promise<object>} { berkas, tampil, dir, timeline, klip, aset, jalurAset, dirKlip, validasi, masalahMuat, draf }
+ * `timeline` adalah salinan kerja (berubah lewat /api/periksa dan /api/ekspor); `dasar` tetap sama dengan berkas
+ * sesi dan menjadi acuan bagian yang tidak boleh berubah. `keluaran` (jalur mutlak) hanya ditentukan di sini.
+ * @returns {Promise<object>} { berkas, tampil, keluaran, keluaranTampil, timpa, dir, dasar, timeline, klip, klipProps, aset, jalurAset, dirKlip, validasi, masalahMuat, draf }
  */
-export async function muatSesi({ berkas, tampil = berkas, cache = ".cache/awvd/penyunting", draf = false }) {
+export async function muatSesi({ berkas, tampil = berkas, cache = ".cache/awvd/penyunting", draf = false, timpa = false }) {
   const jalur = resolve(berkas);
   if (!existsSync(jalur) || !statSync(jalur).isFile()) throw new GalatCli(`timeline tidak ditemukan: ${tampil}`);
   const ukuran = statSync(jalur).size;
@@ -102,15 +114,6 @@ export async function muatSesi({ berkas, tampil = berkas, cache = ".cache/awvd/p
     }
   }
 
-  let validasi;
-  try {
-    const h = await periksaTimeline(t, { dir, klipProps: klip.length ? { klip } : undefined, draf });
-    validasi = { lolos: h.lolos, galat: h.galat, peringatan: h.peringatan, ringkasan: h.ringkasan };
-  } catch (e) {
-    // pemuatan manifest di validator dapat melempar (mis. manifest rusak): tampilkan sebagai galat, jangan matikan sesi
-    validasi = { lolos: false, galat: [{ kode: "MUAT", lok: "", pesan: potong(String(e.message)) }], peringatan: [], ringkasan: null };
-  }
-
   // whitelist media: hanya berkas yang disebut props (jalur aset bukan audio; folder klip hasil ekstraksi)
   const dirManifesAset = typeof manifesAset === "string" ? dirname(join(dir, manifesAset)) : dir;
   const jalurAset = new Map();
@@ -121,7 +124,85 @@ export async function muatSesi({ berkas, tampil = berkas, cache = ".cache/awvd/p
   }
   const folderKlip = new Set(klip.map((k) => k.folder).filter((f) => typeof f === "string" && /^[A-Za-z0-9_-]+$/.test(f)));
 
-  return { berkas: jalur, tampil, dir, timeline: t, klip, aset, jalurAset, dirAset: dirManifesAset, dirKlip, folderKlip, validasi, masalahMuat, draf };
+  const nama = (x) => `${x.replace(/\.json$/i, "")}.sunting.json`;
+  const sesi = {
+    berkas: jalur, tampil, keluaran: timpa ? jalur : nama(jalur), keluaranTampil: timpa ? tampil : nama(tampil), timpa,
+    dir, dasar: t, timeline: structuredClone(t), klip, klipProps: klip.length ? { klip } : undefined, aset, jalurAset, dirAset: dirManifesAset, dirKlip, folderKlip,
+    validasi: null, masalahMuat, draf, konteksJanji: null, urutan: 0, diterapkan: 0,
+  };
+  sesi.validasi = await periksaDraf(sesi, t);
+  return sesi;
+}
+
+/** Konteks manifest (aset.json, sumber.json, ffprobe) dimuat sekali dari timeline sesi, lalu dipakai ulang tiap validasi. */
+function konteksSesi(sesi) {
+  sesi.konteksJanji ??= (async () => {
+    try { return validasiSkema(sesi.dasar).length === 0 ? await muatKonteks(sesi.dasar, sesi.dir, { klipProps: sesi.klipProps }) : undefined; } catch { return undefined; }
+  })();
+  return sesi.konteksJanji;
+}
+
+/**
+ * Memvalidasi timeline (draf kerja) dengan `periksaTimeline`, satu-satunya validator. Konteks manifest di-cache
+ * (sah karena manifes, fps, jenisVideo, dan durasi proyek tidak boleh berubah; lihat bagianTetap). Tidak melempar.
+ */
+export async function periksaDraf(sesi, t, { ketat = false } = {}) {
+  try {
+    const h = await periksaTimeline(t, { dir: sesi.dir, klipProps: sesi.klipProps, draf: sesi.draf, ketat, konteks: await konteksSesi(sesi) });
+    return { lolos: h.lolos, galat: h.galat, peringatan: h.peringatan, ringkasan: h.ringkasan };
+  } catch (e) {
+    // pemuatan manifest di validator dapat melempar (mis. manifest rusak): tampilkan sebagai galat, jangan matikan sesi
+    return { lolos: false, galat: [{ kode: "MUAT", lok: "", pesan: potong(String(e.message)) }], peringatan: [], ringkasan: null };
+  }
+}
+
+const samaDalam = (a, b) => {
+  if (a === b) return true;
+  if (Array.isArray(a)) return Array.isArray(b) && a.length === b.length && a.every((x, i) => samaDalam(x, b[i]));
+  if (adaObjek(a)) {
+    if (!adaObjek(b)) return false;
+    const ka = Object.keys(a);
+    return ka.length === Object.keys(b).length && ka.every((k) => Object.hasOwn(b, k) && samaDalam(a[k], b[k]));
+  }
+  return false;
+};
+
+/**
+ * Hanya `butir` di dalam track yang boleh berubah di penyunting. Mengembalikan pesan galat, atau null bila sah.
+ * Konteks manifest yang di-cache dan keluaran yang diklaim "lolos validator" hanya benar untuk bagian lain yang tetap.
+ */
+export function bagianTetap(dasar, t) {
+  if (!adaObjek(t)) return "timeline harus objek JSON";
+  if (!Array.isArray(dasar.track)) return samaDalam(dasar, t) ? null : "timeline sesi tidak memuat track yang dapat disunting";
+  for (const k of new Set([...Object.keys(dasar), ...Object.keys(t)])) {
+    if (k !== "track" && !samaDalam(dasar[k], t[k])) return `bagian "${k}" tidak boleh diubah di penyunting`;
+  }
+  if (!Array.isArray(t.track) || t.track.length !== dasar.track.length) return "jumlah track tidak boleh berubah di penyunting";
+  for (let i = 0; i < dasar.track.length; i++) {
+    const a = dasar.track[i], b = t.track[i];
+    if (!adaObjek(a) || !adaObjek(b)) return `track ${i} tidak valid`;
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      if (k !== "butir" && !samaDalam(a[k], b[k])) return `bagian "track/${i}/${k}" tidak boleh diubah di penyunting`;
+    }
+    if (!Array.isArray(b.butir)) return `track ${i}: butir harus array`;
+  }
+  return null;
+}
+
+/** Penulisan atomik: berkas sementara di folder yang sama (mode dan fsync), lalu rename; sementara dibuang bila gagal. */
+export function tulisAtomik(tujuan, isi) {
+  const sementara = join(dirname(tujuan), `.${basename(tujuan)}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
+  let mode = 0o644;
+  try { mode = statSync(tujuan).mode & 0o777; } catch { /* belum ada */ }
+  try {
+    const fd = openSync(sementara, "wx", mode);
+    try { writeSync(fd, isi); fsyncSync(fd); } finally { closeSync(fd); }
+    try { chmodSync(sementara, mode); } catch { /* mode bawaan */ }
+    renameSync(sementara, tujuan);
+  } catch (e) {
+    rmSync(sementara, { force: true });
+    throw e;
+  }
 }
 
 /** Props untuk iframe komposisi: jalur media dipetakan dari file:// ke rute /media/... (relatif, satu asal). */
@@ -198,16 +279,80 @@ export function mulaiServer(sesi, { port = 0, token = randomBytes(16).toString("
   const tolak = (status, pesan, tambahan = {}) => new Response(`${pesan}\n`, {
     status, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", ...tambahan },
   });
-  const kirim = (isi, tipe, csp, tambahan = {}) => new Response(isi, {
+  const kirim = (isi, tipe, csp, { status = 200, ...tambahan } = {}) => new Response(isi, {
+    status,
     headers: {
       "Content-Type": tipe, "Content-Security-Policy": csp, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "no-referrer", "Cross-Origin-Resource-Policy": "same-origin", ...tambahan,
     },
   });
   const berkasStatik = (abs, csp) => kirim(Bun.file(abs), tipeDari(abs), csp);
+  const json = (status, obj) => kirim(JSON.stringify(obj), TIPE[".json"], CSP_HALAMAN, { status });
   let server;
 
-  function tangani(req) {
+  /** Membaca badan POST dengan batas ukuran (Content-Length dan hitungan aliran); melempar { status, pesan }. */
+  async function bacaBodi(req) {
+    const cl = req.headers.get("content-length");
+    if (cl !== null && (!/^\d+$/.test(cl) || Number(cl) > BATAS_BODI_BYTE)) throw { status: 413, pesan: `badan melebihi batas ${BATAS_BODI_BYTE / 1e6} MB` };
+    const bagian = [];
+    let total = 0;
+    if (req.body) {
+      const pembaca = req.body.getReader();
+      for (;;) {
+        const { done, value } = await pembaca.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > BATAS_BODI_BYTE) { pembaca.cancel().catch(() => {}); throw { status: 413, pesan: `badan melebihi batas ${BATAS_BODI_BYTE / 1e6} MB` }; }
+        bagian.push(value);
+      }
+    }
+    try {
+      const isi = JSON.parse(Buffer.concat(bagian).toString("utf8"));
+      if (!adaObjek(isi)) throw new Error("harus objek JSON");
+      return isi;
+    } catch (e) {
+      throw { status: 400, pesan: `badan bukan JSON objek yang valid: ${e.message}` };
+    }
+  }
+
+  /** Terima timeline dari klien: bentuk dan bagian tetap diperiksa sebelum validator. Melempar { status, pesan }. */
+  function terimaTimeline(isi) {
+    if (!adaObjek(isi.timeline)) throw { status: 400, pesan: 'badan harus berbentuk { "timeline": {...} }' };
+    const salah = bagianTetap(sesi.dasar, isi.timeline);
+    if (salah) throw { status: 422, pesan: salah };
+    return isi.timeline;
+  }
+
+  async function periksaDanSimpan(t, ketat = false) {
+    const n = ++sesi.urutan;
+    const h = await periksaDraf(sesi, t, { ketat });
+    if (!ketat && n > sesi.diterapkan) { sesi.diterapkan = n; sesi.timeline = t; sesi.validasi = h; }
+    return h;
+  }
+
+  async function tanganiPost(rute, req) {
+    let isi;
+    try {
+      if ((req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase() !== "application/json") throw { status: 415, pesan: "Content-Type harus application/json" };
+      isi = await bacaBodi(req);
+      const t = terimaTimeline(isi);
+      if (rute === "periksa") return json(200, { validasi: await periksaDanSimpan(t) });
+      // ekspor: tulis hanya bila validator lolos (ketat: peringatan dianggap galat); jalur keluaran tidak datang dari klien
+      const ketat = isi.ketat === true;
+      const h = ketat ? await periksaDraf(sesi, t, { ketat }) : await periksaDanSimpan(t);
+      if (!h.lolos) return json(422, { galat: `ekspor ditolak: validator menemukan ${h.galat.length} galat${ketat ? " (ekspor ketat)" : ""}; tidak ada berkas yang ditulis`, validasi: h });
+      const teks = `${JSON.stringify(t, null, 2)}\n`;
+      const byte = Buffer.byteLength(teks);
+      if (byte > BATAS_BERKAS_BYTE) throw { status: 413, pesan: `hasil ekspor ${(byte / 1e6).toFixed(1)} MB melebihi batas ${BATAS_BERKAS_BYTE / 1e6} MB yang diterima validator` };
+      try { tulisAtomik(sesi.keluaran, teks); } catch (e) { throw { status: 500, pesan: `gagal menulis ${sesi.keluaranTampil}: ${e.code ?? e.message}` }; }
+      return json(200, { ok: true, berkas: sesi.keluaranTampil, byte, timpa: sesi.timpa, draf: sesi.draf, ketat, validasi: h });
+    } catch (e) {
+      if (e && typeof e.status === "number") return json(e.status, { galat: e.pesan });
+      throw e;
+    }
+  }
+
+  async function tangani(req) {
     const url = new URL(req.url);
     const hostSah = [`127.0.0.1:${server.port}`, `localhost:${server.port}`];
 
@@ -226,17 +371,23 @@ export function mulaiServer(sesi, { port = 0, token = randomBytes(16).toString("
     if (!sah) return tolak(403, "Token tidak ada atau salah");
     const pasangCookie = dariCookie !== null && samaToken(dariCookie, token) ? {} : { "Set-Cookie": `awvd_token=${token}; Path=/; HttpOnly; SameSite=Strict` };
 
-    // 3. metode: versi ini hanya membaca
+    // 3. metode: POST hanya untuk dua rute API dan wajib membawa token lewat header (bukan cookie atau query)
+    const seg = segmenAman(url.pathname);
+    const ruteTulis = seg && seg.length === 2 && seg[0] === "api" && (seg[1] === "periksa" || seg[1] === "ekspor") ? seg[1] : null;
+    if (ruteTulis) {
+      if (req.method !== "POST") return tolak(405, "Metode tidak diizinkan (hanya POST)", { Allow: "POST" });
+      if (!(typeof dariHeader === "string" && samaToken(dariHeader, token))) return tolak(403, "POST wajib membawa token lewat header X-Awvd-Token");
+      return tanganiPost(ruteTulis, req);
+    }
     if (req.method !== "GET") return tolak(405, "Metode tidak diizinkan (hanya GET)", { Allow: "GET" });
 
     // 4. rute daftar putih (selain itu 404, tanpa daftar direktori)
-    const seg = segmenAman(url.pathname);
     if (url.pathname === "/") {
       return kirim(readFileSync(join(dirHalaman, "index.html")), TIPE[".html"], CSP_HALAMAN, pasangCookie);
     }
     if (!seg) return tolak(404, "Tidak ditemukan");
     const [a, b] = seg;
-    if (seg.length === 1 && (a === "penyunting.js" || a === "penyunting.css")) return berkasStatik(join(dirHalaman, a), CSP_HALAMAN);
+    if (seg.length === 1 && berkasHalaman.has(a)) return berkasStatik(join(dirHalaman, a), CSP_HALAMAN);
     if (seg.length === 2 && a === "scripts" && skripPublik.has(b)) return berkasStatik(join(akar, "scripts", b), CSP_HALAMAN);
     if (seg.length === 1 && a === "komposisi.html") {
       const html = readFileSync(berkasTemplat, "utf8");
@@ -248,8 +399,8 @@ export function mulaiServer(sesi, { port = 0, token = randomBytes(16).toString("
       return kirim(`window.videoProps = ${JSON.stringify(propsPratinjau(sesi))};\n`, TIPE[".js"], CSP_HALAMAN);
     }
     if (seg.length === 2 && a === "api" && b === "sesi") {
-      const { validasi, masalahMuat, timeline, tampil, draf } = sesi;
-      return kirim(JSON.stringify({ versi: 1, berkas: tampil, draf, timeline, validasi, masalahMuat }), TIPE[".json"], CSP_HALAMAN);
+      const { validasi, masalahMuat, timeline, tampil, draf, keluaranTampil, timpa } = sesi;
+      return kirim(JSON.stringify({ versi: 2, berkas: tampil, draf, timeline, validasi, masalahMuat, ekspor: { berkas: keluaranTampil, timpa } }), TIPE[".json"], CSP_HALAMAN);
     }
     if (a === "media" && b === "aset" && seg.length >= 3) {
       const rel = seg.slice(2).join("/");
@@ -270,8 +421,9 @@ export function mulaiServer(sesi, { port = 0, token = randomBytes(16).toString("
   server = Bun.serve({
     hostname: "127.0.0.1",
     port,
-    fetch(req) {
-      try { return tangani(req); } catch (e) { return tolak(500, `Galat server: ${e.message}`); }
+    maxRequestBodySize: BATAS_BODI_BYTE + 4096,
+    async fetch(req) {
+      try { return await tangani(req); } catch (e) { return tolak(500, `Galat server: ${e?.message ?? e}`); }
     },
   });
   return {
@@ -286,13 +438,16 @@ export function mulaiServer(sesi, { port = 0, token = randomBytes(16).toString("
 // ======================================================================================
 
 const PETUNJUK = `Pemakaian:
-  bun scripts/penyunting.mjs <timeline.json> [--port N] [--buka] [--draf] [--cache DIR]
-Membuka penyunting pratinjau lokal (tampilan baca-saja): scrubber, daftar track, dan frame yang sama
-dengan render, di server yang hanya mendengarkan 127.0.0.1. Mencetak URL berisi token sesi.
+  bun scripts/penyunting.mjs <timeline.json> [--port N] [--buka] [--draf] [--cache DIR] [--timpa]
+Membuka penyunting pratinjau lokal: scrubber, daftar track, frame yang sama dengan render, dan penyuntingan dasar
+(pindah, potong, ubah durasi, urungkan, ulangi) dengan ekspor yang hanya berhasil bila validator lolos, di server
+yang hanya mendengarkan 127.0.0.1. Mencetak URL berisi token sesi.
   --port N     port tetap (bawaan 0 = acak)
   --buka       buka URL di peramban bawaan (xdg-open, open, atau start)
   --draf       gerbang hukum GH yang belum disetujui menjadi peringatan (seperti timeline periksa --draf)
   --cache DIR  folder cache frame klip dan props aset (bawaan .cache/awvd/penyunting)
+  --timpa      ekspor menimpa timeline.json sumber (bawaan: menulis <nama>.sunting.json di folder yang sama)
+Penulisan atomik; jalur keluaran hanya ditentukan opsi ini, tidak pernah oleh halaman.
 Kode keluar: 0 berhenti normal (Ctrl+C); 2 argumen, berkas, atau JSON tidak valid; 1 galat tak terduga.`;
 
 function bukaPeramban(url) {
@@ -309,6 +464,7 @@ async function utama() {
         buka: { type: "boolean", default: false },
         draf: { type: "boolean", default: false },
         cache: { type: "string", default: ".cache/awvd/penyunting" },
+        timpa: { type: "boolean", default: false },
         help: { type: "boolean", short: "h", default: false },
       },
     });
@@ -316,7 +472,7 @@ async function utama() {
     if (p.length !== 1) throw new GalatCli(`butuh tepat satu timeline.json.\n${PETUNJUK}`);
     if (!/^\d+$/.test(o.port) || Number(o.port) > 65535) throw new GalatCli(`--port tidak valid: "${o.port}" (0..65535)`);
 
-    const sesi = await muatSesi({ berkas: p[0], tampil: p[0], cache: o.cache, draf: o.draf });
+    const sesi = await muatSesi({ berkas: p[0], tampil: p[0], cache: o.cache, draf: o.draf, timpa: o.timpa });
     const v = sesi.validasi;
     const r = v.ringkasan;
     if (r) console.log(`${p[0]}: ${r.track} track, ${r.butir} butir, ${r.frame} frame @ ${r.fps} fps`);
@@ -324,6 +480,7 @@ async function utama() {
     for (const m of sesi.masalahMuat) console.error(`peringatan muat [${m.lok}]: ${m.pesan.split("\n")[0]}`);
 
     const s = mulaiServer(sesi, { port: Number(o.port) });
+    console.log(`ekspor: ${sesi.keluaranTampil}${o.timpa ? " (menimpa sumber)" : ""}`);
     console.log(`penyunting: ${s.url}`);
     console.log("Hanya mendengarkan 127.0.0.1. Tekan Ctrl+C untuk berhenti.");
     if (o.buka) bukaPeramban(s.url);
