@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.8.1`
+- Version: `v1.9.0`
 - Last updated: `2026-11-08`
-- Changeset: `Menghapus batasan -shortest: durasi MP4 kini selalu sama dengan rentang frame walau subtitle berakhir lebih awal. Sebelumnya: Batasan renderer: paralel per segmen menggantikan serial, overhead segmentasi, jpeg draf.`
+- Changeset: `Batasan cache segmen: opt-in, hanya video-saja, bergantung pada determinisme komposisi, mesin dan lingkungan yang sama, tak disimpan untuk iframe/video/audio/worker, belum diuji pada komposisi klip nyata dan lintas mesin. Sebelumnya: Menghapus batasan -shortest.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -13,6 +13,7 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 - Determinisme `--skala` di atas 1 (clip.scale) diuji pada contoh-dasar saja (tiga render, 30 frame, dua kali percobaan, skala 1,5 dan 2, tanpa selisih); tidak ada uji otomatis dan jaminannya lebih lemah daripada skala 1 dan di bawah 1.
 - Kecepatan render dibatasi tangkapan layar Chromium (sekitar 90-95% waktu per frame; sekitar 21 fps per proses pada mesin pengembangan, komposisi contoh). Paralelisasi dilakukan antar segmen (satu proses Chromium per segmen, `--paralel N`), bukan antar frame; percepatan tidak linear karena CPU dibagi dengan ffmpeg dan Chromium lain. Segmentasi punya biaya tetap (sekitar 30% pada klip panjang dengan 1 pekerja, dibanding renderer serial lama), jadi klip pendek (kurang dari sekitar 100 frame) tidak mendapat untung. Angka bergantung mesin dan beban; memori puncak per proses Chromium belum diukur, dan tangkapan identik antar proses baru dibuktikan pada satu mesin dengan satu versi Chromium (GPU, driver, atau versi lain belum diuji); lihat [cli.md](cli.md#render-paralel-dan-segmen).
 - `--tangkap jpeg` (draf pratinjau) lossy dan mengubah semua piksel dibanding PNG; jangan untuk rilis. Pemanasan 2 frame menetapkan satu perilaku tangkapan di semua mode; frame awal komposisi yang peka terhadap efek awal-dingin dapat berbeda hingga sekitar 20 piksel (selisih maks 5/255) dibanding renderer lama.
+- Cache segmen (`--cache-segmen`, [cli.md](cli.md#cache-segmen)): opt-in; hanya segmen video-saja (audio, subtitle, dan kenyaringan selalu diproses ulang di tahap akhir). Kebenarannya bersandar pada determinisme komposisi: masukan yang lolos dari kunci (sumber acak atau waktu di komposisi, keadaan luar yang tak lewat berkas lokal) membuat segmen basi terpakai. Kunci memuat versi Chromium, ffmpeg, libx264, font sistem, platform, dan `TZ`/`LANG`, jadi cache tidak dimaksudkan untuk dibagi lintas mesin (kesamaan piksel lintas GPU atau driver belum diuji) dan hit hilang bila salah satunya berubah (mis. pembaruan paket font). Halaman dengan `iframe`, `video`, `audio`, `object`, `embed`, Web Worker, atau berkas yang berubah selama render tidak disimpan ke cache (selalu dirender ulang), dan komposisi `http(s)` mematikan cache. Pemeriksaan berkas bergantung pada ukuran dan mtime (nanodetik) untuk mendeteksi perubahan selama render; sistem berkas dengan mtime kasar dapat luput dari perubahan dalam rentang yang sangat singkat. Belum diuji pada komposisi klip tertanam nyata berukuran besar (hash ribuan frame klip per render ulang menambah waktu verifikasi). Tidak ada pembersihan selain `--cache-maks` (pangkas LRU).
 - Hanya Linux yang diuji.
 - Elemen `<video>` di DOM tidak di-seek per frame. Untuk video di dalam video pakai fitur klip tertanam ([video-tertanam-audio.md](video-tertanam-audio.md): frame diekstrak ke cache lalu digambar per nomor frame); untuk gambar diam pakai `<img>` atau `<canvas>`.
 - Keluaran hanya H.264 (MP4) dan PNG (still). Tidak ada WebM/ProRes/GIF.
@@ -38,6 +39,10 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | Mempelajari gaya video dan kutipan wajar | [pelajari-reaction.md](pelajari-reaction.md#batasan) |
 
 ## Changelog
+
+### 2026-11-08 - v1.9.0
+
+- Menambahkan batasan cache segmen (#46).
 
 ### 2026-11-08 - v1.8.1
 
