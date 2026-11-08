@@ -4,7 +4,7 @@
 
 - Version: `v2.27.0`
 - Last updated: `2026-11-08`
-- Changeset: `§Perintah utama: bun run penyunting memuat penyuntingan dasar dan ekspor (#55, flag --timpa); indeks: AGENTS.md v1.9.1 (kolom Versi yang basi); §Struktur repo: scripts/penyunting/model.js; indeks dokumentasi: penyunting.md v2.0.0, aksesibilitas.md v1.9.0, timeline.md v1.4.0, roadmap.md v1.23.0, log-keputusan.md v1.28.0, docs/README.md v1.17.9. Sebelumnya: §Perintah utama: bun run segmentasi (periksa lingkungan hapus latar lokal, #88) dan uji segmentasi di bun run uji; §Struktur repo: scripts/segmentasi-lib.js, scripts/segmentasi.mjs, scripts/uji-segmentasi.mjs, data/model-segmentasi.json; indeks dokumentasi: segmentasi-latar.md v1.1.0, lisensi-kepatuhan.md v1.7.0, batasan.md v1.10.0, roadmap.md v1.22.0, log-keputusan.md v1.27.0, docs/README.md v1.17.8.`
+- Changeset: `§Perintah utama: bun run penyunting memuat penyuntingan dasar dan ekspor (#55, flag --timpa); indeks: AGENTS.md v1.9.2 (kolom Versi yang basi); §Struktur repo: scripts/penyunting/model.js; indeks dokumentasi: penyunting.md v2.0.0, aksesibilitas.md v1.9.0, timeline.md v1.4.0, roadmap.md v1.23.0, log-keputusan.md v1.28.0, docs/README.md v1.17.9. Sebelumnya: §Perintah utama: bun run segmentasi (periksa lingkungan hapus latar lokal, #88) dan uji segmentasi di bun run uji; §Struktur repo: scripts/segmentasi-lib.js, scripts/segmentasi.mjs, scripts/uji-segmentasi.mjs, data/model-segmentasi.json; indeks dokumentasi: segmentasi-latar.md v1.1.0, lisensi-kepatuhan.md v1.7.0, batasan.md v1.10.0, roadmap.md v1.22.0, log-keputusan.md v1.27.0, docs/README.md v1.17.8.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -99,7 +99,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/timeline.md](docs/timeline.md) | `timeline.json` (skema 1), validator `bun run timeline periksa`, templat render generik, rencana audio | `v1.4.0` |
 | [docs/penyunting.md](docs/penyunting.md) | Penyunting pratinjau lokal F6: `bun run penyunting` (server `Bun.serve` berpengerasan, scrubber, grid track, frame identik piksel dengan render; penyuntingan dasar pindah, potong, ubah durasi, urungkan; ekspor `<nama>.sunting.json` hanya bila validator lolos; jalur tanpa seret; aksesibilitas yang diterapkan; penyimpangan dari rancangan) | `v2.0.0` |
 | [docs/segmentasi-latar.md](docs/segmentasi-latar.md) | Hapus latar lokal F5: modul segmentasi dan registri (#88, kondisi nyata), model, lisensi, uji CPU sintetis, ORT opsional; efek klip `hapusLatar` masih rancangan (#89) | `v1.1.0` |
-| [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.9.1` |
+| [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.9.2` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
 
 ## Struktur repo
