@@ -214,11 +214,16 @@ daftar("(c2) fail-closed: skema salah, rujukan aset hilang, waktu bukan identita
   r = await turunkan(t);
   tegas(!r.rencana && kodeAda(r, "R02", "/track/2/butir/0/aset"), `aset hilang:\n${ringkas(r)}`);
 
-  // speed pada klip bersuara: ditolak validator (R09); bila lolos validator, A04 menahannya (diuji langsung di bawah)
+  // freeze pada klip bersuara: ditolak validator (R09); speed konstan dan ramp diterima (atempo, lihat (d))
   t = dasar();
-  t.track[0].butir[1].waktu = { kecepatan: 1.5 };
+  t.track[0].butir[1].waktu = { bekukan: true };
   r = await turunkan(t);
-  tegas(!r.rencana && kodeAda(r, "R09", "/track/0/butir/1/audio/mode"), `speed bersuara:\n${ringkas(r)}`);
+  tegas(!r.rencana && kodeAda(r, "R09", "/track/0/butir/1/audio/mode"), `freeze bersuara:\n${ringkas(r)}`);
+  // speed di luar jangkauan audio (0,5..4x): validator lolos, A04 menahan (fail-closed)
+  t = dasar();
+  t.track[0].butir[1].waktu = { kecepatan: 0.4 };
+  r = await turunkan(t);
+  tegas(!r.rencana && kodeAda(r, "A04", "/track/0/butir/1/waktu") && /di luar jangkauan audio/.test(ringkas(r)), `speed 0,4x bersuara:\n${ringkas(r)}`);
 
   // musik dipotong: R10 tidak mengatur akhir musik, audio.mjs memutar sepanjang video -> A02
   t = dasar();
@@ -275,18 +280,40 @@ daftar("(c3) fail-closed: audio.mjs menolak gainDb di luar rentang dan --fps yan
 });
 
 // ======================================================= (d) kesetaraan pemetaan waktu dengan runtime
-daftar("(d) pemetaan waktu: identitas ditentukan RT.petaWaktuKlip (ramp 1x identitas; speed, reverse, freeze bukan); bersuara + non-identitas ditolak", async () => {
+daftar("(d) pemetaan waktu: identitas ditentukan RT.petaWaktuKlip; speed konstan dan ramp diteruskan ke rencana (atempo); reverse dan freeze ditolak", async () => {
   const identitas = RT.petaWaktuKlip({ kecepatan: [{ pada: 0, nilai: 1 }, { pada: 59, nilai: 1 }] }, 60);
   tegas(identitas.every((v, n) => v === n), "ramp konstan 1x = identitas di runtime");
   for (const [nama, w] of [["speed", { kecepatan: 2 }], ["reverse", { balik: true }], ["freeze", { bekukan: true }]]) {
     const tabel = RT.petaWaktuKlip(w, 60);
     tegas(!tabel.every((v, n) => v === n), `${nama} bukan identitas di runtime`);
   }
-  // validator (R09) menolak lebih dulu; A04 di rencanaDariTimeline adalah lapis kedua bila aturan R09 kelak melonggar
-  const t = dasar();
-  t.track[0].butir[0].waktu = { balik: true };
-  const r = await turunkan(t);
-  tegas(!r.rencana && kodeAda(r, "R09", "/track/0/butir/0/audio/mode"), `reverse bersuara ditolak:\n${ringkas(r)}`);
+  // identitas: rencana tanpa waktu/durasi (jalur lama, tanpa atempo)
+  let t = dasar();
+  t.track[0].butir[1].waktu = { kecepatan: [{ pada: 0, nilai: 1 }, { pada: 99, nilai: 1 }] };
+  let r = await turunkan(t);
+  tegas(r.rencana && r.rencana.klip.every((x) => x.waktu === undefined && x.durasi === undefined), `identitas tanpa waktu:\n${ringkas(r)}`);
+  // speed konstan dan ramp pada klip bersuara diterima validator dan masuk rencana (klip k2 punya 120 frame;
+  // 60 frame lokal pada 1,5x membaca 89 frame)
+  const speed = (waktu) => {
+    const x = dasar();
+    x.track[0].butir[1] = { id: "adegan-2", jenis: "video", klip: "k2", mulai: 90, durasi: 60, waktu, audio: { mode: "campur", turunDb: 12 } };
+    x.track[0].butir[2] = { id: "latar", jenis: "warna", warna: "#0b1220", mulai: 150, durasi: 150 };
+    return x;
+  };
+  r = await turunkan(speed({ kecepatan: 1.5 }));
+  const c = r.rencana?.klip.find((x) => x.id === "adegan-2");
+  tegas(c && c.waktu.kecepatan === 1.5 && c.durasi === 60, `speed konstan masuk rencana:\n${ringkas(r)}`);
+  r = await turunkan(speed({ kecepatan: [{ pada: 0, nilai: 1 }, { pada: 59, nilai: 2 }] }));
+  tegas(r.rencana?.klip.find((x) => x.id === "adegan-2")?.waktu.kecepatan.length === 2, `ramp masuk rencana:\n${ringkas(r)}`);
+  const v = await validasiRencana(r.rencana, dir, { fps: FPS, klipProps });
+  tegas(v.galat.length === 0 && v.rencana.klip.find((x) => x.id === "adegan-2").waktuAudio.segmen.length > 1, `validasiRencana ramp: ${v.galat.join("; ")}`);
+  // reverse dan freeze: validator (R09) menolak lebih dulu; A04 adalah lapis kedua (rencanaWaktuAudio, diuji di uji-audio-waktu)
+  for (const w of [{ balik: true }, { bekukan: true }]) {
+    t = dasar();
+    t.track[0].butir[0].waktu = w;
+    r = await turunkan(t);
+    tegas(!r.rencana && kodeAda(r, "R09", "/track/0/butir/0/audio/mode"), `${JSON.stringify(w)} bersuara ditolak:\n${ringkas(r)}`);
+  }
   const sumber = readFileSync(join(akar, "scripts", "audio.mjs"), "utf8");
   tegas(/RT\.petaWaktuKlip\(/.test(sumber) && /RT\.frameSumber\(/.test(sumber), "audio.mjs memakai RT.petaWaktuKlip dan RT.frameSumber");
 });
@@ -321,6 +348,27 @@ daftar("(e) rakit: CLI --timeline menulis WAV dan rencana turunan; audio klip ti
   const mBebas = dayaDb(w, 220, 8.4, 9.9), mNarasi = dayaDb(w, 220, 6.6, 7.8), mBebasAwal = dayaDb(w, 220, 3.3, 4.7);
   dekat(mBebas - mNarasi, 6, 1.5, "ducking musik saat narasi (dB)");
   tegas(mBebasAwal - mBebas < 8 && mBebasAwal - mBebas > -8, `musik bebas konsisten: ${mBebasAwal.toFixed(1)} vs ${mBebas.toFixed(1)}`);
+});
+
+daftar("(e3) rakit klip ber-speed: CLI --timeline dengan speed 1,5x memakai atempo; nada 700 Hz tetap, panjang WAV tetap, deterministik", async () => {
+  const t = dasar();
+  t.track[0].butir[1] = { id: "adegan-2", jenis: "video", klip: "k2", mulai: 90, durasi: 60, waktu: { kecepatan: 1.5 }, audio: { mode: "bergantian" } };
+  t.track[0].butir[2] = { id: "latar", jenis: "warna", warna: "#0b1220", mulai: 150, durasi: 150 };
+  const tl = join(dir, "timeline-speed.json");
+  tulisJson(tl, t);
+  const w1 = j("s1.wav"), w2 = j("s2.wav"), rk = j("rencana", "speed.json");
+  const c = await bun(audioMjs, "--timeline", tl, "--klip-props", klipPropsBerkas, "--out", w1, "--rencana-keluar", rk);
+  tegas(c.kode === 0, `exit ${c.kode}\n${c.err}\n${c.out}`);
+  const d = await bun(audioMjs, "--timeline", tl, "--klip-props", klipPropsBerkas, "--out", w2);
+  tegas(d.kode === 0 && Buffer.compare(readFileSync(w1), readFileSync(w2)) === 0, "dua rakitan speed identik byte demi byte");
+  const rencana = bacaJson(rk);
+  const k = rencana.klip.find((x) => x.id === "adegan-2");
+  tegas(k.waktu.kecepatan === 1.5 && k.durasi === 60 && k.mulai === 90 && k.akhir === 150, `rencana turunan memuat waktu: ${JSON.stringify(k)}`);
+  const w = bacaWav(w1);
+  dekat(w.kiri.length / w.sr, 10, 0.001, "durasi WAV (s)");
+  const asli = dayaDb(w, 700, 3.4, 4.8), naik = dayaDb(w, 1050, 3.4, 4.8);
+  tegas(asli > -30 && asli - naik > 40, `klip 1,5x: 700 Hz ${asli.toFixed(1)} dB, 1050 Hz ${naik.toFixed(1)} dB (nada tidak boleh naik)`);
+  console.log(`  ukur: 700 Hz ${asli.toFixed(1)} dB, 1050 Hz ${naik.toFixed(1)} dB`);
 });
 
 daftar("(e2) kenyaringan: narasi, klip bergantian, dan musik bebas mendekati target ucapanLufs; deterministik", async () => {

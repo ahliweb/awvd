@@ -569,7 +569,7 @@ export function periksaAturan(t, konteks, { draf = false } = {}) {
     for (const v of kecs) {
       try { RT.kecepatanPermil(v); } catch { kecepatanSah = false; G("R08", `${lok}/waktu/kecepatan`, `kecepatan ${v}: maksimal 3 desimal, > 0 dan <= 1000 (aritmetika permil, lihat RT.kecepatanPermil)`); }
     }
-    const identitas = !w.bekukan && !w.balik && (w.kecepatan === undefined || w.kecepatan === 1);
+    const tanpaPemetaanAudio = w.bekukan || w.balik; // speed konstan dan ramp punya pemetaan audio (atempo, audio.mjs)
     if (k && !(w.bekukan && w.balik) && (kecepatanSah || w.bekukan) && !rusakKf.has(b.id) && b.durasi <= total) {
       if (k.jumlah === null) {
         W("W08", lok, `jumlah frame klip "${b.klip}" tidak diketahui; batas pembacaan tidak diperiksa (beri --klip-props)`);
@@ -587,7 +587,7 @@ export function periksaAturan(t, konteks, { draf = false } = {}) {
     const mode = b.audio?.mode ?? "bisu";
     if (mode !== "bisu") {
       if (k && k.audio === false) G("R09", `${lok}/audio/mode`, `klip "${b.klip}" tidak beraudio; mode harus "bisu"`);
-      if (!identitas) G("R09", `${lok}/audio/mode`, 'audio klip tidak mendukung speed, reverse, atau freeze (audio.mjs tidak meregangkan waktu); set mode "bisu"');
+      if (tanpaPemetaanAudio) G("R09", `${lok}/audio/mode`, 'audio klip tidak mendukung reverse atau freeze (audio.mjs hanya meregangkan waktu maju dengan atempo untuk speed konstan dan ramp); set mode "bisu"');
       const sumberObj = k && adaSumber ? konteks.sumber.perId.get(k.sumber) : null;
       if (sumberObj && dalamCakupan(sumberObj) && (sumberObj.kutipan?.isiAudio ?? "musik") === "musik") {
         if (sumberObj.kutipan?.musikDibahas === true) W("W08", `${lok}/audio/mode`, `sumber kutipan "${sumberObj.id}" berisi musik yang dibahas; batas 10 detik diperiksa saat rakit audio`);
