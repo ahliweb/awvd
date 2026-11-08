@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.9.1`
+- Version: `v1.9.2`
 - Last updated: `2026-11-08`
-- Changeset: `Penerapan di awvd: jalur render (render-segmen.mjs, render-sesi.mjs, render-cache.mjs) masuk area yang tidak boleh paralel bersama render.mjs dan docs/cli.md; kunci cache segmen tergolong risiko tinggi.`
+- Changeset: `Penerapan di awvd: modul segmentasi (segmentasi-lib.js, segmentasi.mjs, registri model, segmentasi-latar.md, dan klip.mjs untuk hapusLatar) masuk area yang tidak boleh paralel. Sebelumnya: jalur render dan cache segmen masuk area tidak paralel.`
 
 awvd adalah renderer video MP4 dari kode web (lihat [README.md](README.md)). Aturan di dokumen ini menurunkan **pedoman internal AhliWeb** (tidak publik): eksekusi terkelola orchestrator (skill `eksekusi-terkelola`), standar dokumen (skill `standar-dokumen-repo`), standar koordinasi kontributor, standar dokumen formal, dan prosedur pemakaian awvd (skill `video-terprogram`). Nomor keputusan `DL-0xx` merujuk decision log internal tersebut. Isi yang dibutuhkan agent sudah dituangkan di sini, jadi agent di repo ini tidak perlu mengakses pedoman internal.
 
@@ -84,7 +84,7 @@ Aturan:
 
 ### Penerapan di awvd
 
-- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `scripts/render-segmen.mjs`, `scripts/render-sesi.mjs`, `scripts/render-cache.mjs`, dan `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`; `scripts/transisi.js` bersama `docs/transisi-animasi.md` dan `scripts/uji-transisi.mjs`; `scripts/aset.mjs` bersama `scripts/aset-lib.js`, `scripts/aset-svg.js`, dan `docs/aset.md`; `scripts/kutipan.mjs` bersama `scripts/klip.mjs`, `scripts/audio.mjs`, dan `docs/pelajari-reaction.md`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
+- Area yang saling bergantung dan **tidak boleh** dikerjakan paralel oleh dua agent: `scripts/runtime.js` bersama `docs/api-runtime.md`; `scripts/render.mjs` bersama `scripts/render-segmen.mjs`, `scripts/render-sesi.mjs`, `scripts/render-cache.mjs`, dan `docs/cli.md`; `scripts/uji.mjs` bersama `.github/workflows/uji.yml`; `scripts/transisi.js` bersama `docs/transisi-animasi.md` dan `scripts/uji-transisi.mjs`; `scripts/aset.mjs` bersama `scripts/aset-lib.js`, `scripts/aset-svg.js`, dan `docs/aset.md`; `scripts/kutipan.mjs` bersama `scripts/klip.mjs`, `scripts/audio.mjs`, dan `docs/pelajari-reaction.md`; `scripts/segmentasi-lib.js` bersama `scripts/segmentasi.mjs`, `data/model-segmentasi.json`, `docs/segmentasi-latar.md`, dan (sejak efek `hapusLatar`) `scripts/klip.mjs`. Template di `templates/<nama>/` yang berbeda boleh paralel, begitu pula dokumen yang berbeda di `docs/`; dua agent tidak boleh mengubah dokumen yang sama, dan indeks (`README.md` akar serta `docs/README.md`) hanya disentuh satu agent pada satu waktu.
 - Perubahan pada determinisme, protokol `window.video`/`renderFrame`, pipa ffmpeg, pemblokiran jaringan atau pemuatan font di `render.mjs`, kunci dan validasi cache segmen (`scripts/render-cache.mjs`), dan pemeriksa SVG (`scripts/aset-svg.js`) tergolong risiko tinggi: delegasikan ke `pelaksana-kompleks` dengan effort `high`, atau kerjakan langsung oleh Opus.
 - Perintah verifikasi yang wajib ada di setiap brief: `bun run uji`.
 - Papan koordinasi: belum ada (dicek 2026-11-07). Penggantinya `gh pr list --state open`; usulkan papan ke pemilik bila kontributor aktif lebih dari satu.
@@ -266,6 +266,10 @@ flowchart TD
 Template PR di `.github/pull_request_template.md` memuat checklist ini.
 
 ## Changelog
+
+### 2026-11-08 - v1.9.2
+
+- Penerapan di awvd: `scripts/segmentasi-lib.js` bersama `scripts/segmentasi.mjs`, `data/model-segmentasi.json`, `docs/segmentasi-latar.md`, dan `scripts/klip.mjs` (efek `hapusLatar`, #89) masuk area yang tidak boleh dikerjakan paralel.
 
 ### 2026-11-08 - v1.9.1
 
