@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.19.1`
+- Version: `v2.20.0`
 - Last updated: `2026-11-08`
-- Changeset: `Indeks dokumentasi: versi cli.md dan batasan.md v1.8.1 (isu #79). Sebelumnya: §Perintah utama: render timeline lewat templates/timeline (siapkan.mjs lalu render) dan uji templat-timeline; §Struktur repo memuat timeline.js dan templat timeline; versi docs/timeline.md v1.1.0.`
+- Changeset: `Indeks dokumentasi memuat docs/penyunting.md (rancangan penyunting F6) dan versi docs/README.md, roadmap.md, log-keputusan.md. Sebelumnya: Indeks dokumentasi: versi cli.md dan batasan.md v1.8.1 (isu #79).`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -72,7 +72,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.16.3` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.0` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.2.0` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.6.0` |
 | [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.8.1` |
@@ -89,12 +89,13 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.8.1` |
 | [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab aset, matriks lisensi aset, video pihak ketiga | `v1.5.0` |
 | [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.1.0` |
-| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.15.0` |
-| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.20.0` |
+| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.16.0` |
+| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.21.0` |
 | [docs/narasi-caption.md](docs/narasi-caption.md) | `bun run narasi`: `naskah.json`, estimasi berjangkar jeda, cue VTT/SRT dengan lint cps, rencana audio, mode dan posisi caption | `v1.3.0` |
 | [docs/ketukan.md](docs/ketukan.md) | `bun run ketukan`: onset fluks spektral, tempo autokorelasi, ketukan berselaras grid, `ketukan.json`, helper `window.Ketukan`, batas bukti | `v1.0.0` |
 | [docs/reframe.md](docs/reframe.md) | Reframe 16:9 ke 9:16: crop berkeyframe, `reframe.json`, `window.Reframe`, saran fokus opsional | `v1.0.0` |
 | [docs/timeline.md](docs/timeline.md) | `timeline.json` (skema 1), validator `bun run timeline periksa`, templat render generik, rencana audio | `v1.1.0` |
+| [docs/penyunting.md](docs/penyunting.md) | Rancangan penyunting pratinjau lokal F6 (disetujui, belum diimplementasikan) | `v1.0.0` |
 | [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.9.0` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
 
@@ -158,6 +159,10 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 **Peringatan hukum: video pihak ketiga.** awvd tidak menyediakan dan tidak akan menyediakan pengunduh atau perekam video platform (YouTube, TikTok, Facebook, Instagram, X, dan sejenisnya); fitur sumber hanya menerima berkas yang sah Anda miliki, dengan manifest dan atribusi. Kutipan untuk video reaction dan ulasan diperiksa terhadap kebijakan internal yang terukur dan gerbang tinjauan hukum, bukan jaminan kutipan sah. Dokumentasi ini bukan nasihat hukum; rincian di [docs/pelajari-reaction.md](docs/pelajari-reaction.md).
 
 ## Changelog
+
+### 2026-11-08 - v2.20.0
+
+- Indeks dokumentasi memuat `docs/penyunting.md` (v1.0.0) dan memperbarui versi `docs/README.md` v1.17.0 (sebelumnya basi di v1.16.3), `roadmap.md`, dan `log-keputusan.md`.
 
 ### 2026-11-08 - v2.19.1
 
