@@ -412,7 +412,11 @@ try {
       if (o.browser) a.push("--browser", o.browser);
       if (izinkanJaringan) a.push("--izinkan-jaringan");
       if (o["md5-tangkapan"]) a.push("--md5", seg.md5);
-      const p = Bun.spawn(a, { stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+      // TMPDIR per pekerja di dalam folder sementara render: artefak Playwright dan profil Chromium
+      // dari pekerja yang dihentikan paksa ikut terhapus saat folder render dibersihkan.
+      const tmpPekerja = join(tmp, `pekerja-${String(seg.idx).padStart(5, "0")}`);
+      mkdirSync(tmpPekerja);
+      const p = Bun.spawn(a, { stdin: "ignore", stdout: "pipe", stderr: "pipe", env: { ...process.env, TMPDIR: tmpPekerja } });
       pekerja.add(p);
       const baca = (async () => {
         const dek = new TextDecoder();
