@@ -18,8 +18,9 @@
  * berkas tak ditemukan, JSON rusak); 1 galat tak terduga. Galat dikumpulkan sekaligus dengan
  * lokasi berupa JSON pointer (RFC 6901) ke bidang bermasalah.
  *
- * Belum ada di versi ini (issue lain): keyframe properti (#35), render (#32), rencana audio (#34),
- * `--gabung`. Pemetaan waktu klip (R08) memakai helper runtime.js (`petaWaktuKlip`, `frameSumber`,
+ * Rencana audio diturunkan oleh `audio.mjs --timeline` (#34), yang memakai `akhirAudioButir` dan
+ * `butirBerikutnya` dari modul ini; keyframe properti ada di runtime (`keyframe`, #35).
+ * Belum ada di versi ini (issue lain): render (#32), `--gabung`. Pemetaan waktu klip (R08) memakai helper runtime.js (`petaWaktuKlip`, `frameSumber`,
  * #33) sebagai sumber tunggal; uji kesetaraannya ada di `scripts/uji-timeline.mjs` (m).
  * Karya asli repo ini (rumus waktu dari riset #30).
  */
