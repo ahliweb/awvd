@@ -129,8 +129,10 @@ export const filterPerkecil = (w, h) => `scale=${w}:${h}:flags=lanczos+accurate_
  * @param {number} p.skalaRaster faktor clip.scale (>= 1)
  * @param {"png"|"jpeg"} [p.tangkap]
  * @param {(s: string) => void} [p.log] penerima pesan halaman (bawaan console.error)
+ * @param {{catat(url: string): void, tidakBisa(alasan: string): void}} [p.lacak] pelacak berkas untuk cache
+ *   segmen (render-cache.mjs); hanya mendengarkan peristiwa jaringan, tidak mengubah halaman atau keluaran
  */
-export async function bukaSesi({ url, props, exe, jaring, skalaRaster, tangkap = "png", log = (s) => console.error(s) }) {
+export async function bukaSesi({ url, props, exe, jaring, skalaRaster, tangkap = "png", log = (s) => console.error(s), lacak = null }) {
   const browser = await chromium.launch({
     executablePath: exe,
     headless: true,
@@ -145,7 +147,21 @@ export async function bukaSesi({ url, props, exe, jaring, skalaRaster, tangkap =
   try {
     const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
     if (!jaring.izinkan) await pasangPemblokiranJaringan(context, jaring);
+    if (lacak) {
+      // semua permintaan konteks (dokumen, skrip, CSS, font, gambar, media, fetch, iframe, worker; juga
+      // yang gagal) dicatat; skema lokal selain file: tak punya isi di disk yang perlu dilacak
+      context.on("request", (r) => {
+        const u = r.url();
+        if (/^file:/i.test(u)) lacak.catat(u);
+        else if (!/^(?:data|about|blob):/i.test(u)) lacak.tidakBisa(`permintaan non-lokal: ${u}`);
+      });
+      context.on("serviceworker", () => lacak.tidakBisa("service worker"));
+    }
     const page = await context.newPage();
+    if (lacak) {
+      page.on("worker", (w) => lacak.tidakBisa(`Web Worker: ${w.url()}`));
+      page.on("popup", () => lacak.tidakBisa("jendela popup"));
+    }
     page.on("pageerror", (e) => log(`[halaman] galat: ${e.message}`));
     page.on("console", (m) => {
       // pemblokiran jaringan sudah dilaporkan lengkap di akhir; jangan dobel dengan galat sumber per permintaan
@@ -242,6 +258,12 @@ export async function bukaSesi({ url, props, exe, jaring, skalaRaster, tangkap =
 
     return {
       cfg,
+      versiBrowser: browser.version(),
+      /** Elemen yang isinya tak terlacak lengkap lewat peristiwa jaringan; teks alasan atau null. */
+      periksaDom: async () => {
+        const n = await page.evaluate(() => document.querySelectorAll("iframe,frame,video,audio,object,embed").length);
+        return n > 0 ? `${n} elemen iframe/video/audio/object/embed di halaman` : null;
+      },
       ambil,
       hangatkan,
       jaring,

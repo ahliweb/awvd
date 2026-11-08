@@ -7,6 +7,10 @@
  *   pemanasan 2 frame (dibuang) -> tangkap PNG/JPEG -> ffmpeg x264 video-saja (-threads 2)
  *   -> MP4 sementara -> remux ke MPEG-TS (`--out`) untuk digabung `-c copy` oleh render.mjs.
  *
+ * Dengan `--deps F` (cache segmen): semua berkas lokal yang diminta halaman selama proses ini hidup
+ * dicatat, lalu manifest berkas + sha256 ditulis ke F (render-cache.mjs). Hanya mendengarkan peristiwa
+ * jaringan; tidak memengaruhi piksel.
+ *
  * Protokol ke render.mjs: stdout memuat baris `P <k>` (k = frame selesai di segmen ini); pesan galat
  * ada di stderr; kode keluar 0 berhasil, 1 galat render, 3 permintaan jaringan diblokir, 143 dihentikan.
  * Karya asli repo ini.
@@ -14,6 +18,7 @@
 import { parseArgs } from "node:util";
 import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { cariBrowser } from "./browser.js";
+import { buatPelacak } from "./render-cache.mjs";
 import { bukaSesi, buatJaring, filterPerkecil, hostAsal, klasifikasiGalat, urlKomposisi } from "./render-sesi.mjs";
 
 // Parameter encode per segmen. Dipatok agar keluaran tidak bergantung jumlah inti mesin:
@@ -34,6 +39,7 @@ const { values: o, positionals } = parseArgs({
     cfg: { type: "string" },
     out: { type: "string" },
     md5: { type: "string" },
+    deps: { type: "string" },
   },
 });
 
@@ -44,6 +50,7 @@ const crf = Number(o.crf);
 const cfgDiharapkan = JSON.parse(o.cfg);
 const jaring = buatJaring({ izinkan: o["izinkan-jaringan"], asalKomposisi: hostAsal(positionals[0]) });
 const tmpMp4 = `${o.out}.mp4`;
+const lacak = o.deps ? buatPelacak() : null;
 
 function argumenFfmpeg({ fps, w, h }) {
   const a = ["-hide_banner", "-loglevel", "error", "-y", "-f", "image2pipe", "-framerate", String(fps),
@@ -92,6 +99,7 @@ try {
     skalaRaster: Math.max(skala, 1),
     tangkap: o.tangkap,
     log: (s) => console.error(s),
+    lacak,
   });
   const { cfg } = sesi;
   for (const k of Object.keys(cfgDiharapkan)) {
@@ -121,6 +129,11 @@ try {
   }
   await sesi.sinkron();
   jaring.periksa();
+  if (lacak) {
+    const alasanDom = await sesi.periksaDom();
+    if (alasanDom) lacak.tidakBisa(alasanDom);
+    await lacak.tulis(o.deps);
+  }
   await ffmpeg.stdin.end();
   const kode = await ffmpeg.exited;
   const pesanFfmpeg = (await stderrFfmpeg).trim();

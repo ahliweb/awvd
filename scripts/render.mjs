@@ -9,6 +9,7 @@
  *        [--subtitle teks.vtt|.srt] [--bahasa ind]
  *        [--paralel N] [--tangkap png|jpeg] [--md5-tangkapan F]
  *        [--still N] [--browser /path/chrome] [--izinkan-jaringan]
+ *        [--cache-segmen [--cache-dir DIR] [--cache-maks MB]]
  *
  * Alur video: rentang frame dibagi menjadi segmen berukuran tetap CH = 4 x round(fps/2) frame
  * (kelipatan GOP, tidak bergantung jumlah pekerja). Setiap segmen dirender oleh pekerja
@@ -18,6 +19,10 @@
  * kenyaringan (loudnorm dua-pass) dipasang di tahap akhir tunggal dengan `-c:v copy`, tanpa encode
  * video ulang; durasi dikunci `-t` = frame/fps (bukan -shortest, agar subtitle pendek tidak memotong).
  * Keluaran MP4 sama persis untuk --paralel berapa pun (serial = satu pekerja).
+ * --cache-segmen (opt-in, bawaan mati): segmen video-saja disimpan di cache berkunci (render-cache.mjs)
+ * dan dipakai ulang hanya bila seluruh kunci sama (lingkungan, props, konfigurasi, parameter encode,
+ * isi halaman dan semua berkas lokal yang dimuatnya); render ulang yang identik atau lanjutan setelah
+ * gagal melewati segmen yang sudah jadi, dengan MP4 byte-identik terhadap render tanpa cache.
  * Tidak ada file sementara per frame; berkas sementara per render ada di folder unik dan dibersihkan.
  *
  * Jaringan: semua permintaan selain file:, data:, about:, dan blob: (HTTP, HTTPS,
@@ -35,6 +40,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cariBrowser } from "./browser.js";
 import { bukaSesi, buatJaring, filterPerkecil, hostAsal, klasifikasiGalat, urlKomposisi } from "./render-sesi.mjs";
+import { buatCache, kunciGlobal, lingkunganCache } from "./render-cache.mjs";
 
 const PEKERJA_MJS = join(dirname(fileURLToPath(import.meta.url)), "render-segmen.mjs");
 
@@ -48,9 +54,14 @@ const PETUNJUK = `Pemakaian:
 Opsi: --props JSON | --props-file F, --dari N, --sampai M, --skala X, --crf N,
       --audio F, --kenyaringan web|siaran|mati, --subtitle F(.vtt|.srt),
       --bahasa KODE, --paralel N, --tangkap png|jpeg, --md5-tangkapan F,
-      --still N, --browser PATH, --izinkan-jaringan
+      --still N, --browser PATH, --izinkan-jaringan,
+      --cache-segmen [--cache-dir DIR] [--cache-maks MB]
 --paralel N mengatur jumlah pekerja (bawaan min(4, inti/2)); keluaran MP4 sama untuk N berapa pun.
 --tangkap jpeg: draf pratinjau (lossy, lebih cepat), bukan untuk rilis.
+--cache-segmen: simpan segmen video-saja di cache (bawaan mati; folder --cache-dir, bawaan .cache/awvd/segmen;
+  batas --cache-maks MB, bawaan 2048, entri terlama dipangkas). Hit hanya bila seluruh kunci sama; MP4 identik
+  dengan render tanpa cache. Dimatikan dengan peringatan bersama --md5-tangkapan, --izinkan-jaringan, --still,
+  komposisi http(s), atau bila lingkungan (ffmpeg, font sistem) tak bisa dibaca.
 Jaringan diblokir secara bawaan (kode keluar 3 bila ada permintaan non-lokal).`;
 
 let args;
@@ -72,6 +83,9 @@ try {
       paralel: { type: "string" },
       tangkap: { type: "string", default: "png" },
       "md5-tangkapan": { type: "string" },
+      "cache-segmen": { type: "boolean", default: false },
+      "cache-dir": { type: "string" },
+      "cache-maks": { type: "string" },
       still: { type: "string" },
       browser: { type: "string" },
       "izinkan-jaringan": { type: "boolean", default: false },
@@ -116,7 +130,10 @@ const stillOpt = angka("still", o.still, { min: 0, bulat: true });
 const paralelOpt = angka("paralel", o.paralel, { min: 1, bulat: true });
 if (o.tangkap !== "png" && o.tangkap !== "jpeg") gagal(`--tangkap tidak valid: "${o.tangkap}" (pilih png atau jpeg)`, 2);
 if (o.tangkap === "jpeg" && stillOpt !== undefined) gagal("--tangkap jpeg tidak berlaku untuk --still (still selalu PNG lossless)", 2);
+const cacheMaksMb = angka("cache-maks", o["cache-maks"] ?? "2048", { min: 0.001 });
 if (paralelOpt !== undefined && stillOpt !== undefined) console.error("peringatan: --paralel diabaikan bersama --still");
+if (!o["cache-segmen"] && (o["cache-dir"] !== undefined || o["cache-maks"] !== undefined)) console.error("peringatan: --cache-dir dan --cache-maks diabaikan tanpa --cache-segmen");
+if (o["cache-segmen"] && stillOpt !== undefined) console.error("peringatan: --cache-segmen diabaikan bersama --still");
 if (o.tangkap === "jpeg") console.error("peringatan: --tangkap jpeg adalah mode draf (lossy, sekitar 42 dB PSNR terhadap PNG); hanya untuk pratinjau, jangan untuk rilis");
 
 if (o.props && o["props-file"]) gagal("pakai salah satu: --props atau --props-file", 2);
@@ -359,6 +376,7 @@ try {
     // Frame dirender oleh pekerja segmen di proses Chromium masing-masing.
     sesi = await bukaSesi({ url, props, exe, jaring, skalaRaster, tangkap: o.tangkap });
     const cfg = sesi.cfg;
+    const versiBrowser = sesi.versiBrowser;
     await sesi.tutup();
     sesi = null;
 
@@ -391,10 +409,54 @@ try {
       ts: join(tmp, `seg-${String(s.idx).padStart(5, "0")}.ts`),
       md5: join(tmp, `seg-${String(s.idx).padStart(5, "0")}.md5`),
     }));
-    const jumlahPekerja = Math.min(paralelOpt ?? pekerjaBawaan(), segmen.length);
+
+    // ---- cache segmen (opt-in): cari segmen yang sudah jadi sebelum meluncurkan pekerja
+    let cache = null;
+    const statCache = { hit: 0, baru: 0, berubah: 0, rusak: 0, disimpan: 0, takDisimpan: 0 };
+    const pakaiCache = new Set(); // segmen dari/ke cache pada render ini (dihapus bila gabungan gagal verifikasi)
+    if (o["cache-segmen"]) {
+      const alasanMati = o["md5-tangkapan"] ? "--md5-tangkapan butuh tangkapan nyata"
+        : izinkanJaringan ? "--izinkan-jaringan membuat hasil tak deterministik"
+        : !/^file:/i.test(url) ? "komposisi bukan berkas lokal (isinya tak bisa di-hash)"
+        : null;
+      let kunci = null;
+      if (!alasanMati) {
+        try {
+          const lingkungan = await lingkunganCache({ versiBrowser });
+          kunci = kunciGlobal({
+            lingkungan, url, props: JSON.stringify(props), cfg, skala, crf, tangkap: o.tangkap, ukuranSegmen: ukuranSegmen(cfg.fps),
+          });
+        } catch (e) {
+          console.error(`peringatan: cache segmen dimatikan, lingkungan tak bisa dipastikan lengkap: ${e.message}`);
+        }
+      } else {
+        console.error(`peringatan: cache segmen dimatikan: ${alasanMati}`);
+      }
+      if (kunci) {
+        cache = buatCache({ dir: resolve(o["cache-dir"] ?? join(".cache", "awvd", "segmen")), kunci });
+        for (const seg of segmen) {
+          seg.deps = join(tmp, `seg-${String(seg.idx).padStart(5, "0")}.deps.json`);
+          const r = await cache.cari(seg);
+          if (r.hit) {
+            seg.dariCache = true;
+            statCache.hit++;
+            pakaiCache.add(seg);
+          } else {
+            statCache[r.alasan]++;
+            if (r.alasan !== "baru") console.error(`cache segmen: segmen ${seg.dari}..${seg.sampai} dirender ulang (${r.alasan}: ${r.detail})`);
+          }
+        }
+        const bagian = ["baru", "berubah", "rusak"].filter((k) => statCache[k]).map((k) => `${statCache[k]} ${k}`);
+        console.error(`cache segmen: ${statCache.hit} hit, ${segmen.length - statCache.hit} render${bagian.length ? ` (${bagian.join(", ")})` : ""}`);
+      }
+    }
+    const antrean = segmen.filter((s) => !s.dariCache);
+    const jumlahPekerja = Math.min(paralelOpt ?? pekerjaBawaan(), antrean.length);
 
     const tty = process.stderr.isTTY;
     const selesai = new Array(segmen.length).fill(0);
+    for (const s of segmen) if (s.dariCache) selesai[s.idx] = s.sampai - s.dari + 1;
+    const frameCache = selesai.reduce((a, b) => a + b, 0);
     let terakhirLapor = 0;
     const tRender = Date.now();
     const lapor = () => {
@@ -402,7 +464,7 @@ try {
       const now = Date.now();
       if (now - terakhirLapor > (tty ? 500 : 5000) || k === total) {
         terakhirLapor = now;
-        const fpsRender = k / ((now - tRender) / 1000 || 1);
+        const fpsRender = (k - frameCache) / ((now - tRender) / 1000 || 1);
         process.stderr.write(`${tty ? "\r" : ""}frame ${k}/${total}  ${fpsRender.toFixed(1)} fps render${tty ? "" : "\n"}`);
       }
     };
@@ -415,6 +477,7 @@ try {
       if (o.browser) a.push("--browser", o.browser);
       if (izinkanJaringan) a.push("--izinkan-jaringan");
       if (o["md5-tangkapan"]) a.push("--md5", seg.md5);
+      if (cache) a.push("--deps", seg.deps);
       // TMPDIR per pekerja di dalam folder sementara render: artefak Playwright dan profil Chromium
       // dari pekerja yang dihentikan paksa ikut terhapus saat folder render dibersihkan.
       const tmpPekerja = join(tmp, `pekerja-${String(seg.idx).padStart(5, "0")}`);
@@ -443,11 +506,24 @@ try {
     const hasil = new Array(segmen.length);
     let berikut = 0;
     let gagalPertama = null;
+    let peringatanCache = 0;
+    // segmen yang berhasil langsung masuk cache, walau render lain gagal: render ulang melanjutkan dari sini
+    const simpanKeCache = async (seg) => {
+      const r = await cache.simpan(seg, seg.deps);
+      if (r.disimpan) {
+        statCache.disimpan++;
+        pakaiCache.add(seg);
+      } else {
+        statCache.takDisimpan++;
+        if (peringatanCache++ < 3) console.error(`peringatan: segmen ${seg.dari}..${seg.sampai} tidak disimpan ke cache: ${r.alasan}`);
+      }
+    };
     const pelari = async () => {
-      while (!batal && !gagalPertama && berikut < segmen.length) {
-        const seg = segmen[berikut++];
+      while (!batal && !gagalPertama && berikut < antrean.length) {
+        const seg = antrean[berikut++];
         const r = await jalankanPekerja(seg);
         hasil[seg.idx] = r;
+        if (r.kode === 0 && cache) await simpanKeCache(seg);
         if (r.kode !== 0 && !gagalPertama && !batal) {
           gagalPertama = r;
           await hentikanPekerja();
@@ -462,8 +538,9 @@ try {
       const r = g3 ?? gagalPertama;
       console.error(r.galat.trim() || `render.mjs: pekerja segmen ${r.seg.dari}..${r.seg.sampai} gagal (exit ${r.kode})`);
       kodeKeluar = r.kode === 3 ? 3 : 1;
+      if (cache && statCache.disimpan) console.error(`cache segmen: ${statCache.disimpan} segmen selesai tersimpan; render ulang melanjutkan dari sini (${cache.dir})`);
     } else if (!batal) {
-      for (const l of lapisGalat(hasil.map((r) => r.galat))) console.error(l);
+      for (const l of lapisGalat(hasil.filter(Boolean).map((r) => r.galat))) console.error(l);
 
       // gabung: concat demuxer -c copy (tanpa encode ulang)
       const daftarBerkas = join(tmp, "daftar.txt");
@@ -471,9 +548,18 @@ try {
       const adaTambahan = Boolean(o.audio || o.subtitle);
       keluarSementara = `${resolve(o.out)}.sementara`;
       const gabungan = adaTambahan ? join(tmp, "gabungan.mp4") : keluarSementara;
-      await jalankanFfmpeg(["-f", "concat", "-safe", "0", "-i", daftarBerkas, "-c", "copy",
-        ...(adaTambahan ? [] : ["-movflags", "+faststart"]), "-f", "mp4", gabungan], "gabung segmen");
-      await verifikasiGabungan(gabungan, total);
+      try {
+        await jalankanFfmpeg(["-f", "concat", "-safe", "0", "-i", daftarBerkas, "-c", "copy",
+          ...(adaTambahan ? [] : ["-movflags", "+faststart"]), "-f", "mp4", gabungan], "gabung segmen");
+        await verifikasiGabungan(gabungan, total);
+      } catch (e) {
+        // segmen dari cache (atau baru disimpan) yang membuat gabungan gagal verifikasi tidak dipakai lagi
+        if (cache) {
+          for (const seg of pakaiCache) cache.hapus(seg);
+          console.error(`cache segmen: ${pakaiCache.size} entri dihapus karena gabungan gagal verifikasi`);
+        }
+        throw e;
+      }
       if (adaTambahan) {
         const pesan = await jalankanFfmpeg(bangunFfmpegAkhir({ fps: cfg.fps, dari, total, masuk: gabungan, keluar: keluarSementara, filterKenyaringan }), "tahap akhir (audio/subtitle)");
         if (pesan) console.error(pesan);
@@ -489,8 +575,16 @@ try {
       console.error(
         `selesai: ${o.out}\n  ${total} frame @ ${cfg.fps} fps = ${(total / cfg.fps).toFixed(2)} s, ${lebar}x${tinggi}, ` +
         `${(ukuran / 1024 / 1024).toFixed(2)} MB, waktu render ${((Date.now() - t0) / 1000).toFixed(1)} s ` +
-        `(${segmen.length} segmen, ${jumlahPekerja} pekerja)`,
+        `(${segmen.length} segmen, ${jumlahPekerja} pekerja${cache ? `, cache segmen: ${statCache.hit} hit, ${segmen.length - statCache.hit} render` : ""})`,
       );
+      if (cache) {
+        const sisa = [];
+        if (statCache.takDisimpan) sisa.push(`${statCache.takDisimpan} tidak disimpan`);
+        console.error(`cache segmen: ${statCache.disimpan} disimpan${sisa.length ? `, ${sisa.join(", ")}` : ""} (${cache.dir})`);
+        const dipakai = new Set([...pakaiCache].map((s) => cache.kunciSegmen(s)));
+        const p = cache.pangkas(cacheMaksMb * 1024 * 1024, dipakai);
+        if (p.dihapus) console.error(`cache segmen: ${p.dihapus} entri terlama dipangkas (${(p.byte / 1048576).toFixed(1)} MB) agar tidak melebihi ${cacheMaksMb} MB`);
+      }
       if (o.audio) {
         // laporan saja: kegagalan pengukuran tidak menggagalkan render
         const target = o.kenyaringan === "mati" ? "tanpa normalisasi" : `target ${targetKenyaringan.label}`;
