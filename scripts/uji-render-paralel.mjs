@@ -9,7 +9,9 @@
  *   (d) --tangkap jpeg menghasilkan MP4 valid dan ditandai draf; nilai tidak valid exit 2;
  *   (e) kegagalan satu pekerja = render gagal (exit non-nol), tanpa keluaran, tanpa berkas
  *       sementara, tanpa sisa proses Chromium;
- *   (f) audio dan subtitle di tahap akhir tunggal: video identik dengan render tanpa keduanya.
+ *   (f) audio dan subtitle di tahap akhir tunggal: video identik dengan render tanpa keduanya;
+ *   (g) durasi MP4 = rentang frame yang dirender: subtitle yang berakhir lebih awal tidak memotong
+ *       video/audio; audio panjang dipotong di akhir video, audio pendek di-pad; kenyaringan benar.
  * Tanpa dependensi tambahan. Exit 0 bila semua lolos, 1 bila ada yang gagal.
  *
  *   bun scripts/uji-render-paralel.mjs
@@ -194,6 +196,47 @@ daftar("(f) audio dan subtitle di tahap akhir tunggal: video identik dengan rend
   const fpolos = await framemd5(polos);
   tegas(fpolos === (await framemd5(av3)), "isi frame video berubah setelah audio dipasang (seharusnya -c:v copy)");
   tegas(fpolos === (await framemd5(sub)), "isi frame video berubah setelah subtitle dipasang (seharusnya -c:v copy)");
+});
+
+daftar("(g) durasi = rentang frame: subtitle pendek tidak memotong; audio panjang dipotong, audio pendek di-pad", async () => {
+  const k = tulisKomposisi("durasi.html", { frame: 30 }); // 3 detik, 2 segmen
+  const vtt = j("durasi.vtt");
+  writeFileSync(vtt, "WEBVTT\n\n00:00:00.200 --> 00:00:01.000\nSatu\n\n00:00:01.500 --> 00:00:02.500\nDua\n"); // berakhir di 2,5 s
+  const panjang = j("durasi-panjang.wav");
+  const pendek = j("durasi-pendek.wav");
+  for (const [f, dtk] of [[panjang, 6], [pendek, 1]]) {
+    const g = await jalankan(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", `sine=frequency=440:duration=${dtk}`, f]);
+    tegas(g.kode === 0, `ffmpeg sine gagal: ${g.err}`);
+  }
+  const polos = j("durasi-polos.mp4");
+  const rp = await renderKe([k, "--out", polos, "--paralel", "1"]);
+  tegas(rp.kode === 0, `polos: ${rp.err}`);
+  const fpolos = await framemd5(polos);
+  const kasus = [
+    ["subtitle saja", ["--subtitle", vtt], false],
+    ["audio panjang + subtitle", ["--audio", panjang, "--subtitle", vtt], true],
+    ["audio pendek + subtitle", ["--audio", pendek, "--subtitle", vtt], true],
+    ["audio panjang tanpa subtitle", ["--audio", panjang], true],
+  ];
+  for (const [nama, args, adaAudio] of kasus) {
+    const f = j(`durasi-${nama.replaceAll(" ", "-").replaceAll("+", "p")}.mp4`);
+    const r = await renderKe([k, "--out", f, "--paralel", "1", ...args]);
+    tegas(r.kode === 0, `${nama}: exit ${r.kode}: ${r.err}`);
+    const info = await probe(f);
+    const v = video(info);
+    tegas(v.nb_read_frames === "30", `${nama}: ${v.nb_read_frames} frame, seharusnya 30`);
+    tegas(Math.abs(Number(v.duration) - 3) < 0.05, `${nama}: durasi video ${v.duration} s, seharusnya 3`);
+    tegas(Math.abs(Number(info.format.duration) - 3) < 0.1, `${nama}: durasi MP4 ${info.format.duration} s, seharusnya 3`);
+    tegas((await framemd5(f)) === fpolos, `${nama}: isi frame video berubah (seharusnya -c:v copy)`);
+    if (adaAudio) {
+      const a = info.streams.find((s) => s.codec_type === "audio");
+      tegas(a && Math.abs(Number(a.duration) - 3) < 0.1, `${nama}: durasi audio ${a?.duration} s, seharusnya 3 (dipotong atau di-pad)`);
+      const m = /kenyaringan: I=(-?[\d.]+) LUFS, TP=(-?[\d.]+) dBTP/.exec(r.err);
+      tegas(m, `${nama}: laporan kenyaringan tidak ada: ${r.err}`);
+      if (nama !== "audio pendek + subtitle") tegas(Math.abs(Number(m[1]) + 16) < 1.5 && Number(m[2]) <= -1.4, `${nama}: kenyaringan I=${m[1]} TP=${m[2]} menyimpang dari -16 LUFS / -1,5 dBTP`);
+    }
+    if (args.includes("--subtitle")) tegas(info.streams.some((s) => s.codec_type === "subtitle" && s.codec_name === "mov_text"), `${nama}: trek subtitle hilang`);
+  }
 });
 
 // ----------------------------------------------------------------- jalankan
