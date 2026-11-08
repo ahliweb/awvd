@@ -6,7 +6,7 @@
  *
  *   bun scripts/uji-klip.mjs [potongan-nama]   (potongan nama menjalankan uji yang namanya memuatnya, mis. "(q)")
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, truncateSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -1085,6 +1085,64 @@ daftar("(r) stabil: goyangan sintetis ber-seed berkurang terukur (vidstab dan de
     samaDengan(folderKlip(oto.out), kunciVidstab, "otomatis = vidstab: kunci cache sama");
   }
   tegas(folderKlip(asli.out) !== kunciVidstab, "stabilisasi mengubah kunci cache");
+});
+
+// ======================================== (s) cache klip: statistik, verifikasi, pembersihan
+daftar("(s) cache klip: render kedua melewati ekstraksi (statistik hit/miss), --verifikasi menolak cache rusak, --bersihkan memangkas cache lama", async () => {
+  const a = await klipDengan("cs-a", null);
+  samaDengan(a.kode, 0, `a exit (${a.err})`);
+  memuat(a.teks, "cache: 0 hit, 1 ekstraksi", "jalan pertama: satu ekstraksi");
+  const fa = folderKlip(a.out), dir = join(a.out, fa), frame = join(dir, "000010.jpg");
+  const meta = JSON.parse(readFileSync(join(dir, "meta.json"), "utf8"));
+  const ukuran = statSync(frame).size, mtime = statSync(frame).mtimeMs;
+  const jalan = (...ekstra) => bun(klipMjs, a.berkas, "--fps", "30", "--out", a.out, ...ekstra);
+
+  // jalan kedua tanpa perubahan: tidak ada ekstraksi, frame tidak disentuh
+  const b = await jalan();
+  samaDengan(b.kode, 0, `b exit (${b.err})`);
+  memuat(b.out, "cache: 1 hit, 0 ekstraksi", "jalan kedua: satu hit");
+  tegas(!b.out.includes("ekstraksi ("), "jalan kedua tidak mengekstrak");
+  samaDengan(statSync(frame).mtimeMs, mtime, "mtime frame tak berubah pada hit");
+  // --verifikasi pada cache sehat: tetap hit
+  const v = await jalan("--verifikasi");
+  memuat(v.out, "cache: 1 hit, 0 ekstraksi", "--verifikasi cache sehat tetap hit");
+  samaDengan(statSync(frame).mtimeMs, mtime, "--verifikasi tidak menulis cache sehat");
+
+  // frame terpotong (jumlah berkas sama): tanpa --verifikasi lolos sebagai hit (batas yang didokumentasikan)
+  truncateSync(frame, 100);
+  memuat((await jalan()).out, "cache: 1 hit, 0 ekstraksi", "tanpa --verifikasi cache rusak tak terdeteksi");
+  // dengan --verifikasi: dibuang dan diekstrak ulang, hasil identik dengan semula
+  const r = await jalan("--verifikasi");
+  samaDengan(r.kode, 0, `verifikasi exit (${r.err})`);
+  memuat(r.out, "ekstraksi (cache rusak)", "cache rusak diekstrak ulang");
+  memuat(r.out, "cache: 0 hit, 1 ekstraksi (1 cache rusak)", "statistik cache rusak");
+  samaDengan(statSync(frame).size, ukuran, "frame pulih ke ukuran semula");
+  samaDengan(JSON.parse(readFileSync(join(dir, "meta.json"), "utf8")).framesSha256, meta.framesSha256, "hash frame setelah pemulihan");
+
+  // --bersihkan: fps lain membuat kunci kedua; pemangkasan hanya menghapus folder kunci tak terpakai dan .tmp proses mati
+  const lain = await bun(klipMjs, a.berkas, "--fps", "24", "--out", a.out);
+  const f24 = lain.out.match(/-> ([0-9a-f]{16})/)[1];
+  tegas(f24 !== fa && existsSync(join(a.out, f24)), "kunci fps 24 ada di folder yang sama");
+  const mati = Bun.spawn(["true"]);
+  await mati.exited;
+  const tmpMati = join(a.out, `.tmp-${"a".repeat(16)}-${mati.pid}`), tmpHidup = join(a.out, `.tmp-${"b".repeat(16)}-${process.pid}`);
+  const tanpaMeta = join(a.out, "c".repeat(16)), asing = join(a.out, "catatan");
+  for (const d of [tmpMati, tmpHidup, tanpaMeta, asing]) { mkdirSync(d, { recursive: true }); writeFileSync(join(d, "x.txt"), "x"); }
+  const tanpaFlag = await jalan();
+  tegas(existsSync(join(a.out, f24)) && existsSync(tmpMati), "tanpa --bersihkan tidak ada yang dihapus");
+  memuat(tanpaFlag.out, "cache: 1 hit", "jalan tanpa --bersihkan");
+  tegas(!tanpaFlag.out.includes("bersih:"), "tanpa --bersihkan tidak ada baris bersih");
+  const c = await jalan("--bersihkan");
+  samaDengan(c.kode, 0, `bersihkan exit (${c.err})`);
+  memuat(c.out, "bersih: 1 folder cache lama dan 1 sisa sementara dihapus", "ringkasan pembersihan");
+  tegas(!existsSync(join(a.out, f24)), "folder cache tak terpakai dihapus");
+  tegas(!existsSync(tmpMati), ".tmp proses mati dihapus");
+  tegas(existsSync(dir) && existsSync(frame), "folder cache terpakai utuh");
+  tegas(existsSync(tmpHidup), ".tmp proses hidup dibiarkan");
+  tegas(existsSync(tanpaMeta) && existsSync(asing), "folder tanpa meta.json dan folder asing dibiarkan");
+  tegas(existsSync(join(a.out, "klip-props.json")) && existsSync(join(a.out, "atribusi.txt")), "berkas keluaran utuh");
+  // hasil pemangkasan tetap hit
+  memuat((await jalan()).out, "cache: 1 hit, 0 ekstraksi", "setelah --bersihkan folder terpakai tetap hit");
 });
 
 // ------------------------------------------------------------------ jalankan

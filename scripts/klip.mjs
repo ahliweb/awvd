@@ -4,7 +4,7 @@
  * frame klip per nomor frame komposisi ke cache.
  *
  *   bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip]
- *        [--gabung props.json] [--paksa] [--draf]
+ *        [--gabung props.json] [--paksa] [--verifikasi] [--bersihkan] [--draf]
  *
  * Alur (semuanya sebelum Chromium diluncurkan; pelanggaran = kode keluar 2):
  *   1. Manifest divalidasi: lisensi yang mengizinkan penggunaan dengan menyebut sumber,
@@ -12,7 +12,8 @@
  *   2. ffprobe: tag matriks warna dan rentang (tak bertag = bt709), sumber HDR ditolak.
  *   3. ffmpeg mengekstrak frame JPEG/PNG pada fps komposisi, satu berkas per nomor
  *      frame, ke cache berkunci (hash berkas + fps + ukuran + rentang + matriks + efek + ...).
- *      Cache hit tidak mengekstrak ulang. Audio klip diekstrak ke audio.wav (tanpa efek).
+ *      Cache hit tidak mengekstrak ulang (--verifikasi: hit hanya bila hash frame cocok meta.json;
+ *      --bersihkan: hapus folder cache lama yang tak dipakai manifest ini). Audio klip diekstrak ke audio.wav (tanpa efek).
  *      Efek klip (`klip[].efek`: stabilisasi, chroma key menjadi PNG beralfa, LUT .cube, koreksi
  *      warna) diterapkan sekali di tahap ini, bukan per frame di Chromium; registri efek: lihat
  *      EFEK di bawah. Efek yang butuh kemampuan build ffmpeg (stabil: vidstab) dicek sebelum
@@ -754,8 +755,12 @@ async function hashFrame(dir, daftar) {
   return h.digest("hex");
 }
 
-/** Ekstrak satu klip ke cache (atau cache hit). Mengembalikan { dir, kunci, meta, hit }. */
-async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, paksa, versi, dirManifest, kemampuan }) {
+/**
+ * Ekstrak satu klip ke cache (atau cache hit). Mengembalikan { dir, kunci, meta, hit, rusak }.
+ * `verifikasi`: cache hit hanya sah bila hash seluruh frame cocok dengan meta.framesSha256; bila tidak
+ * (frame terpotong, berubah, atau hilang diganti) cache dibuang dan diekstrak ulang (`rusak: true`).
+ */
+async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, paksa, verifikasi = false, versi, dirManifest, kemampuan }) {
   const format = formatKlip(k);
   const efek = rakitEfek(k.efek, dirManifest, kemampuan);
   const params = {
@@ -766,9 +771,13 @@ async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, pa
   };
   const kunci = kunciCache(params);
   const dir = join(keluar, kunci);
+  let rusak = false;
   if (!paksa) {
     const meta = cacheSah(dir, format);
-    if (meta) return { dir, kunci, meta, hit: true };
+    if (meta) {
+      if (!verifikasi || (await hashFrame(dir, berkasFrame(dir, format))) === meta.framesSha256) return { dir, kunci, meta, hit: true, rusak: false };
+      rusak = true;
+    }
   }
   const tmp = join(keluar, `.tmp-${kunci}-${process.pid}`);
   rmSync(tmp, { recursive: true, force: true });
@@ -809,7 +818,46 @@ async function ekstrakKlip({ k, sumber, berkas, sha256, info, m, fps, keluar, pa
   writeFileSync(join(tmp, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
   rmSync(dir, { recursive: true, force: true });
   renameSync(tmp, dir);
-  return { dir, kunci, meta, hit: false };
+  return { dir, kunci, meta, hit: false, rusak };
+}
+
+function prosesHidup(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM"; // ada tetapi milik pengguna lain
+  }
+}
+
+function ukuranFolder(dir) {
+  let n = 0;
+  for (const f of readdirSync(dir, { withFileTypes: true })) n += f.isFile() ? statSync(join(dir, f.name)).size : 0;
+  return n;
+}
+
+/**
+ * Pangkas cache di `keluar` (hanya dipanggil dengan --bersihkan, sesudah semua klip berhasil): hapus folder
+ * kunci (16 heks, memuat meta.json) yang tidak dipakai klip manifest ini, dan sisa `.tmp-<kunci>-<pid>`
+ * milik proses yang sudah mati. Folder lain, termasuk berkas keluaran, tidak disentuh.
+ */
+export function bersihkanCache(keluar, dipakai) {
+  const r = { folder: 0, sementara: 0, byte: 0 };
+  for (const e of readdirSync(keluar, { withFileTypes: true })) {
+    if (!e.isDirectory()) continue;
+    const dir = join(keluar, e.name);
+    const tmp = /^\.tmp-[0-9a-f]{16}-(\d+)$/.exec(e.name);
+    if (tmp) {
+      if (prosesHidup(Number(tmp[1]))) continue;
+      r.byte += ukuranFolder(dir);
+      r.sementara++;
+    } else if (/^[0-9a-f]{16}$/.test(e.name) && !dipakai.has(e.name) && existsSync(join(dir, "meta.json"))) {
+      r.byte += ukuranFolder(dir);
+      r.folder++;
+    } else continue;
+    rmSync(dir, { recursive: true, force: true });
+  }
+  return r;
 }
 
 // ------------------------------------------------------------------------ CLI
@@ -819,7 +867,9 @@ function gagal(pesan, kode = 1) {
 }
 
 const PETUNJUK = `Pemakaian:
-  bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung props.json] [--paksa] [--draf]
+  bun scripts/klip.mjs <sumber.json> --fps N [--out .cache/awvd/klip] [--gabung props.json] [--paksa] [--verifikasi] [--bersihkan] [--draf]
+--verifikasi: cache hit hanya dipakai bila hash seluruh frame cocok dengan meta.json (cache rusak diekstrak ulang).
+--bersihkan: setelah berhasil, hapus folder cache lama yang tidak dipakai manifest ini dan sisa .tmp proses mati.
 Keluaran di --out: klip-props.json, atribusi.txt, <kunci>/ (frame + audio.wav + meta.json),
 dan props-gabungan.json bila --gabung. klip[].efek (stabil, kunciWarna, lut, warna, keseimbangan) diterapkan saat ekstraksi. Kode keluar 2 untuk manifest/argumen tidak valid.
 --draf: izinkan sumber KUTIPAN-WAJAR yang gerbang hukum GH-nya belum disetujui; props memuat
@@ -835,6 +885,8 @@ async function utama() {
         out: { type: "string", default: ".cache/awvd/klip" },
         gabung: { type: "string" },
         paksa: { type: "boolean", default: false },
+        verifikasi: { type: "boolean", default: false },
+        bersihkan: { type: "boolean", default: false },
         draf: { type: "boolean", default: false },
         help: { type: "boolean", short: "h" },
       },
@@ -971,19 +1023,22 @@ async function utama() {
   const versi = await versiFfmpeg();
   const akar = pathToFileURL(keluar).href.replace(/\/+$/, "");
   const props = [];
+  const statistik = { hit: 0, ekstraksi: 0, rusak: 0 };
   for (const k of manifest.klip) {
     const s = sumberPerId.get(k.sumber);
     const { info, m } = infoSumber.get(k.sumber);
     let hasil;
     try {
       hasil = await ekstrakKlip({
-        k, sumber: s.id, berkas: mutlak(dirManifest, s.berkas), sha256: v.hash[s.id], info, m, fps, keluar, paksa: o.paksa, versi, dirManifest, kemampuan,
+        k, sumber: s.id, berkas: mutlak(dirManifest, s.berkas), sha256: v.hash[s.id], info, m, fps, keluar, paksa: o.paksa, verifikasi: o.verifikasi, versi, dirManifest, kemampuan,
       });
     } catch (e) {
       gagal(e.message);
     }
-    const { meta, kunci, hit } = hasil;
-    console.log(`klip "${k.id}": ${hit ? "cache hit" : "ekstraksi"} ${meta.jumlah} frame ${k.lebar}x${k.tinggi} @ ${fps} fps (matriks ${m.matriks}, rentang ${m.rentang}${meta.efek ? `, efek ${meta.efek.map((x) => (x.jenis === "stabil" ? `stabil(${x.mesin})` : x.jenis)).join("+")}` : ""}) -> ${kunci}`);
+    const { meta, kunci, hit, rusak } = hasil;
+    statistik[hit ? "hit" : "ekstraksi"]++;
+    if (rusak) statistik.rusak++;
+    console.log(`klip "${k.id}": ${hit ? "cache hit" : rusak ? "ekstraksi (cache rusak)" : "ekstraksi"} ${meta.jumlah} frame ${k.lebar}x${k.tinggi} @ ${fps} fps (matriks ${m.matriks}, rentang ${m.rentang}${meta.efek ? `, efek ${meta.efek.map((x) => (x.jenis === "stabil" ? `stabil(${x.mesin})` : x.jenis)).join("+")}` : ""}) -> ${kunci}`);
     props.push({
       id: k.id, sumber: s.id, akar, folder: kunci, ekstensi: meta.ekstensi, digit: meta.digit,
       jumlah: meta.jumlah, fps, lebar: k.lebar, tinggi: k.tinggi,
@@ -998,6 +1053,8 @@ async function utama() {
       ...(dalamCakupan(s) ? { kutipan: { isiAudio: s.kutipan?.isiAudio ?? "musik", musikDibahas: s.kutipan?.musikDibahas === true } } : {}),
     });
   }
+
+  console.log(`cache: ${statistik.hit} hit, ${statistik.ekstraksi} ekstraksi${statistik.rusak ? ` (${statistik.rusak} cache rusak)` : ""}`);
 
   // 4. keluaran: klip-props.json, atribusi.txt, props-gabungan.json
   writeFileSync(join(keluar, "klip-props.json"), `${JSON.stringify({ klip: props, ...(draf ? { draf: true } : {}) }, null, 2)}\n`);
@@ -1016,6 +1073,10 @@ async function utama() {
   }
   writeFileSync(join(keluar, "atribusi.txt"), `${baris.join("\n")}\n`);
   if (dasar) writeFileSync(join(keluar, "props-gabungan.json"), `${JSON.stringify({ ...dasar, klip: props, ...(draf ? { draf: true } : {}) }, null, 2)}\n`);
+  if (o.bersihkan) {
+    const r = bersihkanCache(keluar, new Set(props.map((p) => p.folder)));
+    console.log(`bersih: ${r.folder} folder cache lama dan ${r.sementara} sisa sementara dihapus (${(r.byte / 1048576).toFixed(1)} MB)`);
+  }
   console.log(`selesai: ${props.length} klip -> ${join(keluar, "klip-props.json")}${dasar ? `, ${join(keluar, "props-gabungan.json")}` : ""}`);
 }
 

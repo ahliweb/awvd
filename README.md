@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.21.2`
+- Version: `v2.22.0`
 - Last updated: `2026-11-08`
-- Changeset: `Indeks dokumentasi: versi timeline.md v1.3.1 dan video-tertanam-audio.md v1.9.1; §Perintah utama: R09 menolak kecepatan audio di luar 0,5..4x sejak timeline periksa (#84). Sebelumnya: Indeks dokumentasi: versi timeline.md v1.3.0 (dokumen penutup F2) dan roadmap.md v1.18.0 (F2 selesai).`
+- Changeset: `Indeks dokumentasi: versi docs/README.md v1.17.4, video-tertanam-audio.md v1.10.0, olah-klip.md v1.2.1, roadmap.md v1.18.1, log-keputusan.md v1.23.0; §Perintah utama: klip memuat --verifikasi dan --bersihkan (#46, sebagian). Sebelumnya: Indeks dokumentasi: versi timeline.md v1.3.1 dan video-tertanam-audio.md v1.9.1; §Perintah utama: R09 menolak kecepatan audio di luar 0,5..4x sejak timeline periksa (#84). Sebelumnya: Indeks dokumentasi: versi timeline.md v1.3.0 (dokumen penutup F2) dan roadmap.md v1.18.0 (F2 selesai).`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -52,7 +52,7 @@ Server statis apa pun juga bisa dipakai. Satu frame saja: `?frame=60`. Props pra
 - `bun run render <komposisi> --out ... [--paralel N] [--tangkap png|jpeg]`: render video atau still; selalu lewat segmen tetap yang dirender paralel oleh N pekerja (bawaan `min(4, inti/2)`), dan MP4 sama persis untuk N berapa pun; `--tangkap jpeg` hanya untuk pratinjau draf ([docs/cli.md](docs/cli.md), [render paralel dan segmen](docs/cli.md#render-paralel-dan-segmen)). Uji: `bun run uji:render-paralel` (ikut `bun run uji`).
 - `bun run periksa <video.mp4>`: pemeriksaan mutu ([docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md)).
 - `bun run sop <sop.json> --out DIR`: SOP menjadi dokumen dan bahan video ([docs/sop.md](docs/sop.md)).
-- `bun run klip <sumber.json> --fps N` dan `bun run audio <rencana.json> --fps N --out ...`: video di dalam video dan timeline audio ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md)). Klip dapat distabilkan, di-chroma-key (PNG beralfa), diberi LUT `.cube` dan koreksi warna saat ekstraksi lewat `klip[].efek` ([docs/olah-klip.md](docs/olah-klip.md)). Narasi dan klip bersuara dapat diberi peredam bising (`bersih`: `afftdn`, atau `arnndn` dengan model milik pengguna) dan pengubah nada/tempo (`suara`) di rencana audio ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md#olah-suara-per-trek)).
+- `bun run klip <sumber.json> --fps N` dan `bun run audio <rencana.json> --fps N --out ...`: video di dalam video dan timeline audio ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md)). Ekstraksi klip memakai cache berhash dengan ringkasan hit/miss; `--verifikasi` mengesahkan isi cache dan `--bersihkan` memangkas cache lama. Klip dapat distabilkan, di-chroma-key (PNG beralfa), diberi LUT `.cube` dan koreksi warna saat ekstraksi lewat `klip[].efek` ([docs/olah-klip.md](docs/olah-klip.md)). Narasi dan klip bersuara dapat diberi peredam bising (`bersih`: `afftdn`, atau `arnndn` dengan model milik pengguna) dan pengubah nada/tempo (`suara`) di rencana audio ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md#olah-suara-per-trek)).
 - `bun run konsep -- <subperintah>`: konsep video, pilihan jenis video dan alur produksi, termasuk preset transisi di brief dan profil gerak `kurangiGerak` dari `konsep.json` lewat props ([docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md)).
 - `bun run aset tambah|impor|periksa`: aset (gambar, logo, ikon, SVG, font, audio) dengan manifest `aset.json`, validasi lisensi, pembersih SVG, dan atribusi ([docs/aset.md](docs/aset.md)); komposisi memakai aset lewat helper runtime `logo`, `ikon`, `asetGambar`, `kreditAset`, dan `pasangFont` ([docs/api-runtime.md](docs/api-runtime.md)). Render memblokir semua permintaan jaringan non-lokal (kode keluar 3; [docs/cli.md](docs/cli.md#jaringan-dan-font)).
 - Transisi dan animasi elemen: muat `scripts/transisi.js` setelah `runtime.js` (`window.Transisi`); galeri semua jenis di `templates/transisi-galeri/` ([docs/transisi-animasi.md](docs/transisi-animasi.md)).
@@ -72,7 +72,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.3` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.4` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.2.0` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.6.1` |
 | [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.8.1` |
@@ -80,8 +80,8 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md) | `bun run periksa`: pemeriksaan, ambang, kilatan | `v1.0.1` |
 | [docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md) | `bun run konsep`: 13 jenis video, 5 alur, tingkat bukti, profil audiens | `v1.2.0` |
 | [docs/sop.md](docs/sop.md) | SOP sebagai dokumen cetak dan bahan video | `v1.0.1` |
-| [docs/video-tertanam-audio.md](docs/video-tertanam-audio.md) | Klip tertanam dan timeline audio | `v1.9.1` |
-| [docs/olah-klip.md](docs/olah-klip.md) | Efek klip saat ekstraksi: LUT `.cube`, warna, keseimbangan, kunci cache | `v1.2.0` |
+| [docs/video-tertanam-audio.md](docs/video-tertanam-audio.md) | Klip tertanam dan timeline audio | `v1.10.0` |
+| [docs/olah-klip.md](docs/olah-klip.md) | Efek klip saat ekstraksi: LUT `.cube`, warna, keseimbangan, kunci cache | `v1.2.1` |
 | [docs/pelajari-reaction.md](docs/pelajari-reaction.md) | `bun run pelajari`, kebijakan kutipan wajar, gerbang hukum GH, templat reaction | `v1.0.0` |
 | [docs/visual-audiens.md](docs/visual-audiens.md) | Profil audiens, ukuran teks, buta warna, ketajaman, efek dekoratif | `v1.0.0` |
 | [docs/transisi-animasi.md](docs/transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, `kurangiGerak`, biaya kompresi | `v1.1.0` |
@@ -89,8 +89,8 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.8.1` |
 | [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab aset, matriks lisensi aset, video pihak ketiga | `v1.5.0` |
 | [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.1.0` |
-| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.18.0` |
-| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.22.0` |
+| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.18.1` |
+| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.23.0` |
 | [docs/narasi-caption.md](docs/narasi-caption.md) | `bun run narasi`: `naskah.json`, estimasi berjangkar jeda, cue VTT/SRT dengan lint cps, rencana audio, mode dan posisi caption | `v1.3.0` |
 | [docs/ketukan.md](docs/ketukan.md) | `bun run ketukan`: onset fluks spektral, tempo autokorelasi, ketukan berselaras grid, `ketukan.json`, helper `window.Ketukan`, batas bukti | `v1.0.0` |
 | [docs/reframe.md](docs/reframe.md) | Reframe 16:9 ke 9:16: crop berkeyframe, `reframe.json`, `window.Reframe`, saran fokus opsional | `v1.0.0` |
@@ -158,6 +158,10 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 **Peringatan hukum: video pihak ketiga.** awvd tidak menyediakan dan tidak akan menyediakan pengunduh atau perekam video platform (YouTube, TikTok, Facebook, Instagram, X, dan sejenisnya); fitur sumber hanya menerima berkas yang sah Anda miliki, dengan manifest dan atribusi. Kutipan untuk video reaction dan ulasan diperiksa terhadap kebijakan internal yang terukur dan gerbang tinjauan hukum, bukan jaminan kutipan sah. Dokumentasi ini bukan nasihat hukum; rincian di [docs/pelajari-reaction.md](docs/pelajari-reaction.md).
 
 ## Changelog
+
+### 2026-11-08 - v2.22.0
+
+- Indeks dokumentasi: `docs/README.md` v1.17.4, `video-tertanam-audio.md` v1.10.0, `olah-klip.md` v1.2.1, `roadmap.md` v1.18.1, `log-keputusan.md` v1.23.0. §Perintah utama: `bun run klip` memuat `--verifikasi` dan `--bersihkan` (#46, sebagian).
 
 ### 2026-11-08 - v2.21.2
 
