@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Penyunting awvd</title>
+<link rel="stylesheet" href="/penyunting.css">
+</head>
+<body>
+<a class="lewati" href="#gulir-track">Lewati ke daftar track</a>
+<header id="bilah">
+  <h1>awvd penyunting</h1>
+  <p id="berkas" class="redup"></p>
+  <p id="status" role="status" aria-live="polite">Memuat timeline...</p>
+</header>
+
+<main id="utama">
+  <section id="pratinjau" aria-labelledby="h-pratinjau">
+    <h2 id="h-pratinjau">Pratinjau</h2>
+    <div id="gulir-pratinjau" role="region" aria-label="Area pratinjau frame" tabindex="0">
+      <div id="bingkai"><iframe id="komposisi" title="Pratinjau frame" data-frame-tampil="" data-siap="0"></iframe></div>
+    </div>
+    <p id="galat-pratinjau" role="alert" hidden></p>
+    <fieldset id="tampilan">
+      <legend>Tampilan</legend>
+      <label><input type="radio" name="tampilan" value="penuh" checked> 100% (identik dengan render)</label>
+      <label><input type="radio" name="tampilan" value="panel"> Muat ke panel (hanya tampilan, bukan hasil render)</label>
+    </fieldset>
+  </section>
+
+  <section id="posisi" aria-labelledby="h-posisi">
+    <h2 id="h-posisi">Posisi frame</h2>
+    <div class="baris-kontrol">
+      <button type="button" id="putar">Putar</button>
+      <button type="button" id="ke-awal">Awal</button>
+      <button type="button" id="mundur">Mundur 1</button>
+      <button type="button" id="maju">Maju 1</button>
+      <button type="button" id="ke-akhir">Akhir</button>
+      <label for="frame-angka">Frame</label>
+      <input type="number" id="frame-angka" min="0" step="1" value="0" inputmode="numeric">
+      <output id="waktu" for="frame-angka" class="redup"></output>
+      <label for="penanda">Penanda</label>
+      <select id="penanda"><option value="">Lompat ke penanda...</option></select>
+    </div>
+    <input type="range" id="scrubber" min="0" max="0" step="1" value="0" aria-label="Posisi frame">
+  </section>
+
+  <section id="track" aria-labelledby="h-track">
+    <h2 id="h-track">Track</h2>
+    <div class="baris-kontrol">
+      <button type="button" id="zum-kurang">Zum -</button>
+      <button type="button" id="zum-lebih">Zum +</button>
+      <output id="zum" class="redup">100%</output>
+      <details id="bantuan">
+        <summary>Pintasan papan ketik</summary>
+        <table>
+          <caption class="kecil">Pintasan hanya aktif saat fokus di dalam widget bersangkutan.</caption>
+          <thead><tr><th scope="col">Tombol</th><th scope="col">Fungsi</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Panah, Home, End (scrubber)</th><td>Geser 1 frame, ke awal, ke akhir</td></tr>
+            <tr><th scope="row">PageUp, PageDown (scrubber)</th><td>Geser 10 frame</td></tr>
+            <tr><th scope="row">Spasi (scrubber)</th><td>Putar atau jeda</td></tr>
+            <tr><th scope="row">Kiri, Kanan (track)</th><td>Butir sebelumnya atau berikutnya di track yang sama</td></tr>
+            <tr><th scope="row">Atas, Bawah (track)</th><td>Track di atas atau di bawah, butir terdekat waktunya</td></tr>
+            <tr><th scope="row">Home, End (track)</th><td>Butir pertama atau terakhir di track</td></tr>
+            <tr><th scope="row">Enter (track)</th><td>Pindahkan playhead ke awal butir</td></tr>
+          </tbody>
+        </table>
+      </details>
+    </div>
+    <div id="gulir-track" role="region" aria-label="Area gulir timeline" tabindex="0">
+      <div id="kanvas">
+        <div id="penggaris" aria-hidden="true"></div>
+        <div id="grid" role="grid" aria-label="Track timeline" aria-readonly="true"></div>
+        <div id="playhead" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<aside id="properti" aria-labelledby="h-properti">
+  <h2 id="h-properti">Properti butir</h2>
+  <div id="isi-properti"><p class="redup">Pilih butir di daftar track.</p></div>
+</aside>
+
+<section id="masalah" aria-labelledby="h-masalah">
+  <h2 id="h-masalah">Masalah</h2>
+  <ul id="daftar-masalah"></ul>
+</section>
+
+<script src="/penyunting.js"></script>
+</body>
+</html>

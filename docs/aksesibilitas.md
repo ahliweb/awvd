@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.7.0`
-- Last updated: `2026-11-07`
-- Changeset: `Menambahkan caption dari audio tanpa naskah (ASR whisper.cpp lokal) ke tabel fitur dengan syarat wajib ditinjau manusia, dan stempel kata ASR untuk sorot kata. Sebelumnya: menambahkan label suara sintetis untuk video bersuara TTS (kredit dan metadata).`
+- Version: `v1.8.0`
+- Last updated: `2026-11-08`
+- Changeset: `Menambahkan baris antarmuka penyunting pratinjau (scrubber, grid track, papan ketik, nama aksesibel, kontras, reflow 320 px) dengan pernyataan batas kepatuhan. Sebelumnya: menambahkan caption dari audio tanpa naskah (ASR lokal) ke tabel fitur.`
 
 Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 
@@ -36,6 +36,7 @@ Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 | Gerak dan kilatan pada transisi dan animasi | `kurangiGerak` (mengganti jenis gerak besar dan berkilat dengan `pudar`; kamera, paralaks, getar mati), profil `lansia`/`anak`, durasi minimum jenis berkilat, `periksaKilatan` tingkat rencana. `kurangiGerak` adalah praktik terbaik, bukan klaim kepatuhan WCAG 2.3.3. Dipilih lewat props, termasuk dari `konsep.json` (`kurangiGerak: true` atau `audiens.profil`) | [transisi-animasi.md](transisi-animasi.md#aksesibilitas) |
 | Teks alternatif gambar, logo, dan SVG | Bidang `teksAlternatif` wajib di `aset.json` kecuali `peran: "dekoratif"` (WCAG 1.1.1); teks di dalam gambar hanya untuk logotype (WCAG 1.4.5); `aset-props.json` meneruskannya ke komposisi; helper runtime `asetGambar`, `logo`, dan `ikon` melempar galat untuk aset informatif tanpa teks dan memasang `alt=""` plus `aria-hidden` pada aset dekoratif | [aset.md](aset.md) |
 | Ketajaman aset | Pemeriksa resolusi menolak aset yang akan di-upscale (buram) pada skala render yang dipakai | [aset.md](aset.md) |
+| Antarmuka penyunting pratinjau (kerangka, bukan isi video): scrubber natif berlabel dengan `aria-valuetext`, widget track `role="grid"` dengan roving tabindex dan navigasi panah, tanpa pintasan karakter global, status `aria-live`, kontras token >= 4,5:1 (teks) dan >= 3:1 (komponen) tema terang dan gelap, sasaran >= 24 px, reflow 320 px, tanpa animasi CSS. Sasaran WCAG 2.2 AA; hanya yang diuji otomatis yang diklaim (belum diuji dengan pembaca layar; bukan sertifikasi) | `bun run penyunting`, `bun run uji:penyunting` | [penyunting.md](penyunting.md#aksesibilitas-yang-diterapkan) |
 | Penonton tanpa suara | Field `audiens.tanpaSuara` dan `caption.burnIn` di `konsep.json` | [konsep-jenis-alur.md](konsep-jenis-alur.md) |
 
 Caption yang dibuat ASR tidak boleh dianggap setara caption akurat tanpa tinjauan: ASR dapat salah dengar, melewatkan kata, atau mengarang kata, dan nama diri, istilah, serta angka paling rawan. Standar caption (misalnya WCAG SC 1.2.2) menuntut caption yang setara dengan ucapan; awvd tidak memeriksa tinjauan itu, jadi menyuntingnya dan menandainya selesai adalah tanggung jawab proyek. Penerapan standar itu pada caption otomatis belum diverifikasi dari sumber primer.
@@ -43,6 +44,10 @@ Caption yang dibuat ASR tidak boleh dianggap setara caption akurat tanpa tinjaua
 PDF SOP bertag (outline, bahasa `id`, tabel `th scope`) tetapi **tidak** mengklaim PDF/UA; lihat [sop.md](sop.md).
 
 ## Changelog
+
+### 2026-11-08 - v1.8.0
+
+- Menambahkan baris antarmuka penyunting pratinjau (#54) ke tabel fitur beserta batas klaim kepatuhan.
 
 ### 2026-11-07 - v1.7.0
 
