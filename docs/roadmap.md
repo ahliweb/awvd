@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.15.0`
+- Version: `v1.16.0`
 - Last updated: `2026-11-08`
-- Changeset: `Paritas timeline multitrack berstatus ada (templat render generik F2/03 dan rencana audio F2/05 selesai); status F2 berjalan. Sebelumnya: F4: syarat keluar didefinisikan ulang (MP4 byte-identik antar jumlah pekerja, KP-068) dan paritas render cepat berstatus ada (render paralel per segmen).`
+- Changeset: `Speed ramp dengan audio atempo (F3/05) selesai: paritas trim, speed, reverse, freeze mencakup audio speed konstan dan ramp; status F3 selesai. Sebelumnya: Paritas timeline multitrack berstatus ada (templat render generik F2/03 dan rencana audio F2/05 selesai); status F2 berjalan. Sebelumnya: F4: syarat keluar didefinisikan ulang (MP4 byte-identik antar jumlah pekerja, KP-068) dan paritas render cepat berstatus ada (render paralel per segmen).`
 
 ## Visi
 
@@ -44,7 +44,7 @@ Status memakai `rencana | berjalan | selesai | ditunda | dibatalkan`.
 | --- | --- | --- | --- | --- | --- |
 | F1 | F1 Fondasi produksi | Melengkapi alat produksi dasar | Pemeriksa visual, transisi, aset (P0–P1 dan helper runtime), reaction dan kutipan wajar, serta narasi (caption sinkron voice over, adaptor TTS opsional) ter-merge dengan uji dan dokumen; bug determinisme `--skala` diperbaiki | berjalan | [#17](https://github.com/ahliweb/awvd/issues/17) |
 | F2 | F2 Timeline deklaratif | Mengubah "tulis kode per video" menjadi "isi `timeline.json`" yang dirender templat generik | Format `timeline.json` (track video/audio/teks/overlay; klip in, out, speed, reverse, freeze; keyframe; transisi) tervalidasi dan dirender templat generik; contoh dan uji determinisme lolos | berjalan | [#29](https://github.com/ahliweb/awvd/issues/29) |
-| F3 | F3 Pemrosesan klip | Olah klip di tahap ekstraksi dengan cache | `klip.mjs` mendukung LUT/filter warna, chroma key, stabilisasi, peredam bising, dan speed ramp; uji lolos | rencana | [#37](https://github.com/ahliweb/awvd/issues/37) |
+| F3 | F3 Pemrosesan klip | Olah klip di tahap ekstraksi dengan cache | `klip.mjs` mendukung LUT/filter warna, chroma key, stabilisasi, peredam bising, dan speed ramp; uji lolos | selesai | [#37](https://github.com/ahliweb/awvd/issues/37) |
 | F4 | F4 Kinerja render | Render footage panjang dalam waktu layak | Render lewat segmen dengan MP4 byte-identik untuk jumlah pekerja berapa pun dan tangkapan PNG per frame identik dengan tangkapan serial (KP-068); percepatan terukur dan didokumentasikan | berjalan | [#43](https://github.com/ahliweb/awvd/issues/43) |
 | F5 | F5 Fitur cerdas lokal | Fitur cerdas lokal yang opsional | ASR whisper.cpp opsional, deteksi ketukan, reframe, dan hapus latar opsional dengan model berlisensi permisif yang tidak dibundel; masing-masing beruji dan terdokumentasi | rencana | [#47](https://github.com/ahliweb/awvd/issues/47) |
 | F6 | F6 Penyunting pratinjau | Alat bantu visual penyusun timeline | Halaman pratinjau lokal dengan scrubber dan daftar track yang mengekspor `timeline.json`; uji E2E Playwright lolos | rencana | [#52](https://github.com/ahliweb/awvd/issues/52) |
@@ -61,7 +61,7 @@ flowchart LR
     F4 -.->|disarankan sebelum footage panjang| F6
 ```
 
-F3 boleh dimulai untuk butir yang tidak bergantung pada timeline (LUT, chroma key, peredam bising). Speed ramp (F3/05) menunggu pemetaan frame F2/04. F4 tidak bergantung pada F2 dan boleh berjalan paralel.
+F3 boleh dimulai untuk butir yang tidak bergantung pada timeline (LUT, chroma key, peredam bising). Speed ramp (F3/05) memakai pemetaan frame F2/04 dan sudah selesai. F4 tidak bergantung pada F2 dan boleh berjalan paralel.
 
 ## Paritas fitur
 
@@ -83,7 +83,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Ducking, fade, kenyaringan | ada | — |
 | QC kenyaringan, kilatan, subtitle | ada ([pemeriksaan-mutu.md](pemeriksaan-mutu.md)) | — |
 | Timeline multitrack | ada: format `timeline.json`, validator `bun run timeline periksa`, templat render generik `templates/timeline/` (track video, overlay, teks, transisi), dan rencana audio turunan `bun run audio -- --timeline` ([timeline.md](timeline.md)) | F2/02, F2/03, F2/05 (selesai) |
-| Trim, speed, reverse, freeze | ada sebagai helper pemetaan frame ([api-runtime.md](api-runtime.md#pemetaan-waktu-klip); `petaWaktuKlip`, `frameSumber`, ramp kecepatan); tanpa interpolasi gerak, audio tidak ikut diregangkan | F2/04 (selesai) |
+| Trim, speed, reverse, freeze | ada sebagai helper pemetaan frame ([api-runtime.md](api-runtime.md#pemetaan-waktu-klip); `petaWaktuKlip`, `frameSumber`, ramp kecepatan); audio speed konstan dan ramp diregangkan dengan `atempo` sinkron dengan frame (0,5 sampai 4x; [video-tertanam-audio.md](video-tertanam-audio.md#audio-klip-ber-speed-atempo)); reverse dan freeze tanpa audio (bisu); tanpa interpolasi gerak | F2/04, F3/05 (selesai) |
 | Keyframe generik | ada (`keyframe`) | F2/06 |
 | Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
 | Chroma key | ada ([olah-klip.md](olah-klip.md); `kunciWarna`, keluaran PNG beralfa) | F3/02 (selesai) |
@@ -112,6 +112,11 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-08 - v1.16.0
+
+- Paritas "Trim, speed, reverse, freeze": audio speed konstan dan ramp diregangkan dengan `atempo` (F3/05); reverse dan freeze tetap tanpa audio.
+- Status F3 menjadi selesai (F3/01 sampai F3/05); catatan urutan F3/05 diperbarui.
 
 ### 2026-11-08 - v1.15.0
 

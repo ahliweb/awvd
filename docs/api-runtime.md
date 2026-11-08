@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.6.0`
+- Version: `v1.6.1`
 - Last updated: `2026-11-08`
-- Changeset: `Menambahkan keyframe(frame, titik, opsi): lintasan nilai (angka atau larik) dengan easing per segmen, memakai ulang easing runtime. Sebelumnya: pemetaan waktu klip.`
+- Changeset: `Catatan Audio di Pemetaan waktu klip: audio speed konstan dan ramp kini diregangkan atempo (F3/05); reverse dan freeze tetap harus bisu. API runtime tidak berubah. Sebelumnya: Menambahkan keyframe(frame, titik, opsi): lintasan nilai (angka atau larik) dengan easing per segmen, memakai ulang easing runtime. Sebelumnya: pemetaan waktu klip.`
 
 Referensi API `scripts/runtime.js`, yang dimuat komposisi lewat `<script src=".../scripts/runtime.js">`. Konsep komposisi dan protokol dengan renderer ada di [arsitektur.md](arsitektur.md); dasar riset dan checklist pemakaian helper ada di [pedoman-produksi.md](pedoman-produksi.md).
 
@@ -99,7 +99,7 @@ await klipGambar(kanvas, klip, frame - mulai, { waktu: { balik: true }, durasi: 
 const peta = petaWaktuKlip(ramp, 61); // peta[60] === 119, frame sumber terbesar = 120 + 119
 ```
 
-**Audio tidak ikut berubah.** `scripts/audio.mjs` tidak meregangkan waktu, jadi klip yang waktunya bukan identitas (speed <> 1, ramp, reverse, freeze) harus dibisukan di rencana audio agar suara tidak lepas dari gambar.
+**Audio.** `petaWaktuKlip` hanya memetakan gambar. `scripts/audio.mjs` memakai fungsi yang sama untuk meregangkan audio klip ber-speed (konstan dan ramp) dengan `atempo` sinkron dalam 1 frame, jangkauan 0,5 sampai 4x ([video-tertanam-audio.md](video-tertanam-audio.md#audio-klip-ber-speed-atempo)). Reverse dan freeze tidak punya pemetaan audio, jadi klip itu harus dibisukan di rencana audio agar suara tidak lepas dari gambar.
 
 ## Mode URL
 
@@ -133,6 +133,10 @@ Sumber tiap helper (rincian dan tingkat buktinya ada di baris tabel di atas dan 
 | `presetJenis` | Preset bertingkat bukti ([konsep-jenis-alur.md](konsep-jenis-alur.md#tingkat-bukti)) |
 
 ## Changelog
+
+### 2026-11-08 - v1.6.1
+
+- Koreksi catatan Audio di Pemetaan waktu klip: `audio.mjs` kini meregangkan audio untuk speed konstan dan ramp (F3/05); reverse dan freeze tetap bisu. API `runtime.js` tidak berubah.
 
 ### 2026-11-08 - v1.6.0
 

@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.1.0`
+- Version: `v1.2.0`
 - Last updated: `2026-11-08`
-- Changeset: `Templat render generik templates/timeline (issue #32): penjadwal scripts/timeline.js, perakit props siapkan.mjs, bagian Templat render dan Rencana audio, uji uji-templat-timeline; status dan Batasan diperbarui (keyframe properti #35 dan rencana audio #34 sudah ada; dokumen penutup F2 #36 menyusul).`
+- Changeset: `Aturan R09 dan bagian Rencana audio: audio klip ber-speed (konstan dan ramp) didukung dengan atempo (F3/05); reverse dan freeze tetap ditolak, kecepatan di luar 0,5..4x ditolak saat rakit (A04). Sebelumnya: Templat render generik templates/timeline (issue #32): penjadwal scripts/timeline.js, perakit props siapkan.mjs, bagian Templat render dan Rencana audio, uji uji-templat-timeline; status dan Batasan diperbarui (keyframe properti #35 dan rencana audio #34 sudah ada; dokumen penutup F2 #36 menyusul).`
 
 `timeline.json` adalah rencana video yang bisa ditinjau sebagai data: daftar track berisi butir (klip video, gambar, warna, teks, kredit, audio) dengan posisi absolut dalam frame. Dokumen ini menjelaskan format dan validatornya, `bun run timeline periksa`, yang menolak timeline yang salah **sebelum Chromium diluncurkan**, dengan pola yang sama seperti `aset.json` dan `sumber.json`.
 
@@ -117,7 +117,7 @@ Galat (kode keluar 2):
 | R06 | satu transisi aktif per frame di seluruh timeline (id filter SVG `transisi.js` bersifat global) |
 | R07 | keyframe: `pada` naik tegas dan kurang dari `durasi`; `easing` dilarang di titik terakhir |
 | R08 | `waktu`: kecepatan maksimal 3 desimal; `bekukan` dan `balik` tidak digabung; frame klip yang dibaca (`dari` + offset terbesar) kurang dari jumlah frame klip kecuali `habis` bukan `tolak` |
-| R09 | audio klip: bukan `bisu` hanya bila waktu identitas (tanpa speed, reverse, freeze) dan klip beraudio; musik sumber kutipan wajib `bisu` (kecuali `musikDibahas`) |
+| R09 | audio klip: bukan `bisu` hanya bila waktu tanpa reverse dan freeze (speed konstan dan ramp boleh; audio diregangkan `atempo`, jangkauan 0,5..4x diperiksa saat rakit audio, A04) dan klip beraudio; musik sumber kutipan wajib `bisu` (kecuali `musikDibahas`) |
 | R10 | audio: narasi tidak dipotong (`dari` 0, `durasi` = `ceil(durasi berkas x fps)`); satu butir musik, mulai di frame 0, tidak membaca melebihi berkas; `ducking` hanya musik; peran `efek` belum didukung |
 | R11 | pemegang suara: dua narasi, narasi dan klip `bergantian`, dan dua klip bersuara tidak boleh tumpang tindih (audio butir keluar berakhir di awal transisi); narasi dan klip `campur` = peringatan W05, galat bila `audio.ketatCampur` |
 | R12 | atribusi: sumber CC BY atau aset dengan `atribusiTampil` `akhir` mewajibkan butir `kredit`; `atribusiTampil` `layar` mewajibkan `kreditLayar: true` |
@@ -214,7 +214,7 @@ Rencana audio diturunkan dari timeline oleh `audio.mjs`, bukan oleh subcommand `
 bun run audio -- --timeline timeline.json --klip-props klip-props.json --out campuran.wav [--rencana-keluar rencana-audio.json]
 ```
 
-Track audio (peran `narasi` dan `musik`, `gainDb` track dan butir, `ducking`) dan `audio.mode` butir video dipetakan ke rencana. Timeline diperiksa penuh lebih dulu seperti `timeline periksa`; satu galat saja berarti tidak ada audio yang dirakit (exit 2). Rincian pemetaan, aturan transisi, kode galat A01-A04, dan batas (musik sepanjang video, tanpa olah suara) ada di [video-tertanam-audio.md](video-tertanam-audio.md#rencana-dari-timelinejson).
+Track audio (peran `narasi` dan `musik`, `gainDb` track dan butir, `ducking`) dan `audio.mode` butir video dipetakan ke rencana. Timeline diperiksa penuh lebih dulu seperti `timeline periksa`; satu galat saja berarti tidak ada audio yang dirakit (exit 2). Butir video bersuara dengan speed konstan atau ramp diteruskan ke rencana dan diregangkan dengan `atempo` sinkron dengan `petaWaktuKlip` ([Audio klip ber-speed](video-tertanam-audio.md#audio-klip-ber-speed-atempo)); reverse dan freeze ditolak (R09), dan kecepatan di luar 0,5..4x atau ramp yang tak dapat disinkronkan ditolak saat rakit (A04). Rincian pemetaan, aturan transisi, kode galat A01-A04, dan batas (musik sepanjang video, tanpa olah suara) ada di [video-tertanam-audio.md](video-tertanam-audio.md#rencana-dari-timelinejson).
 
 ## Contoh
 
@@ -251,6 +251,10 @@ Dua pilihan implementasi yang menyertainya: validator ditulis tangan tanpa depen
 - Validator memeriksa kelengkapan catatan dan kepatuhan aturan teknis; ia tidak menjamin pemakaian yang sah secara hukum, dan kebijakan kutipan bukan nasihat hukum.
 
 ## Changelog
+
+### 2026-11-08 - v1.2.0
+
+- Aturan R09 dilonggarkan: klip bersuara boleh ber-speed konstan atau ramp (audio.mjs meregangkan dengan `atempo` sinkron dengan frame, F3/05, #42); reverse dan freeze tetap R09. Bagian Rencana audio menautkan [Audio klip ber-speed](video-tertanam-audio.md#audio-klip-ber-speed-atempo) dan menyebut A04 untuk kecepatan di luar 0,5..4x.
 
 ### 2026-11-08 - v1.1.0
 
