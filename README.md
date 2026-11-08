@@ -4,7 +4,7 @@
 
 - Version: `v2.21.1`
 - Last updated: `2026-11-08`
-- Changeset: `Indeks dokumentasi: versi timeline.md v1.3.0 (dokumen penutup F2) dan roadmap.md v1.18.0 (F2 selesai); §Struktur repo: dua baris scripts/uji*.mjs yang kembar digabung jadi satu yang akurat; §Perintah utama menautkan alur ujung ke ujung timeline. Sebelumnya: §Perintah utama: audio klip ber-speed (konstan dan ramp, atempo) di `bun run audio` dan uji audio-waktu di `bun run uji`; §Struktur repo memuat uji audio-waktu; versi indeks dokumentasi (api-runtime v1.6.1, video-tertanam-audio v1.9.0, timeline v1.2.0, roadmap v1.17.0, log-keputusan v1.22.0). Sebelumnya: Indeks dokumentasi memuat docs/penyunting.md (rancangan penyunting F6) dan versi docs/README.md, roadmap.md, log-keputusan.md. Sebelumnya: Indeks dokumentasi: versi cli.md dan batasan.md v1.8.1 (isu #79).`
+- Changeset: `Indeks dokumentasi: versi timeline.md v1.3.0 (dokumen penutup F2) dan roadmap.md v1.18.0 (F2 selesai); §Struktur repo: dua baris scripts/uji*.mjs yang kembar digabung jadi satu yang akurat; §Perintah utama menautkan alur ujung ke ujung timeline. Sebelumnya: §Perintah utama: audio klip ber-speed (konstan dan ramp, atempo) di `bun run audio` dan uji audio-waktu di `bun run uji`; §Struktur repo memuat uji audio-waktu; versi indeks dokumentasi (api-runtime v1.6.1, video-tertanam-audio v1.9.0, timeline v1.2.0, roadmap v1.17.0, log-keputusan v1.22.0).`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -72,7 +72,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.1` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.2` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.2.0` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.6.1` |
 | [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.8.1` |
