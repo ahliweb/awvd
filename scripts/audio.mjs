@@ -25,6 +25,9 @@
  *     sebelum dicampur, supaya pergantian narasi-klip tidak melonjak.
  *   - Klip dari sumber kutipan (klip-props memuat `kutipan`): audio musik wajib "bisu"
  *     (kebijakan kutipan wajar, scripts/kutipan.mjs); ucapan boleh bergantian atau campur.
+ *   - Klip ber-speed: klip[] dengan `waktu` (kecepatan konstan atau ramp; sama dengan waktu butir timeline) dan
+ *     `durasi` (frame butir) diregangkan dengan atempo sinkron dengan RT.petaWaktuKlip (rencanaWaktuAudio);
+ *     jangkauan 0,5..4x; reverse dan freeze ditolak. Rincian: docs/video-tertanam-audio.md §Audio klip ber-speed.
  *   - Perakitan ffmpeg deterministik: volume eval=frame, adelay, amix normalize=0.
  *   - Olah suara per trek (narasi dan klip bersuara), diterapkan sebelum penyamaan level:
  *       "bersih": { metode: "afftdn" (bawaan; nr, nf, jenis, lacak) | "arnndn" (model: berkas
@@ -251,6 +254,72 @@ function rantaiAtempo(faktor) {
   return t;
 }
 
+// ------------------------------------------------------- waktu klip (speed konstan dan ramp)
+const SEGMEN_MAKS_DETIK = 0.25; // panjang potongan ramp terpanjang; dipendekkan bila sinkron melewati batas
+const BATAS_GALAT_SINKRON = 1; // frame: selisih posisi audio terhadap frame sumber yang tampil
+// Jangkauan tempo yang terukur sinkron (scripts/uji-audio-waktu.mjs): di bawah 0,5x atempo (WSOLA) menggeser awal
+// bunyi lebih dari 1 frame, di atas 4x bunyi pendek hilang. Di luar itu ditolak (fail-closed), bukan didekati.
+const TEMPO_AUDIO = [0.5, 4];
+const MARGIN_POTONG = 0.1; // detik sumber ekstra di ujung tiap potongan; kelebihannya dipangkas ke panjang tepat
+const diTempo = (t) => t >= TEMPO_AUDIO[0] - 1e-9 && t <= TEMPO_AUDIO[1] + 1e-9;
+
+/**
+ * Rencana waktu audio untuk klip ber-speed, diturunkan dari `RT.petaWaktuKlip` (runtime.js, sumber
+ * tunggal pemetaan frame; bukan dihitung ulang di sini). `tabel[f]` adalah offset frame sumber yang
+ * ditampilkan pada frame lokal f, jadi audio harus berada di posisi yang sama (+- 1 frame):
+ *   - speed konstan S: SATU potongan, tempo S/1000, sumber [0, panjang*S/1000) frame; rantai atempo;
+ *   - ramp: potongan berurutan; tiap potongan memotong sumber [tabel[f0], tabel[f1]) lalu atempo
+ *     konstan (tabel[f1]-tabel[f0])/(f1-f0); batas potongan berhimpit di sumber dan keluaran,
+ *     sehingga tidak ada celah atau tumpang tindih. Potongan dipendekkan (maks SEGMEN_MAKS_DETIK)
+ *     sampai selisih garis lurus terhadap tabel <= 1 frame di setiap frame dan tempo potongan di
+ *     TEMPO_AUDIO; bila tak ada panjang yang memenuhi, ramp ditolak.
+ * Panjang keluaran tiap potongan dipaksa tepat sam(f1) - sam(f0) sampel (apad + atrim), jadi total
+ * keluaran tepat sam(panjang) sampel tanpa drift. Tempo di luar TEMPO_AUDIO (0,5..4x), reverse, dan freeze ditolak (audio tetap hanya untuk
+ * waktu maju). Kembalian: { identitas } bila tabel = identitas (jalur lama, tanpa atempo), atau
+ * { segmen: [{ f0, f1, s0, s1, tempo }], galatMaks } (s0, s1 dalam frame sumber relatif `dari`),
+ * atau { galat } berisi pesan.
+ * @param {object} RT runtime.js; @param {object} waktu butir.waktu; @param {number} durasi frame butir
+ * @param {number} panjang frame lokal yang dipakai audio (<= durasi); @param {number} fps
+ */
+export function rencanaWaktuAudio(RT, waktu, durasi, panjang, fps) {
+  if (waktu?.bekukan) return { galat: "audio klip tidak mendukung freeze (waktu.bekukan): tidak ada pemetaan audio yang benar; set mode \"bisu\"" };
+  if (waktu?.balik) return { galat: "audio klip tidak mendukung reverse (waktu.balik): audio tidak diputar mundur; set mode \"bisu\"" };
+  let K;
+  try {
+    K = RT.petaWaktuKlip(waktu ?? {}, durasi + 1); // satu frame lebih untuk batas akhir; maju, jadi awalan sama dengan petaWaktuKlip(durasi)
+  } catch (e) {
+    return { galat: e.message };
+  }
+  if (!Number.isInteger(panjang) || panjang < 1 || panjang > durasi) return { galat: `panjang audio (${panjang}) harus bilangan bulat 1..durasi butir (${durasi})` };
+  if (K.slice(0, panjang).every((v, n) => v === n)) return { identitas: true };
+  const galatDi = (garis) => { // selisih terbesar garis lurus (f0,K[f0])-(f1,K[f1]) terhadap tabel, frame
+    let m = 0;
+    for (const [f0, f1] of garis) for (let f = f0; f <= f1; f++) m = Math.max(m, Math.abs(K[f0] + ((K[f1] - K[f0]) * (f - f0)) / (f1 - f0) - K[f]));
+    return m;
+  };
+  if (!Array.isArray(waktu?.kecepatan)) {
+    const tempo = RT.kecepatanPermil(waktu.kecepatan) / 1000;
+    if (!diTempo(tempo)) return { galat: `kecepatan ${tempo} di luar jangkauan audio ${TEMPO_AUDIO.join("..")}x (di luar itu atempo tidak terukur sinkron dalam ${BATAS_GALAT_SINKRON} frame); set mode "bisu"` };
+    let galatMaks = 0;
+    for (let f = 0; f <= panjang; f++) galatMaks = Math.max(galatMaks, Math.abs(f * tempo - K[f]));
+    return { segmen: [{ f0: 0, f1: panjang, s0: 0, s1: panjang * tempo, tempo }], galatMaks };
+  }
+  const maks = Math.max(2, Math.round(SEGMEN_MAKS_DETIK * fps));
+  const segmen = [];
+  let galatMaks = 0;
+  for (let f0 = 0; f0 < panjang;) {
+    let pilih = null;
+    for (let n = Math.min(maks, panjang - f0); n >= 1 && !pilih; n--) {
+      if (diTempo((K[f0 + n] - K[f0]) / n) && galatDi([[f0, f0 + n]]) <= BATAS_GALAT_SINKRON) pilih = n;
+    }
+    if (!pilih) return { galat: `ramp kecepatan tidak dapat dipetakan ke audio di sekitar frame lokal ${f0}: kecepatan harus tetap dalam ${TEMPO_AUDIO.join("..")}x (jangkauan atempo yang terukur sinkron dalam ${BATAS_GALAT_SINKRON} frame); set mode "bisu"` };
+    galatMaks = Math.max(galatMaks, galatDi([[f0, f0 + pilih]]));
+    segmen.push({ f0, f1: f0 + pilih, s0: K[f0], s1: K[f0 + pilih], tempo: (K[f0 + pilih] - K[f0]) / pilih });
+    f0 += pilih;
+  }
+  return { segmen, galatMaks };
+}
+
 /**
  * Rantai filter olah suara (string ffmpeg, tanpa koma di ujung) untuk satu trek. `olah.suara.mesinPakai`
  * ("rubberband" atau "sederhana") sudah ditetapkan validasiRencana; tanpa itu dianggap "sederhana".
@@ -381,6 +450,13 @@ export async function validasiRencana(r, dir, { fps, klipProps, ketatCampur = fa
       continue;
     }
     const e = { id, mode, mulai: k.mulai, akhir: k.akhir, turunDb, gainDb, dariDetik, berkas: null, olah: null };
+    if (k.waktu !== undefined && mode !== "bisu") {
+      const durasiButir = k.durasi ?? k.akhir - k.mulai;
+      if (!bulat(durasiButir) || durasiButir < k.akhir - k.mulai) { g(`${nama}: durasi (frame butir) harus bilangan bulat >= akhir - mulai (${k.akhir - k.mulai}; dapat ${JSON.stringify(k.durasi)})`); continue; }
+      const rw = rencanaWaktuAudio(muatRuntime(), k.waktu, durasiButir, k.akhir - k.mulai, fps);
+      if (rw.galat) { g(`${nama}: waktu: ${rw.galat}`); continue; }
+      if (!rw.identitas) e.waktuAudio = rw;
+    }
     if (mode === "bisu" && (k.bersih !== undefined || k.suara !== undefined)) peringatan.push(`${nama}: bersih/suara diabaikan pada mode "bisu"`);
     if (mode !== "bisu") {
       const vo = validasiOlah(k, nama, dir, { izinTempo: false });
@@ -403,7 +479,7 @@ export async function validasiRencana(r, dir, { fps, klipProps, ketatCampur = fa
       if (pa.galat) { g(`${nama}: ${pa.galat}`); continue; }
       e.kanal = pa.kanal;
       e.durasiAudio = pa.durasi;
-      const perlu = (k.akhir - k.mulai) / fps;
+      const perlu = e.waktuAudio ? e.waktuAudio.segmen[e.waktuAudio.segmen.length - 1].s1 / fps : (k.akhir - k.mulai) / fps; // detik sumber yang dibaca
       if (pa.durasi - dariDetik < perlu - 1 / fps) {
         peringatan.push(`${nama}: audio (${(pa.durasi - dariDetik).toFixed(2)} s) lebih pendek daripada rentang klip (${perlu.toFixed(2)} s); sisanya senyap`);
       }
@@ -558,9 +634,27 @@ export function bangunGrafik(rencana) {
     if (c.mode === "bisu") continue;
     const k = tambah(c.berkas);
     const panjang = (c.akhir - c.mulai) / fps;
-    const efektif = Math.min(panjang, c.durasiAudio - c.dariDetik);
-    const rant = [`[${k}:a]${rantaiMasuk(c.kanal)}`,
-      `atrim=start=${f6(c.dariDetik)}:end=${f6(c.dariDetik + efektif)}`, "asetpts=PTS-STARTPTS",
+    const wa = c.waktuAudio;
+    const efektif = wa ? panjang : Math.min(panjang, c.durasiAudio - c.dariDetik);
+    let awal; // bagian awal rantai sampai sebelum olah suara
+    if (wa) { // klip ber-speed: potongan sumber -> atempo -> panjang tepat -> sambung (lihat rencanaWaktuAudio)
+      const n = wa.segmen.length;
+      baris.push(`[${k}:a]${rantaiMasuk(c.kanal)},asplit=${n}${wa.segmen.map((_, s) => `[w${i}_${s}]`).join("")}`);
+      wa.segmen.forEach((sg, s) => {
+        const len = sam(sg.f1, fps) - sam(sg.f0, fps);
+        const mulaiSrc = c.dariDetik + sg.s0 / fps, akhirSrc = c.dariDetik + sg.s1 / fps + MARGIN_POTONG; // margin: ujung aliran atempo (flush) tidak masuk keluaran
+        const ujung = `apad=whole_len=${len},atrim=end_sample=${len},aformat=sample_fmts=fltp:channel_layouts=stereo`;
+        if (mulaiSrc >= c.durasiAudio) { // sumber habis sebelum potongan ini: senyap
+          baris.push(`[w${i}_${s}]anullsink`, `anullsrc=r=${SR}:cl=stereo,atrim=end_sample=${len},aformat=sample_fmts=fltp:channel_layouts=stereo[x${i}_${s}]`);
+        } else {
+          baris.push(`[w${i}_${s}]atrim=start=${f6(mulaiSrc)}:end=${f6(akhirSrc)},asetpts=PTS-STARTPTS,${[...rantaiAtempo(sg.tempo), ujung].join(",")}[x${i}_${s}]`);
+        }
+      });
+      awal = `${wa.segmen.map((_, s) => `[x${i}_${s}]`).join("")}${n > 1 ? `concat=n=${n}:v=0:a=1` : "anull"}`;
+    } else {
+      awal = `[${k}:a]${rantaiMasuk(c.kanal)},atrim=start=${f6(c.dariDetik)}:end=${f6(c.dariDetik + efektif)},asetpts=PTS-STARTPTS`;
+    }
+    const rant = [awal,
       ...(c.efek ? [c.efek] : []),
       `volume=${(c.gainEq + c.gainDb).toFixed(4)}dB`,
       `afade=t=in:st=0:d=${f6(fadeDtk)}`, `afade=t=out:st=${f6(Math.max(0, efektif - fadeDtk))}:d=${f6(fadeDtk)}`,
@@ -605,10 +699,11 @@ export function bangunGrafik(rencana) {
  *   - butir video dengan audio.mode "bergantian" | "campur" | "bisu" -> klip[] (mulai, akhir =
  *     mulai + durasi, atau awal transisi butir berikutnya bila butir ini keluar; dariDetik = dari/fps)
  *   - track aktif:false dilewati (tetap divalidasi). Track video/overlay tanpa mode = bisu.
- * Waktu klip dihitung dari `RT.petaWaktuKlip` (runtime.js): audio klip hanya sah untuk waktu
- * identitas (offset frame ke-i = i), kalau tidak, galat A04 (audio.mjs tidak meregangkan waktu).
+ * Waktu klip dihitung dari `RT.petaWaktuKlip` (runtime.js): speed konstan dan ramp diteruskan ke
+ * rencana (`waktu`, `durasi`) dan dirakit dengan atempo yang sinkron dengan frame (`rencanaWaktuAudio`);
+ * reverse dan freeze tidak punya pemetaan audio yang benar, jadi galat A04.
  * Galat A (tambahan atas R01-R17): A01 audio klip tak dapat ditemukan, A02 musik tak sepanjang
- * video atau dengan offset, A03 berkas audio, A04 waktu klip bukan identitas.
+ * video atau dengan offset, A03 berkas audio, A04 waktu klip tidak dapat dipetakan ke audio (reverse, freeze, ramp tak sinkron).
  *
  * @param {object} t timeline hasil JSON.parse
  * @param {string} dir folder timeline.json (tempat manifes.* dirujuk)
@@ -658,13 +753,11 @@ export async function rencanaDariTimeline(t, dir, { klipProps = null, ketat = fa
       const akhir = TL.akhirAudioButir(b.mulai + b.durasi, sesudah?.get(b.id));
       const e = { id: b.id, mulai: b.mulai, akhir, mode };
       if (mode === "bisu") { rencana.klip.push(e); return; }
-      // pemetaan waktu dari runtime.js: audio mengikuti gambar hanya bila offset frame ke-i = i
-      let tabel;
-      try { tabel = RT.petaWaktuKlip(b.waktu ?? {}, b.durasi); } catch (err) { G("A04", `${lok}/waktu`, err.message); return; }
-      if (!tabel.every((v, n) => v === n)) {
-        G("A04", `${lok}/waktu`, `butir "${b.id}" bersuara (mode ${mode}) tetapi waktunya bukan identitas (speed, reverse, atau freeze); audio.mjs tidak meregangkan waktu, set audio.mode "bisu"`);
-        return;
-      }
+      // pemetaan waktu dari runtime.js (rencanaWaktuAudio): speed konstan dan ramp diregangkan dengan atempo
+      // sinkron dengan frame; identitas tanpa atempo; reverse/freeze tidak dipetakan (A04)
+      const rw = rencanaWaktuAudio(RT, b.waktu ?? {}, b.durasi, akhir - b.mulai, fps);
+      if (rw.galat) { G("A04", `${lok}/waktu`, `butir "${b.id}" bersuara (mode ${mode}): ${rw.galat}`); return; }
+      if (!rw.identitas) { e.waktu = b.waktu; e.durasi = b.durasi; }
       e.dariDetik = RT.frameSumber(b.waktu ?? {}, 0, { durasi: b.durasi, dari: b.dari ?? 0 }) / fps;
       if (b.audio?.gainDb !== undefined) e.gainDb = b.audio.gainDb;
       if (b.audio?.turunDb !== undefined) e.turunDb = b.audio.turunDb;
@@ -701,9 +794,11 @@ const PETUNJUK = `Pemakaian:
   bun scripts/audio.mjs --timeline timeline.json --out campuran.wav --klip-props klip-props.json [--ketat-campur] [--draf]
         [--rencana-keluar rencana-audio.json]
 Rencana: { durasiFrame, narasi:[{id?,berkas,mulai,gainDb?,bersih?,suara?}], musik?:{berkas,levelDb?,bebasDb?,gainDb?},
-  klip:[{id,berkas?,mulai,akhir,mode?,gainDb?,turunDb?,dariDetik?,bersih?,suara?}], fadeMs?, ucapanLufs? }
+  klip:[{id,berkas?,mulai,akhir,mode?,gainDb?,turunDb?,dariDetik?,waktu?,durasi?,bersih?,suara?}], fadeMs?, ucapanLufs? }
 Olah per trek (narasi, klip bersuara): bersih:{metode:"afftdn",nr?,nf?,jenis?,lacak?} atau {metode:"arnndn",model,campur?};
   suara:{nadaSemiton?,tempo? (narasi),mesin?:"otomatis"|"rubberband"|"sederhana",formant?}
+Klip ber-speed: waktu:{kecepatan: 0.5..4 | [{pada,nilai,easing?}]} dan durasi (frame butir) meregangkan audio dengan atempo;
+  reverse (balik) dan freeze (bekukan) ditolak.
 Jalur berkas relatif terhadap folder rencana. Kode keluar 2 untuk rencana tidak valid.
 --timeline menurunkan rencana dari track audio dan audio.mode butir video di timeline.json (fps dari timeline;
   --fps bila diberikan harus sama). Timeline diperiksa penuh lebih dulu (seperti "timeline periksa"); satu galat

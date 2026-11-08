@@ -265,7 +265,7 @@ const kasusAturan = [
   ["R08", "bekukan dan balik digabung", (t) => { t.track[1].butir[1].waktu.balik = true; }, "/track/1/butir/1/waktu"],
   ["R08", "kecepatan lebih dari 3 desimal", (t) => { t.track[0].butir[1].waktu.kecepatan = 1.2345; }, "/track/0/butir/1/waktu/kecepatan"],
   ["R08", "dari di luar klip", (t) => { t.track[1].butir[0].dari = 95; }, "/track/1/butir/0"],
-  ["R09", "audio klip dengan speed bukan bisu", (t) => { t.track[0].butir[1].audio.mode = "campur"; }, "/track/0/butir/1/audio/mode"],
+  ["R09", "audio klip dengan freeze bukan bisu", (t) => { t.track[0].butir[1].audio.mode = "campur"; t.track[0].butir[1].waktu = { bekukan: true }; }, "/track/0/butir/1/audio/mode"],
   ["R09", "audio klip dengan reverse bukan bisu", (t) => { t.track[1].butir[0].audio = { mode: "campur" }; }, "/track/1/butir/0/audio/mode"],
   ["R10", "narasi dipotong", (t) => { t.track[5].butir[0].durasi = 60; }, "/track/5/butir/0"],
   ["R10", "musik tidak mulai di frame 0", (t) => { t.track[6].butir[0].mulai = 30; t.track[6].butir[0].durasi = 400; }, "/track/6/butir/0/mulai"],
@@ -475,6 +475,11 @@ daftar("(j) peringatan W01-W09 dan --ketat (peringatan menjadi galat, exit 2)", 
   tegas(lihat(r, "W03"), `W03: ${JSON.stringify(r.peringatan)}`);
   r = await aturanDengan((t) => { t.track[0].butir[0].audio.mode = "campur"; t.track[5].butir[0].mulai = 60; t.track[0].butir[0].durasi = 100; t.track[0].butir[1].mulai = 85; t.track[0].butir[1].transisi.durasi = 15; t.track[0].butir[1].durasi = 70; t.track[0].butir[1].waktu = {}; t.track[0].butir[1].audio = { mode: "bisu" }; }, { konteks: kon });
   tegas(lihat(r, "W05"), `W05: ${JSON.stringify(r.peringatan)} ${ringkas(r)}`);
+  // R09: speed konstan dan ramp pada klip bersuara lolos (atempo di audio.mjs); freeze/reverse tetap ditolak (tabel R09)
+  r = await aturanDengan((t) => { t.track[0].butir[1].audio.mode = "campur"; }, { konteks: kon });
+  tegas(!kodeAda(r, "R09"), `speed konstan bersuara tidak boleh R09: ${ringkas(r)}`);
+  r = await aturanDengan((t) => { t.track[0].butir[1].audio.mode = "campur"; t.track[0].butir[1].waktu.kecepatan = [{ pada: 0, nilai: 1 }, { pada: 79, nilai: 2 }]; }, { konteks: kon });
+  tegas(!kodeAda(r, "R09"), `ramp bersuara tidak boleh R09: ${ringkas(r)}`);
   r = await aturanDengan((t) => { t.audio.ketatCampur = true; t.track[0].butir[0].audio.mode = "campur"; t.track[5].butir[0].mulai = 60; t.track[0].butir[0].durasi = 100; t.track[0].butir[1].mulai = 85; t.track[0].butir[1].transisi.durasi = 15; t.track[0].butir[1].durasi = 70; t.track[0].butir[1].waktu = {}; t.track[0].butir[1].audio = { mode: "bisu" }; }, { konteks: kon });
   tegas(kodeAda(r, "R11", "/track/0/butir/0"), `ketatCampur menjadikan W05 galat R11: ${ringkas(r)}`);
   // W06: tiga kilatan beruntun hanya peringatan (empat tidak dapat dibangun: R06 dan durasi minimum jenis berkilat)
