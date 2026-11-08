@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.28.0`
+- Version: `v2.29.0`
 - Last updated: `2026-11-08`
-- Changeset: `Indeks dokumentasi: penyunting.md v2.1.0 (#94: butir sangat pendek tidak saling menumpuk), aksesibilitas.md v1.9.1, roadmap.md v1.24.0, docs/README.md v1.17.10. Sebelumnya: §Perintah utama: bun run penyunting memuat penyuntingan dasar dan ekspor (#55, flag --timpa); indeks: AGENTS.md v1.9.2 (kolom Versi yang basi); §Struktur repo: scripts/penyunting/model.js; indeks dokumentasi: penyunting.md v2.0.0, aksesibilitas.md v1.9.0, timeline.md v1.4.0, roadmap.md v1.23.0, log-keputusan.md v1.28.0, docs/README.md v1.17.9.`
+- Changeset: `Indeks dokumentasi: penyunting.md v2.1.0 (#94: butir sangat pendek tidak saling menumpuk), aksesibilitas.md v1.9.1, roadmap.md v1.25.0, docs/README.md v1.17.11. Sebelumnya: §Perintah utama: klip[].efek memuat hapusLatar (hapus latar lokal tanpa layar hijau, #89) dan bun run segmentasi tidak lagi terpisah dari klip; §Struktur repo: klip.mjs memuat hapusLatar; indeks dokumentasi: olah-klip.md v1.3.0, video-tertanam-audio.md v1.11.0, segmentasi-latar.md v1.2.0, batasan.md v1.11.0, lisensi-kepatuhan.md v1.7.1, roadmap.md v1.24.0, log-keputusan.md v1.29.0, docs/README.md v1.17.10.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -52,7 +52,7 @@ Server statis apa pun juga bisa dipakai. Satu frame saja: `?frame=60`. Props pra
 - `bun run render <komposisi> --out ... [--paralel N] [--tangkap png|jpeg] [--cache-segmen]`: render video atau still; selalu lewat segmen tetap yang dirender paralel oleh N pekerja (bawaan `min(4, inti/2)`), dan MP4 sama persis untuk N berapa pun; `--tangkap jpeg` hanya untuk pratinjau draf; `--cache-segmen` (opt-in, `--cache-dir`, `--cache-maks`) memakai ulang segmen yang sudah jadi pada render ulang yang identik atau lanjutan setelah gagal, MP4 tetap byte-identik ([docs/cli.md](docs/cli.md), [render paralel dan segmen](docs/cli.md#render-paralel-dan-segmen), [cache segmen](docs/cli.md#cache-segmen)). Uji: `bun run uji:render-paralel` (ikut `bun run uji`).
 - `bun run periksa <video.mp4>`: pemeriksaan mutu ([docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md)).
 - `bun run sop <sop.json> --out DIR`: SOP menjadi dokumen dan bahan video ([docs/sop.md](docs/sop.md)).
-- `bun run klip <sumber.json> --fps N` dan `bun run audio <rencana.json> --fps N --out ...`: video di dalam video dan timeline audio ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md)). Ekstraksi klip memakai cache berhash dengan ringkasan hit/miss; `--verifikasi` mengesahkan isi cache dan `--bersihkan` memangkas cache lama. Klip dapat distabilkan, di-chroma-key (PNG beralfa), diberi LUT `.cube` dan koreksi warna saat ekstraksi lewat `klip[].efek` ([docs/olah-klip.md](docs/olah-klip.md)). Narasi dan klip bersuara dapat diberi peredam bising (`bersih`: `afftdn`, atau `arnndn` dengan model milik pengguna) dan pengubah nada/tempo (`suara`) di rencana audio ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md#olah-suara-per-trek)).
+- `bun run klip <sumber.json> --fps N` dan `bun run audio <rencana.json> --fps N --out ...`: video di dalam video dan timeline audio ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md)). Ekstraksi klip memakai cache berhash dengan ringkasan hit/miss; `--verifikasi` mengesahkan isi cache dan `--bersihkan` memangkas cache lama. Klip dapat distabilkan, di-chroma-key atau dihapus latarnya tanpa layar hijau (PNG beralfa; `hapusLatar` memakai segmentasi lokal opsional lewat `AWVD_ORT` dan `AWVD_MODEL_DIR`, bobot dan ORT tidak dibundel, mask dibekukan sehingga render tidak memanggil model, hanya Linux x64), diberi LUT `.cube` dan koreksi warna saat ekstraksi lewat `klip[].efek` ([docs/olah-klip.md](docs/olah-klip.md), [docs/segmentasi-latar.md](docs/segmentasi-latar.md)). Narasi dan klip bersuara dapat diberi peredam bising (`bersih`: `afftdn`, atau `arnndn` dengan model milik pengguna) dan pengubah nada/tempo (`suara`) di rencana audio ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md#olah-suara-per-trek)).
 - `bun run konsep -- <subperintah>`: konsep video, pilihan jenis video dan alur produksi, termasuk preset transisi di brief dan profil gerak `kurangiGerak` dari `konsep.json` lewat props ([docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md)).
 - `bun run aset tambah|impor|periksa`: aset (gambar, logo, ikon, SVG, font, audio) dengan manifest `aset.json`, validasi lisensi, pembersih SVG, dan atribusi ([docs/aset.md](docs/aset.md)); komposisi memakai aset lewat helper runtime `logo`, `ikon`, `asetGambar`, `kreditAset`, dan `pasangFont` ([docs/api-runtime.md](docs/api-runtime.md)). Render memblokir semua permintaan jaringan non-lokal (kode keluar 3; [docs/cli.md](docs/cli.md#jaringan-dan-font)).
 - Transisi dan animasi elemen: muat `scripts/transisi.js` setelah `runtime.js` (`window.Transisi`); galeri semua jenis di `templates/transisi-galeri/` ([docs/transisi-animasi.md](docs/transisi-animasi.md)).
@@ -65,7 +65,7 @@ Server statis apa pun juga bisa dipakai. Satu frame saja: `?frame=60`. Props pra
 - `bun run narasi <naskah.json> --out DIR`: naskah narasi dan WAV beku menjadi cue caption VTT/SRT yang sinkron (estimasi berjangkar jeda, lint cps profil audiens), stempel kata, dan `rencana-audio.json` untuk `bun run audio`; mesin suara opsional `sherpa-onnx` (TTS lokal: Supertonic untuk Indonesia, Kokoro untuk Inggris; tidak dibundel, WAV dibekukan di cache berhash, label suara sintetis wajib, konten medis diperingatkan atau ditolak) ([docs/narasi-caption.md](docs/narasi-caption.md#tts-lokal-sherpa-onnx)). ASR lokal opsional (whisper.cpp; tidak dibundel, jalan lokal sehingga boleh untuk naskah internal): `--selaras whisper` memakai stempel kata hasil ASR untuk sorot kata (skor penyelarasan rendah jatuh ke estimasi), dan `bun run narasi transkripsi <audio> --out DIR` membuat caption dari audio tanpa naskah yang ditandai "hasil ASR, wajib ditinjau manusia" ([docs/narasi-caption.md](docs/narasi-caption.md#asr-lokal-whispercpp)).
 - `bun run timeline periksa [timeline.json]`: validator `timeline.json` (skema 1) fail-closed sebelum Chromium: skema, rujukan ke `aset.json` dan `sumber.json` nyata, tumpang tindih dan transisi, waktu klip, audio, atribusi, dan kebijakan kutipan; kode keluar 2 untuk timeline tidak valid. Render: `bun templates/timeline/siapkan.mjs <timeline.json> --out DIR` (ekstraksi klip, validasi `--ketat`, aset) lalu `bun run render templates/timeline/index.html --props-file DIR/props.json --out ...`; audio lewat `bun run audio -- --timeline` ([docs/timeline.md](docs/timeline.md#templat-render); alur lengkap dari menulis sampai MP4 bersuara: [Alur ujung ke ujung](docs/timeline.md#alur-ujung-ke-ujung)). Uji: `bun run uji:templat-timeline` (ikut `bun run uji`).
 - `bun run penyunting <timeline.json> [--port N] [--buka] [--draf] [--cache DIR] [--timpa]`: penyunting pratinjau lokal untuk `timeline.json`: scrubber, daftar track, panel masalah dari validator, frame yang identik piksel dengan `render.mjs --still`, dan penyuntingan dasar (pindah, potong butir sederhana, ubah durasi, urungkan, ulangi; semua dapat dilakukan tanpa seret, hanya dengan papan ketik). Ekspor menulis `<nama>.sunting.json` di folder sumber (`--timpa` menimpa sumber) **hanya bila validator lolos**, secara atomik; jalur keluaran hanya ditentukan CLI. Server `Bun.serve` hanya mendengarkan `127.0.0.1` dengan token sesi, mencetak URL `http://127.0.0.1:<port>/?token=...` ([docs/penyunting.md](docs/penyunting.md#kondisi-nyata-55), alur: [docs/timeline.md](docs/timeline.md#menyunting-secara-visual)). Uji: `bun run uji:penyunting` (ikut `bun run uji`).
-- `bun run segmentasi periksa [--model ID] [--jalur BERKAS]` dan `bun run segmentasi daftar [--json]`: pemeriksa lingkungan hapus latar lokal (modul `scripts/segmentasi-lib.js`, #88; belum terhubung ke klip, #89). `periksa` memastikan `onnxruntime-node` (dipasang pengguna di luar repo, ditunjuk `AWVD_ORT`; bukan dependensi) termuat dan, dengan `--model selfie|modnet`, bahwa bobot di `AWVD_MODEL_DIR` cocok dengan ukuran dan sha256 registri `data/model-segmentasi.json` (fail-closed) dan sesi dapat dibuat; kode keluar 0 siap, 1 lingkungan belum lengkap, 2 validasi gagal, tanpa keluaran standar bila gagal. Hanya Linux x64 yang diuji ([docs/segmentasi-latar.md](docs/segmentasi-latar.md#modul-segmentasi-libjs), [docs/batasan.md](docs/batasan.md#segmentasi-latar-lokal)). Uji: `bun run uji:segmentasi` (ikut `bun run uji`; inferensi nyata hanya bila `AWVD_ORT` diset, selain itu dilewati).
+- `bun run segmentasi periksa [--model ID] [--jalur BERKAS]` dan `bun run segmentasi daftar [--json]`: pemeriksa lingkungan hapus latar lokal (modul `scripts/segmentasi-lib.js`, #88; dipakai efek klip `hapusLatar`, #89). `periksa` memastikan `onnxruntime-node` (dipasang pengguna di luar repo, ditunjuk `AWVD_ORT`; bukan dependensi) termuat dan, dengan `--model selfie|modnet`, bahwa bobot di `AWVD_MODEL_DIR` cocok dengan ukuran dan sha256 registri `data/model-segmentasi.json` (fail-closed) dan sesi dapat dibuat; kode keluar 0 siap, 1 lingkungan belum lengkap, 2 validasi gagal, tanpa keluaran standar bila gagal. Hanya Linux x64 yang diuji ([docs/segmentasi-latar.md](docs/segmentasi-latar.md#modul-segmentasi-libjs), [docs/batasan.md](docs/batasan.md#segmentasi-latar-lokal)). Uji: `bun run uji:segmentasi` dan `bun run uji:klip` (ikut `bun run uji`; uji `hapusLatar` berjalan penuh di CI dengan ORT palsu, inferensi nyata hanya bila `AWVD_ORT` dan `AWVD_MODEL_DIR` diset, selain itu dilewati).
 - `bun run audio -- --timeline timeline.json --klip-props klip-props.json --out campuran.wav [--rencana-keluar rencana-audio.json] [--draf]`: rencana audio diturunkan dari track audio dan `audio.mode` butir video `timeline.json`; timeline diperiksa penuh lebih dulu (fail-closed) ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md#rencana-dari-timelinejson)). Uji: `bun run uji:audio-timeline` (ikut `bun run uji`). Klip ber-speed (`waktu.kecepatan` konstan atau ramp) diregangkan dengan `atempo` sinkron dengan frame, jangkauan 0,5 sampai 4x; reverse, freeze, dan kecepatan di luar jangkauan sudah ditolak R09 oleh `timeline periksa` ([docs/video-tertanam-audio.md](docs/video-tertanam-audio.md#audio-klip-ber-speed-atempo)). Uji: `bun run uji:audio-waktu` (ikut `bun run uji`).
 
 ## Dokumentasi
@@ -74,7 +74,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.10` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.11` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.3.0` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.6.1` |
 | [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.9.0` |
@@ -82,23 +82,23 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/pemeriksaan-mutu.md](docs/pemeriksaan-mutu.md) | `bun run periksa`: pemeriksaan, ambang, kilatan | `v1.0.1` |
 | [docs/konsep-jenis-alur.md](docs/konsep-jenis-alur.md) | `bun run konsep`: 13 jenis video, 5 alur, tingkat bukti, profil audiens | `v1.2.0` |
 | [docs/sop.md](docs/sop.md) | SOP sebagai dokumen cetak dan bahan video | `v1.0.1` |
-| [docs/video-tertanam-audio.md](docs/video-tertanam-audio.md) | Klip tertanam dan timeline audio | `v1.10.0` |
-| [docs/olah-klip.md](docs/olah-klip.md) | Efek klip saat ekstraksi: LUT `.cube`, warna, keseimbangan, kunci cache | `v1.2.1` |
+| [docs/video-tertanam-audio.md](docs/video-tertanam-audio.md) | Klip tertanam dan timeline audio | `v1.11.0` |
+| [docs/olah-klip.md](docs/olah-klip.md) | Efek klip saat ekstraksi: stabilisasi, chroma key, hapus latar lokal, LUT `.cube`, warna, keseimbangan, kunci cache | `v1.3.0` |
 | [docs/pelajari-reaction.md](docs/pelajari-reaction.md) | `bun run pelajari`, kebijakan kutipan wajar, gerbang hukum GH, templat reaction | `v1.0.0` |
 | [docs/visual-audiens.md](docs/visual-audiens.md) | Profil audiens, ukuran teks, buta warna, ketajaman, efek dekoratif | `v1.0.0` |
 | [docs/transisi-animasi.md](docs/transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, `kurangiGerak`, biaya kompresi | `v1.1.0` |
 | [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.9.1` |
-| [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.10.0` |
-| [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab aset, matriks lisensi aset, matriks model segmentasi, video pihak ketiga | `v1.7.0` |
+| [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.11.0` |
+| [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab aset, matriks lisensi aset, matriks model segmentasi, video pihak ketiga | `v1.7.1` |
 | [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.1.0` |
-| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.24.0` |
-| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.28.0` |
+| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.25.0` |
+| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.29.0` |
 | [docs/narasi-caption.md](docs/narasi-caption.md) | `bun run narasi`: `naskah.json`, estimasi berjangkar jeda, cue VTT/SRT dengan lint cps, rencana audio, mode dan posisi caption | `v1.3.0` |
 | [docs/ketukan.md](docs/ketukan.md) | `bun run ketukan`: onset fluks spektral, tempo autokorelasi, ketukan berselaras grid, `ketukan.json`, helper `window.Ketukan`, batas bukti | `v1.0.0` |
 | [docs/reframe.md](docs/reframe.md) | Reframe 16:9 ke 9:16: crop berkeyframe, `reframe.json`, `window.Reframe`, saran fokus opsional | `v1.0.0` |
 | [docs/timeline.md](docs/timeline.md) | `timeline.json` (skema 1), validator `bun run timeline periksa`, templat render generik, rencana audio | `v1.4.0` |
 | [docs/penyunting.md](docs/penyunting.md) | Penyunting pratinjau lokal F6: `bun run penyunting` (server `Bun.serve` berpengerasan, scrubber, grid track, frame identik piksel dengan render; penyuntingan dasar pindah, potong, ubah durasi, urungkan; ekspor `<nama>.sunting.json` hanya bila validator lolos; jalur tanpa seret; aksesibilitas yang diterapkan; penyimpangan dari rancangan) | `v2.1.0` |
-| [docs/segmentasi-latar.md](docs/segmentasi-latar.md) | Hapus latar lokal F5: modul segmentasi dan registri (#88, kondisi nyata), model, lisensi, uji CPU sintetis, ORT opsional; efek klip `hapusLatar` masih rancangan (#89) | `v1.1.0` |
+| [docs/segmentasi-latar.md](docs/segmentasi-latar.md) | Hapus latar lokal F5: modul segmentasi dan registri (#88) dan efek klip `hapusLatar` (#89), model, lisensi, uji CPU sintetis, ORT opsional | `v1.2.0` |
 | [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.9.2` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
 
@@ -109,7 +109,7 @@ scripts/render.mjs      CLI renderer (Chromium + ffmpeg): orkestrator segmen dan
 scripts/runtime.js      runtime komposisi (defineVideo, interpolasi, helper)
 scripts/periksa.mjs     alat QC pasca-render
 scripts/sop.mjs         generator SOP (dokumen cetak + bahan video); sop-alir.js: perutean garis alir
-scripts/klip.mjs        validasi manifest sumber dan ekstraksi frame klip (dengan efek: stabil, kunciWarna, LUT .cube, warna, keseimbangan)
+scripts/klip.mjs        validasi manifest sumber dan ekstraksi frame klip (dengan efek: stabil, kunciWarna, hapusLatar, LUT .cube, warna, keseimbangan)
 scripts/audio.mjs       perakit timeline audio
 scripts/konsep.mjs      konsep video: jenis, alur, brief, persetujuan
 scripts/aset.mjs        aset: tambah, impor, periksa (manifest aset.json); aset-lib.js: logika bersama,
@@ -165,9 +165,13 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 
 ## Changelog
 
+### 2026-11-08 - v2.29.0
+
+- Indeks dokumentasi: `penyunting.md` v2.1.0 (#94), `aksesibilitas.md` v1.9.1, `roadmap.md` v1.25.0, `docs/README.md` v1.17.11.
+
 ### 2026-11-08 - v2.28.0
 
-- Indeks dokumentasi: `penyunting.md` v2.1.0 (#94), `aksesibilitas.md` v1.9.1, `roadmap.md` v1.24.0, `docs/README.md` v1.17.10.
+- §Perintah utama: `klip[].efek` memuat `hapusLatar` (hapus latar lokal tanpa layar hijau, #89); `bun run segmentasi` dan uji klip (ORT palsu di CI) disesuaikan. §Struktur repo: `scripts/klip.mjs` memuat `hapusLatar`. Indeks dokumentasi: `olah-klip.md` v1.3.0, `video-tertanam-audio.md` v1.11.0, `segmentasi-latar.md` v1.2.0, `batasan.md` v1.11.0, `lisensi-kepatuhan.md` v1.7.1, `roadmap.md` v1.24.0, `log-keputusan.md` v1.29.0, `docs/README.md` v1.17.10.
 
 ### 2026-11-08 - v2.27.0
 

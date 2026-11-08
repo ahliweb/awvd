@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.17.10`
+- Version: `v1.17.11`
 - Last updated: `2026-11-08`
-- Changeset: `Kolom Versi penyunting.md v2.1.0 (#94: butir sangat pendek tidak saling menumpuk), aksesibilitas.md v1.9.1, roadmap.md v1.24.0 diperbarui. Sebelumnya: Kolom Versi dan deskripsi penyunting.md v2.0.0 (#55: penyuntingan dan ekspor), aksesibilitas.md v1.9.0, timeline.md v1.4.0, roadmap.md v1.23.0, log-keputusan.md v1.28.0 diperbarui.`
+- Changeset: `Kolom Versi penyunting.md v2.1.0 (#94: butir sangat pendek tidak saling menumpuk), aksesibilitas.md v1.9.1, roadmap.md v1.25.0 diperbarui. Sebelumnya: Kolom Versi dan deskripsi olah-klip.md v1.3.0 (efek hapusLatar, #89), video-tertanam-audio.md v1.11.0, segmentasi-latar.md v1.2.0, batasan.md v1.11.0, lisensi-kepatuhan.md v1.7.1, roadmap.md v1.24.0, log-keputusan.md v1.29.0 diperbarui.`
 
 Pintu masuk ke seluruh dokumentasi rinci awvd. Ringkasan proyek, mulai cepat, dan perintah utama ada di [README akar](../README.md); aturan kerja kontributor dan AI agent ada di [AGENTS.md](../AGENTS.md); riwayat perubahan software ada di [CHANGELOG.md](../CHANGELOG.md).
 
@@ -21,24 +21,24 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | [pemeriksaan-mutu.md](pemeriksaan-mutu.md) | `bun run periksa` (termasuk `--konsep`): pemeriksaan, ambang, kilatan fotosensitif | `v1.0.1` |
 | [konsep-jenis-alur.md](konsep-jenis-alur.md) | `bun run konsep`, `konsep.json`, 13 jenis video, 5 alur produksi, tingkat bukti, profil audiens | `v1.2.0` |
 | [sop.md](sop.md) | SOP sebagai dokumen cetak (PermenPAN-RB 35/2012) dan bahan video | `v1.0.1` |
-| [video-tertanam-audio.md](video-tertanam-audio.md) | Video di dalam video (lisensi sumber, `klip.mjs`) dan timeline audio (`audio.mjs`) | `v1.10.0` |
-| [olah-klip.md](olah-klip.md) | Efek klip saat ekstraksi: `klip[].efek` (LUT `.cube`, warna, keseimbangan), rantai ffmpeg, kunci cache, LUT identitas, titik perluasan | `v1.2.1` |
+| [video-tertanam-audio.md](video-tertanam-audio.md) | Video di dalam video (lisensi sumber, `klip.mjs`) dan timeline audio (`audio.mjs`) | `v1.11.0` |
+| [olah-klip.md](olah-klip.md) | Efek klip saat ekstraksi: `klip[].efek` (stabilisasi, chroma key, hapus latar lokal `hapusLatar`, LUT `.cube`, warna, keseimbangan), rantai ffmpeg, kunci cache, LUT identitas, titik perluasan | `v1.3.0` |
 | [pelajari-reaction.md](pelajari-reaction.md) | `bun run pelajari` (statistik gaya), kebijakan kutipan wajar, gerbang hukum GH, templat reaction, dasar hukum ringkas (bukan nasihat hukum) | `v1.0.0` |
 | [visual-audiens.md](visual-audiens.md) | Profil audiens, ukuran teks, buta warna dan jarak warna, ketajaman (garis 2 px, 4:2:0, supersampling), efek dekoratif | `v1.0.0` |
 | [transisi-animasi.md](transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, kustomisasi, profil dan `kurangiGerak`, biaya kompresi | `v1.1.0` |
 | [aksesibilitas.md](aksesibilitas.md) | Subtitle, kontras, kilatan, kontrol pratinjau, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.9.1` |
-| [batasan.md](batasan.md) | Batasan yang diketahui dan penunjuk ke batasan per fitur | `v1.10.0` |
-| [lisensi-kepatuhan.md](lisensi-kepatuhan.md) | Lisensi MIT, asal kode, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab atas aset, matriks lisensi aset, matriks model segmentasi, video pihak ketiga dan kutipan wajar | `v1.7.0` |
+| [batasan.md](batasan.md) | Batasan yang diketahui dan penunjuk ke batasan per fitur | `v1.11.0` |
+| [lisensi-kepatuhan.md](lisensi-kepatuhan.md) | Lisensi MIT, asal kode, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab atas aset, matriks lisensi aset, matriks model segmentasi, video pihak ketiga dan kutipan wajar | `v1.7.1` |
 | [pedoman-produksi.md](pedoman-produksi.md) | Pedoman produksi berbasis riset, dipetakan ke fitur awvd, checklist, rencana | `v1.1.0` |
-| [roadmap.md](roadmap.md) | Roadmap: visi, fase F1–F6 dan kriteria keluarnya, paritas fitur, label dan milestone GitHub | `v1.24.0` |
-| [log-keputusan.md](log-keputusan.md) | Log keputusan awvd (KP-001 dst.) beserta alasan dan rujukan PR | `v1.28.0` |
+| [roadmap.md](roadmap.md) | Roadmap: visi, fase F1–F6 dan kriteria keluarnya, paritas fitur, label dan milestone GitHub | `v1.25.0` |
+| [log-keputusan.md](log-keputusan.md) | Log keputusan awvd (KP-001 dst.) beserta alasan dan rujukan PR | `v1.29.0` |
 | [narasi-caption.md](narasi-caption.md) | `bun run narasi`: skema `naskah.json`, estimasi timing berjangkar jeda, cue VTT/SRT dengan lint cps profil audiens, rencana audio, mode dan posisi caption, mesin suara pluggable, TTS dan ASR lokal opsional | `v1.3.0` |
 | [ketukan.md](ketukan.md) | `bun run ketukan`: onset fluks spektral, tempo autokorelasi, ketukan berselaras grid, skema `ketukan.json`, helper `window.Ketukan`, batas bukti | `v1.0.0` |
 | [reframe.md](reframe.md) | Reframe 16:9 ke 9:16: crop berkeyframe deterministik, skema `reframe.json`, `window.Reframe`, saran fokus opsional tanpa model, templat `reframe-contoh` | `v1.0.0` |
 | [timeline.md](timeline.md) | `timeline.json` (skema 1): track, butir, transisi tumpang tindih, pemetaan waktu klip; validator `bun run timeline periksa`, aturan R01-R17 dan W01-W09, kebijakan kutipan turunan; templat render generik `templates/timeline/` dan rencana audio turunan | `v1.4.0` |
 | [penyunting.md](penyunting.md) | Penyunting pratinjau lokal F6: `bun run penyunting` (server `Bun.serve` berpengerasan, scrubber, grid track, frame identik piksel dengan render; penyuntingan dasar pindah, potong, ubah durasi, urungkan; ekspor `<nama>.sunting.json` hanya bila validator lolos; jalur tanpa seret; aksesibilitas yang diterapkan; penyimpangan dari rancangan) | `v2.1.0` |
-| [segmentasi-latar.md](segmentasi-latar.md) | Hapus latar lokal F5: modul segmentasi dan registri model bersha256 (#88, kondisi nyata), inventaris model dan lisensi, uji CPU sintetis dan batas bukti, ORT opsional, EMA; rancangan efek klip `hapusLatar` (#89, belum diimplementasikan), keamanan sha256, data pribadi | `v1.1.0` |
-| [README.md](README.md) | Indeks ini | `v1.17.10` |
+| [segmentasi-latar.md](segmentasi-latar.md) | Hapus latar lokal F5: modul segmentasi dan registri model bersha256 (#88), efek klip `hapusLatar` (#89; kondisi nyata, penyimpangan dari rancangan, uji dengan ORT palsu), inventaris model dan lisensi, uji CPU sintetis dan batas bukti, ORT opsional, EMA, keamanan sha256, data pribadi | `v1.2.0` |
+| [README.md](README.md) | Indeks ini | `v1.17.11` |
 
 ## Peta dokumen
 
@@ -69,7 +69,7 @@ flowchart TD
     CLI --> TML[timeline]
     TML --> KLP
     TML --> ASET
-    KLP --> SEG[segmentasi-latar<br/>modul F5, efek #89 rancangan]
+    KLP --> SEG[segmentasi-latar<br/>modul dan efek klip F5]
     SEG --> LIS
     TML --> PNY[penyunting<br/>F6]
     PNY --> AKS
@@ -100,9 +100,13 @@ flowchart TD
 
 ## Changelog
 
+### 2026-11-08 - v1.17.11
+
+- Kolom Versi `penyunting.md` v2.1.0 (#94), `aksesibilitas.md` v1.9.1, `roadmap.md` v1.25.0, dan baris indeks ini diperbarui.
+
 ### 2026-11-08 - v1.17.10
 
-- Kolom Versi `penyunting.md` v2.1.0 (#94), `aksesibilitas.md` v1.9.1, `roadmap.md` v1.24.0, dan baris indeks ini diperbarui.
+- Kolom Versi dan deskripsi `olah-klip.md` v1.3.0 (efek `hapusLatar`, #89), `video-tertanam-audio.md` v1.11.0, `segmentasi-latar.md` v1.2.0, `batasan.md` v1.11.0, `lisensi-kepatuhan.md` v1.7.1, `roadmap.md` v1.24.0, `log-keputusan.md` v1.29.0, dan baris indeks ini diperbarui.
 
 ### 2026-11-08 - v1.17.9
 
