@@ -4,11 +4,11 @@
 
 - Version: `v1.1.0`
 - Last updated: `2026-11-08`
-- Changeset: `Templat render generik templates/timeline (issue #32): penjadwal scripts/timeline.js, perakit props siapkan.mjs, bagian Templat render, uji uji-templat-timeline; status dan Batasan diperbarui (keyframe properti #35 sudah ada, rencana audio #34 dan dokumen penutup F2 #36 masih menyusul).`
+- Changeset: `Templat render generik templates/timeline (issue #32): penjadwal scripts/timeline.js, perakit props siapkan.mjs, bagian Templat render dan Rencana audio, uji uji-templat-timeline; status dan Batasan diperbarui (keyframe properti #35 dan rencana audio #34 sudah ada; dokumen penutup F2 #36 menyusul).`
 
 `timeline.json` adalah rencana video yang bisa ditinjau sebagai data: daftar track berisi butir (klip video, gambar, warna, teks, kredit, audio) dengan posisi absolut dalam frame. Dokumen ini menjelaskan format dan validatornya, `bun run timeline periksa`, yang menolak timeline yang salah **sebelum Chromium diluncurkan**, dengan pola yang sama seperti `aset.json` dan `sumber.json`.
 
-> **Status.** Yang ada: skema, validator, dan contoh (issue #31), helper pemetaan waktu klip di `runtime.js` (#33) yang dipakai validator, keyframe properti generik di `runtime.js` (#35), dan templat render generik `templates/timeline/` dengan penjadwal `scripts/timeline.js` (#32). **Menyusul:** rencana audio turunan `bun run timeline audio` (#34; track audio belum dirender) dan dokumen penutup F2 (#36).
+> **Status.** Yang ada: skema, validator, dan contoh (issue #31), helper pemetaan waktu klip di `runtime.js` (#33) yang dipakai validator, keyframe properti generik di `runtime.js` (#35), rencana audio (#34), dan templat render generik `templates/timeline/` dengan penjadwal `scripts/timeline.js` (#32). rencana audio turunan timeline lewat `bun run audio -- --timeline` (#34, bagian Rencana audio). **Menyusul:** dokumen penutup F2 (#36).
 
 ## Alur
 
@@ -97,7 +97,7 @@ salah.json: 7 track, 11 butir, 1 transisi, 450 frame @ 30 fps (15.00 s)
 GAGAL: 3 galat
 ```
 
-Galat skema berkode `SKEMA` dan menghentikan pemeriksaan (aturan lintas-bidang mengandaikan bentuk yang sah). Galat dari manifest yang dirujuk berkode `R02` dengan lokasi nama berkas manifest (misalnya `aset.json`). Validator tidak menulis berkas apa pun; keluaran turunan (`--gabung`, rencana audio) menyusul di #34.
+Galat skema berkode `SKEMA` dan menghentikan pemeriksaan (aturan lintas-bidang mengandaikan bentuk yang sah). Galat dari manifest yang dirujuk berkode `R02` dengan lokasi nama berkas manifest (misalnya `aset.json`). Validator tidak menulis berkas apa pun; keluaran turunan: rencana audio lewat `audio.mjs` (bagian Rencana audio); `--gabung` belum ada.
 
 ### Rujukan manifest nyata
 
@@ -167,7 +167,7 @@ Bidang manual di `sumber.json` (`proyek.durasiVideoDetik`, `proyek.komentar`, `k
 | Bagian | Tugas |
 | --- | --- |
 | `scripts/timeline.js` (`window.Timeline`) | Murni dan tanpa DOM: `rencana` (indeks butir dan transisi masuk), `keadaan(rencana, frame)` (butir tampil, peran `diam`/`keluar`/`masuk`, gaya lapisan luar), `sifat` (kotak `tata`, keyframe `properti`, animasi masuk, keluar, penekanan, Ken Burns), `opsiKlip`, `teksKredit`, `teksKreditLayar`. Dapat dimuat lewat `require()` untuk uji tanpa browser. |
-| `runtime.js` dan `transisi.js` | Sumber tunggal aritmetika: `klipGambar` dengan `waktu`/`dari`/`durasi` (trim, speed, ramp, reverse, freeze), `kenBurns`, `interpolasi`, `ukuranTeks`, `kreditKlip`, `kreditAset`; `Transisi.transisi`, `animasi`, `animasiTeks`, `terapkan` dan profil `kurangiGerak`. Tidak ada rumus waktu klip di `timeline.js`. |
+| `runtime.js` dan `transisi.js` | Sumber tunggal aritmetika: `klipGambar` dengan `waktu`/`dari`/`durasi` (trim, speed, ramp, reverse, freeze), `kenBurns`, `keyframe`, `ukuranTeks`, `kreditKlip`, `kreditAset`; `Transisi.transisi`, `animasi`, `animasiTeks`, `terapkan` dan profil `kurangiGerak`. Tidak ada rumus waktu klip di `timeline.js`. |
 | `templates/timeline/index.html` | Menempelkan hasil ke DOM per nomor frame; tidak ada CSS animation atau transition, `Date.now()`, atau `Math.random()`. |
 
 ```mermaid
@@ -199,12 +199,22 @@ Perilaku yang perlu diketahui:
 - **Lapisan.** Tiap track visual punya pembungkus (`z-index` = indeks track + 1). Di dalamnya tiap butir punya lapisan luar (diatur transisi: `keluar` di bawah `masuk`, filter SVG, `clip-path`) dan lapisan dalam (kotak `tata`, `properti`, animasi). Overlay dan wadah transisi dipasang pada track yang bertransisi saja; track lain dibersihkan tiap frame.
 - **Transisi.** Jendela transisi = tumpang tindih butir (aturan R05), dihitung `Transisi.transisi(frame, { ...transisi, mulai, durasi, profil, jenisVideo })` sama dengan validator, sehingga penggantian jenis oleh `jenisVideo` dan profil (W07) terjadi juga saat render. Butir bertata (kotak lebih kecil dari bingkai) diberi `tembus: true`. `wadah.background` solid dari transisi tertentu menutup track di bawahnya; transisi dipakai di track video terbawah.
 - **Klip.** `waktu` dari timeline diteruskan apa adanya (`opsiKlip` menghasilkan `{ waktu, dari, durasi }` untuk `klipGambar`), digambar ke `<canvas>` seperti `klip-tertanam`. `fit` bawaan `cover`.
-- **Properti keyframe.** `x`, `y` (translasi px), `skala`, `rotasi` (derajat), `opasitas`; `pada` = frame lokal butir, nilai ditahan sebelum dan sesudah titik ujung. `timeline.js` memilih segmen lalu memanggil `interpolasi` runtime dengan easing segmen itu; transform disusun `translate`, `rotate`, `scale`, lalu transform animasi, opasitas dikalikan.
+- **Properti keyframe.** `x`, `y` (translasi px), `skala`, `rotasi` (derajat), `opasitas`; `pada` = frame lokal butir, nilai ditahan sebelum dan sesudah titik ujung. Nilainya dihitung `keyframe` runtime.js (#35, easing per segmen); transform disusun `translate`, `rotate`, `scale`, lalu transform animasi, opasitas dikalikan.
 - **Animasi.** `masuk`, `keluar`, dan `penekanan` lewat `Transisi.animasi`; `keluar` dihitung sebagai kebalikan fungsi tampak yang sama pada `durasi - keluar.durasi` (durasi bawaan jenis bila tak ditulis). `masuk.mode` (`huruf`/`kata`) pada butir teks memindahkan animasi masuk ke tiap huruf atau kata lewat `animasiTeks`.
 - **Teks dan kredit.** Tanpa `tata`, teks dan kredit memakai area aman grafis (EBU R 95). Ukuran bawaan dari `ukuranTeks` menurut `peran`. `gaya.font` memuat aset font lewat `pasangFont`. Butir `kredit` berisi satu baris TASL lengkap per sumber klip yang dipakai (urutan kemunculan) dan atribusi aset `layar`/`akhir` dari `aset.json`. `kreditLayar: true` menampilkan atribusi ringkas di area aksi selama butir tampil.
 - **Profil `kurangiGerak`.** Ditangani `transisi.js` untuk transisi dan animasi (jenis gerak besar menjadi `pudar`). Tambahan di templat: Ken Burns ditahan di `dari` (pola "kamera mati"). `properti` yang ditulis penulis tidak diubah.
 - **Determinisme.** `keadaan` dan `sifat` murni dari timeline dan frame (tanpa keadaan antar-frame), diuji tidak bergantung urutan pemanggilan; render rentang diuji dua kali dengan `framemd5` identik (`bun run uji:templat-timeline`).
-- **Belum dirender.** Track `audio`, `penanda`, `manifes.konsep`, dan `proyek.judul`. Audio keluaran video tetap dari `render.mjs` (`--audio`) sampai rencana audio turunan timeline selesai (#34).
+- **Belum dirender.** Track `audio`, `penanda`, `manifes.konsep`, dan `proyek.judul`. Suara dirakit terpisah oleh `audio.mjs` (bagian Rencana audio) lalu dimasukkan ke video lewat `render.mjs --audio`.
+
+### Rencana audio
+
+Rencana audio diturunkan dari timeline oleh `audio.mjs`, bukan oleh subcommand `timeline`:
+
+```bash
+bun run audio -- --timeline timeline.json --klip-props klip-props.json --out campuran.wav [--rencana-keluar rencana-audio.json]
+```
+
+Track audio (peran `narasi` dan `musik`, `gainDb` track dan butir, `ducking`) dan `audio.mode` butir video dipetakan ke rencana. Timeline diperiksa penuh lebih dulu seperti `timeline periksa`; satu galat saja berarti tidak ada audio yang dirakit (exit 2). Rincian pemetaan, aturan transisi, kode galat A01-A04, dan batas (musik sepanjang video, tanpa olah suara) ada di [video-tertanam-audio.md](video-tertanam-audio.md#rencana-dari-timelinejson).
 
 ## Contoh
 
@@ -231,7 +241,7 @@ Dua pilihan implementasi yang menyertainya: validator ditulis tangan tanpa depen
 
 ## Batasan
 
-- Belum ada: rencana audio dari timeline (#34); track audio tidak dirender templat. Helper waktu klip (#33) dipakai validator dan templat; keyframe properti generik di `runtime.js` (#35) sudah ada, tetapi `timeline.js` sementara memakai `interpolasi` per segmen.
+- Templat tidak merender audio (rencana dan campuran audio ada di `audio.mjs`, bagian Rencana audio). Helper waktu klip (#33) dipakai validator dan templat; keyframe properti (#35, `keyframe` di `runtime.js`) dipakai templat.
 - Templat: hanya `video`, `overlay`, `teks`; satu transisi aktif per frame; `wadah.background` solid dari beberapa transisi menutup track di bawahnya; tanpa pembungkus per track untuk efek antar-track; kecepatan render belum diukur (contoh 450 frame sekitar 18 detik pada mesin pengembangan, bukan patokan).
 - fps pecahan, `efek` tingkat butir, rantai transisi, komposisi bersarang, audio `efek`, ducking dan fade per butir, serta transisi bersamaan adalah kandidat skema 2.
 - `profil` `lansia` dan `anak` ditolak karena menskalakan durasi transisi.
@@ -244,7 +254,7 @@ Dua pilihan implementasi yang menyertainya: validator ditulis tangan tanpa depen
 
 ### 2026-11-08 - v1.1.0
 
-- Templat render generik `templates/timeline/` (issue #32): `scripts/timeline.js` (penjadwal murni), `siapkan.mjs` (perakit props), bagian Templat render, diagram, dan `bun run uji:templat-timeline`; status, alur, dan Batasan diperbarui (keyframe properti #35 sudah ada; rencana audio #34 dan dokumen penutup F2 #36 menyusul).
+- Templat render generik `templates/timeline/` (issue #32): `scripts/timeline.js` (penjadwal murni), `siapkan.mjs` (perakit props), bagian Templat render, diagram, dan `bun run uji:templat-timeline`; bagian Rencana audio (#34, `bun run audio -- --timeline`); status, alur, dan Batasan diperbarui (keyframe properti #35 dan rencana audio #34 sudah ada; dokumen penutup F2 #36 menyusul).
 
 ### 2026-11-07 - v1.0.1
 

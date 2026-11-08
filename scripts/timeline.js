@@ -31,10 +31,9 @@
  *   opsiKlip(butir) -> { waktu, dari, durasi }   opsi untuk klipGambar/indeksFrameKlip
  *   teksKredit(rencana, props) -> string[]       atribusi akhir turunan manifest (klip dan aset)
  *   teksKreditLayar(butir, props) -> string      atribusi ringkas untuk kreditLayar
- *   nilaiProperti(nilai, lokal, bawaan) / lihatEasing(spec)   evaluasi keyframe (bukan jadwal)
+ *   nilaiProperti(nilai, lokal, bawaan)   angka atau keyframe lewat RT.keyframe (bukan jadwal)
  *
- * Bukan lingkup (issue lain): audio (#34), keyframe properti di runtime.js (#35; di sini
- * `nilaiProperti` memilih segmen lalu memanggil `interpolasi` runtime), penanda.
+ * Bukan lingkup (issue lain): audio (#34) dan penanda.
  * Karya asli repo ini.
  */
 (function (akar) {
@@ -178,29 +177,15 @@
   }
 
   // =================================================================== keyframe properti
-  function lihatEasing(spec) {
-    var E = RT().easing;
-    if (spec == null) return E.linear;
-    if (Array.isArray(spec) && spec.length === 4) return E.bezier(spec[0], spec[1], spec[2], spec[3]);
-    if (typeof spec === "string" && typeof E[spec] === "function" && spec !== "bezier") return E[spec];
-    return galat("easing tidak dikenal: " + JSON.stringify(spec));
-  }
-
   /**
    * Nilai properti pada frame lokal: angka tetap, atau keyframe `[{ pada, nilai, easing? }]`
    * (pada naik tegas; easing = kurva segmen yang dimulai di titik itu; sebelum titik pertama dan
-   * sesudah terakhir nilai ditahan). Interpolasinya `interpolasi` runtime.js.
+   * sesudah terakhir nilai ditahan). Interpolasinya `keyframe` runtime.js (issue #35).
    */
   function nilaiProperti(v, lokal, bawaan) {
     if (v === undefined) return bawaan;
     if (typeof v === "number") return v;
-    if (!Array.isArray(v) || v.length < 2) galat("properti harus angka atau keyframe minimal 2 titik");
-    if (lokal <= v[0].pada) return v[0].nilai;
-    if (lokal >= v[v.length - 1].pada) return v[v.length - 1].nilai;
-    var i = 0;
-    while (i < v.length - 2 && lokal >= v[i + 1].pada) i++;
-    var a = v[i], b = v[i + 1];
-    return RT().interpolasi(lokal, [a.pada, b.pada], [a.nilai, b.nilai], { easing: lihatEasing(a.easing) });
+    return RT().keyframe(lokal, v);
   }
 
   // =================================================================== animasi
@@ -381,7 +366,7 @@
 
   var api = {
     rencana: rencana, keadaan: keadaan, sifat: sifat, gayaTeks: gayaTeks, opsiKlip: opsiKlip,
-    teksKredit: teksKredit, teksKreditLayar: teksKreditLayar, nilaiProperti: nilaiProperti, lihatEasing: lihatEasing,
+    teksKredit: teksKredit, teksKreditLayar: teksKreditLayar, nilaiProperti: nilaiProperti,
   };
   akar.Timeline = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
