@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.24.0`
+- Version: `v1.25.0`
 - Last updated: `2026-11-08`
-- Changeset: `F5/06 (#89) selesai: efek klip hapusLatar (mask beku, alphamerge, PNG RGBA, fail-closed sebelum ffmpeg) ada; paritas Hapus latar tetap sebagian (kualitas pada orang nyata belum diukur, hanya Linux x64, uji sintetis); F5/01 sampai F5/06 selesai. Sebelumnya: F6/03 (#55) selesai: penyuntingan dasar (pindah, potong, ubah durasi, urungkan) dan ekspor timeline.json ber-validator berjalan; paritas Penyunting visual berstatus ada (kriteria keluar F6 terpenuhi; F6 tetap berjalan sampai F6/04 #94).`
+- Changeset: `F6/04 (#94) selesai: butir sangat pendek tidak lagi saling menumpuk di daftar track (SC 2.5.8); F6 berstatus selesai. Sebelumnya: F5/06 (#89) selesai: efek klip hapusLatar (mask beku, alphamerge, PNG RGBA, fail-closed sebelum ffmpeg) ada; paritas Hapus latar tetap sebagian (kualitas pada orang nyata belum diukur, hanya Linux x64, uji sintetis); F5/01 sampai F5/06 selesai.`
 
 ## Visi
 
@@ -47,7 +47,7 @@ Status memakai `rencana | berjalan | selesai | ditunda | dibatalkan`.
 | F3 | F3 Pemrosesan klip | Olah klip di tahap ekstraksi dengan cache | `klip.mjs` mendukung LUT/filter warna, chroma key, stabilisasi, peredam bising, dan speed ramp; uji lolos | selesai | [#37](https://github.com/ahliweb/awvd/issues/37) |
 | F4 | F4 Kinerja render | Render footage panjang dalam waktu layak | Render lewat segmen dengan MP4 byte-identik untuk jumlah pekerja berapa pun dan tangkapan PNG per frame identik dengan tangkapan serial (KP-068); percepatan terukur dan didokumentasikan | selesai | [#43](https://github.com/ahliweb/awvd/issues/43) |
 | F5 | F5 Fitur cerdas lokal | Fitur cerdas lokal yang opsional | ASR whisper.cpp opsional, deteksi ketukan, reframe, dan hapus latar opsional dengan model berlisensi permisif yang tidak dibundel; masing-masing beruji dan terdokumentasi | berjalan (F5/01 sampai F5/06 selesai, kriteria keluar menunggu verifikasi orchestrator; hapus latar: modul segmentasi ([#88](https://github.com/ahliweb/awvd/issues/88)) dan efek klip `hapusLatar` ([#89](https://github.com/ahliweb/awvd/issues/89)) ada, [segmentasi-latar.md](segmentasi-latar.md)) | [#47](https://github.com/ahliweb/awvd/issues/47) |
-| F6 | F6 Penyunting pratinjau | Alat bantu visual penyusun timeline | Halaman pratinjau lokal dengan scrubber dan daftar track yang mengekspor `timeline.json`; uji E2E Playwright lolos | berjalan (F6/01 rancangan, F6/02 tampilan, dan F6/03 penyuntingan dan ekspor selesai, [penyunting.md](penyunting.md); kriteria keluar terpenuhi, tersisa F6/04 [#94](https://github.com/ahliweb/awvd/issues/94) perbaikan tampilan butir sangat pendek) | [#52](https://github.com/ahliweb/awvd/issues/52) |
+| F6 | F6 Penyunting pratinjau | Alat bantu visual penyusun timeline | Halaman pratinjau lokal dengan scrubber dan daftar track yang mengekspor `timeline.json`; uji E2E Playwright lolos | selesai (F6/01 rancangan, F6/02 tampilan, F6/03 penyuntingan dan ekspor, dan F6/04 perbaikan tampilan butir sangat pendek selesai, [penyunting.md](penyunting.md); kriteria keluar terpenuhi) | [#52](https://github.com/ahliweb/awvd/issues/52) |
 
 ```mermaid
 flowchart LR
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-08 - v1.25.0
+
+- Status F6/04 selesai (#94): butir sangat pendek tidak lagi saling menumpuk di daftar track; F6 menjadi selesai.
 
 ### 2026-11-08 - v1.24.0
 

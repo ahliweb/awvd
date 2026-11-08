@@ -1393,6 +1393,47 @@ daftar("(y) pohon aksesibilitas penyuntingan: kontrol sunting bernama, mode sunt
 });
 
 // =============================================================== (z) akhir sesi
+daftar("(za) butir sangat pendek (#94): dua butir 1 frame berdampingan pada zum 100% tidak saling menumpuk, target minimal 24x24 px (SC 2.5.8), klik pusat memilih butir itu, posisi waktu tetap jujur", async () => {
+  await pastikanUtama();
+  const dir = salinFixture("pendek");
+  const berkas = join(dir, "timeline.json");
+  const dok = bacaJson(berkas);
+  const dasar = dok.track.find((tr) => tr.id === "t-teks-2").butir[0];
+  const buat = (id, mulai) => ({ ...salin(dasar), id, isi: id, mulai, durasi: 1, animasi: undefined });
+  dok.track.find((tr) => tr.id === "t-teks-2").butir.push(buat("pendek-a", 300), buat("pendek-b", 301));
+  tulisJson(berkas, dok);
+  const s = await mulaiPenyunting(berkas, "--cache", j("cache-pendek"));
+  const { c, p } = await bukaHalaman(s);
+  try {
+    const kotak = () => p.evaluate(() => [...document.querySelectorAll('[role="gridcell"]')].map((e) => {
+      const r = e.getBoundingClientRect();
+      return { id: e.dataset.id, t: e.dataset.track, mulai: Number(e.dataset.mulai), x: r.x, y: r.y, w: r.width, h: r.height, left: parseFloat(e.style.left) };
+    }));
+    tegas((await p.locator("#zum").textContent()) === "100%", "zum awal 100%");
+    const semua = await kotak();
+    const ppf = parseFloat(await p.evaluate(() => document.querySelector(".jalur").style.width)) / rencana.proyek.durasi;
+    tegas(ppf < 12, `fixture harus membuat butir 1 frame lebih sempit dari 24 px (ppf ${ppf})`);
+    // SC 2.5.8: tiap target >= 24x24 px
+    for (const k of semua) tegas(k.w >= 24 - 0.01 && k.h >= 24 - 0.01, `butir ${k.id} ${k.w}x${k.h} < 24x24`);
+    // tidak ada dua butir yang saling menutupi (kotak persegi panjang beririsan)
+    for (const a of semua) for (const b of semua) {
+      if (a.id >= b.id) continue;
+      const irisan = a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+      tegas(!irisan, `butir ${a.id} dan ${b.id} saling menumpuk`);
+    }
+    // posisi waktu jujur: left = round(mulai * ppf), tidak digeser demi target
+    for (const k of semua) tegas(Math.abs(k.left - k.mulai * ppf) <= 1, `butir ${k.id}: left ${k.left} != ${(k.mulai * ppf).toFixed(2)}`);
+    // klik pusat memilih butir itu, bukan tetangganya
+    for (const id of ["pendek-a", "pendek-b", "pendek-a"]) {
+      await p.locator(sel(id)).scrollIntoViewIfNeeded(); // area track bergulir sendiri
+      const k = (await kotak()).find((x) => x.id === id);
+      await p.mouse.click(k.x + k.w / 2, k.y + k.h / 2);
+      const terpilih = await p.evaluate(() => [...document.querySelectorAll('[role="gridcell"][aria-selected="true"]')].map((e) => e.dataset.id));
+      samaIsi(terpilih, [id], `klik pusat ${id}`);
+    }
+  } finally { await c.close(); await s.henti(); }
+});
+
 daftar("(z) selama seluruh sesi: tidak ada permintaan jaringan non-lokal, tidak ada galat konsol, tidak ada galat halaman", async () => {
   await pastikanUtama();
   tegas(permintaanAsing.length === 0, `permintaan non-lokal: ${permintaanAsing.join(", ")}`);
