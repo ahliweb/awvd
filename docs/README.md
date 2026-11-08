@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.17.4`
+- Version: `v1.17.5`
 - Last updated: `2026-11-08`
-- Changeset: `Versi video-tertanam-audio.md v1.10.0, olah-klip.md v1.2.1, roadmap.md v1.18.1, dan log-keputusan.md v1.23.0 (cache klip, #46 sebagian). Sebelumnya: Versi timeline.md v1.3.1 dan video-tertanam-audio.md v1.9.1 (R09 memeriksa jangkauan tempo, #84). Sebelumnya: Versi timeline.md v1.3.0 dan roadmap.md v1.18.0 (F2 selesai).`
+- Changeset: `Mendaftarkan segmentasi-latar.md (v1.0.0, rancangan hapus latar lokal, riset #51) di indeks dan peta dokumen; versi lisensi-kepatuhan.md v1.6.0, roadmap.md v1.19.0, log-keputusan.md v1.24.0. Sebelumnya: Versi video-tertanam-audio.md v1.10.0, olah-klip.md v1.2.1, roadmap.md v1.18.1, dan log-keputusan.md v1.23.0 (cache klip, #46 sebagian).`
 
 Pintu masuk ke seluruh dokumentasi rinci awvd. Ringkasan proyek, mulai cepat, dan perintah utama ada di [README akar](../README.md); aturan kerja kontributor dan AI agent ada di [AGENTS.md](../AGENTS.md); riwayat perubahan software ada di [CHANGELOG.md](../CHANGELOG.md).
 
@@ -28,16 +28,17 @@ Kolom Versi adalah versi dokumen (bukan versi software); nilainya harus sama den
 | [transisi-animasi.md](transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, kustomisasi, profil dan `kurangiGerak`, biaya kompresi | `v1.1.0` |
 | [aksesibilitas.md](aksesibilitas.md) | Subtitle, kontras, kilatan, kontrol pratinjau, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.7.0` |
 | [batasan.md](batasan.md) | Batasan yang diketahui dan penunjuk ke batasan per fitur | `v1.8.1` |
-| [lisensi-kepatuhan.md](lisensi-kepatuhan.md) | Lisensi MIT, asal kode, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab atas aset, matriks lisensi aset, video pihak ketiga dan kutipan wajar | `v1.5.0` |
+| [lisensi-kepatuhan.md](lisensi-kepatuhan.md) | Lisensi MIT, asal kode, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab atas aset, matriks lisensi aset, video pihak ketiga dan kutipan wajar | `v1.6.0` |
 | [pedoman-produksi.md](pedoman-produksi.md) | Pedoman produksi berbasis riset, dipetakan ke fitur awvd, checklist, rencana | `v1.1.0` |
-| [roadmap.md](roadmap.md) | Roadmap: visi, fase F1–F6 dan kriteria keluarnya, paritas fitur, label dan milestone GitHub | `v1.18.1` |
-| [log-keputusan.md](log-keputusan.md) | Log keputusan awvd (KP-001 dst.) beserta alasan dan rujukan PR | `v1.23.0` |
+| [roadmap.md](roadmap.md) | Roadmap: visi, fase F1–F6 dan kriteria keluarnya, paritas fitur, label dan milestone GitHub | `v1.19.0` |
+| [log-keputusan.md](log-keputusan.md) | Log keputusan awvd (KP-001 dst.) beserta alasan dan rujukan PR | `v1.24.0` |
 | [narasi-caption.md](narasi-caption.md) | `bun run narasi`: skema `naskah.json`, estimasi timing berjangkar jeda, cue VTT/SRT dengan lint cps profil audiens, rencana audio, mode dan posisi caption, mesin suara pluggable, TTS dan ASR lokal opsional | `v1.3.0` |
 | [ketukan.md](ketukan.md) | `bun run ketukan`: onset fluks spektral, tempo autokorelasi, ketukan berselaras grid, skema `ketukan.json`, helper `window.Ketukan`, batas bukti | `v1.0.0` |
 | [reframe.md](reframe.md) | Reframe 16:9 ke 9:16: crop berkeyframe deterministik, skema `reframe.json`, `window.Reframe`, saran fokus opsional tanpa model, templat `reframe-contoh` | `v1.0.0` |
 | [timeline.md](timeline.md) | `timeline.json` (skema 1): track, butir, transisi tumpang tindih, pemetaan waktu klip; validator `bun run timeline periksa`, aturan R01-R17 dan W01-W09, kebijakan kutipan turunan; templat render generik `templates/timeline/` dan rencana audio turunan | `v1.3.1` |
 | [penyunting.md](penyunting.md) | Rancangan penyunting pratinjau lokal F6 (disetujui, belum diimplementasikan): server lokal `Bun.serve` dengan validator `timeline.mjs`, wireframe, alur sunting, aksesibilitas WCAG 2.2 AA, pemecahan #54 dan #55 | `v1.0.0` |
-| [README.md](README.md) | Indeks ini | `v1.17.4` |
+| [segmentasi-latar.md](segmentasi-latar.md) | Rancangan hapus latar lokal F5 (disetujui, belum diimplementasikan): inventaris model dan lisensi, uji CPU sintetis dan batas bukti, ORT opsional, registri MediaPipe dan MODNet, rancangan efek `hapusLatar`, keamanan sha256, data pribadi | `v1.0.0` |
+| [README.md](README.md) | Indeks ini | `v1.17.5` |
 
 ## Peta dokumen
 
@@ -68,6 +69,8 @@ flowchart TD
     CLI --> TML[timeline]
     TML --> KLP
     TML --> ASET
+    KLP --> SEG[segmentasi-latar<br/>rancangan F5]
+    SEG --> LIS
     TML --> PNY[penyunting<br/>rancangan F6]
     PNY --> AKS
     KON --> VIS[visual-audiens]
@@ -96,6 +99,10 @@ flowchart TD
 - Dokumen berbahasa Indonesia dan tidak menyebut nama, path, atau tautan repo internal AhliWeb yang privat.
 
 ## Changelog
+
+### 2026-11-08 - v1.17.5
+
+- Mendaftarkan `segmentasi-latar.md` (v1.0.0) di tabel indeks dan peta dokumen; kolom Versi `lisensi-kepatuhan.md` v1.6.0, `roadmap.md` v1.19.0, `log-keputusan.md` v1.24.0, dan baris indeks ini diperbarui.
 
 ### 2026-11-08 - v1.17.4
 

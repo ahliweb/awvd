@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.18.1`
+- Version: `v1.19.0`
 - Last updated: `2026-11-08`
-- Changeset: `Paritas render cepat: cache ekstraksi klip dirinci (hit/miss, --verifikasi, --bersihkan); cache segmen render tetap belum (F4/03 sebagian). Sebelumnya: F2 selesai: dokumen penutup F2/07 (#36, docs/timeline.md v1.3.0) menutup semua sub-issue F2; status F2 menjadi selesai. Sebelumnya: Speed ramp dengan audio atempo (F3/05) selesai: paritas trim, speed, reverse, freeze mencakup audio speed konstan dan ramp; status F3 selesai. Sebelumnya: F6 berstatus berjalan: rancangan penyunting pratinjau (F6/01, #53) disetujui pemilik; paritas penyunting visual merujuk penyunting.md. Sebelumnya: Paritas timeline multitrack berstatus ada (templat render generik F2/03 dan rencana audio F2/05 selesai); status F2 berjalan.`
+- Changeset: `F5 berstatus berjalan (F5/01 sampai F5/03 selesai, F5/04 riset hapus latar selesai dan disetujui pemilik, implementasi di #88 dan #89); paritas hapus latar berstatus rancangan disetujui merujuk segmentasi-latar.md. Sebelumnya: Paritas render cepat: cache ekstraksi klip dirinci (hit/miss, --verifikasi, --bersihkan); cache segmen render tetap belum (F4/03 sebagian).`
 
 ## Visi
 
@@ -46,7 +46,7 @@ Status memakai `rencana | berjalan | selesai | ditunda | dibatalkan`.
 | F2 | F2 Timeline deklaratif | Mengubah "tulis kode per video" menjadi "isi `timeline.json`" yang dirender templat generik | Format `timeline.json` (track video/audio/teks/overlay; klip in, out, speed, reverse, freeze; keyframe; transisi) tervalidasi dan dirender templat generik; contoh dan uji determinisme lolos | selesai | [#29](https://github.com/ahliweb/awvd/issues/29) |
 | F3 | F3 Pemrosesan klip | Olah klip di tahap ekstraksi dengan cache | `klip.mjs` mendukung LUT/filter warna, chroma key, stabilisasi, peredam bising, dan speed ramp; uji lolos | selesai | [#37](https://github.com/ahliweb/awvd/issues/37) |
 | F4 | F4 Kinerja render | Render footage panjang dalam waktu layak | Render lewat segmen dengan MP4 byte-identik untuk jumlah pekerja berapa pun dan tangkapan PNG per frame identik dengan tangkapan serial (KP-068); percepatan terukur dan didokumentasikan | berjalan | [#43](https://github.com/ahliweb/awvd/issues/43) |
-| F5 | F5 Fitur cerdas lokal | Fitur cerdas lokal yang opsional | ASR whisper.cpp opsional, deteksi ketukan, reframe, dan hapus latar opsional dengan model berlisensi permisif yang tidak dibundel; masing-masing beruji dan terdokumentasi | rencana | [#47](https://github.com/ahliweb/awvd/issues/47) |
+| F5 | F5 Fitur cerdas lokal | Fitur cerdas lokal yang opsional | ASR whisper.cpp opsional, deteksi ketukan, reframe, dan hapus latar opsional dengan model berlisensi permisif yang tidak dibundel; masing-masing beruji dan terdokumentasi | berjalan (F5/01 sampai F5/04 selesai; hapus latar: rancangan disetujui, implementasi [#88](https://github.com/ahliweb/awvd/issues/88) dan [#89](https://github.com/ahliweb/awvd/issues/89), [segmentasi-latar.md](segmentasi-latar.md)) | [#47](https://github.com/ahliweb/awvd/issues/47) |
 | F6 | F6 Penyunting pratinjau | Alat bantu visual penyusun timeline | Halaman pratinjau lokal dengan scrubber dan daftar track yang mengekspor `timeline.json`; uji E2E Playwright lolos | berjalan (rancangan F6/01 disetujui, [penyunting.md](penyunting.md)) | [#52](https://github.com/ahliweb/awvd/issues/52) |
 
 ```mermaid
@@ -93,7 +93,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Caption otomatis dari audio (ASR) | ada sebagai adaptor opsional yang tidak dibundel ([narasi-caption.md](narasi-caption.md#asr-lokal-whispercpp)): whisper.cpp lokal untuk caption dari audio tanpa naskah (wajib ditinjau manusia) dan stempel kata narasi; belum diuji pada suara manusia | F5/01 (selesai) |
 | Sinkron ketukan musik | sebagian: deteksi ketukan dan tempo tetap dari audio lokal ke `ketukan.json` dengan helper komposisi ada ([ketukan.md](ketukan.md)); diuji pada sinyal sintetis, musik nyata dan tempo berubah belum diuji | F5/02 (selesai) |
 | Reframe 16:9 ke 9:16 | sebagian: crop berkeyframe manual deterministik dengan validasi teks terpotong dan area aman 9:16 (`window.Reframe`, `bun run reframe`) dan saran fokus heuristik tanpa model ([reframe.md](reframe.md)); diuji pada video sintetis, pelacakan wajah atau objek belum | F5/03 (selesai) |
-| Hapus latar tanpa layar hijau | belum | F5/04 |
+| Hapus latar tanpa layar hijau | belum ada kode; rancangan disetujui pemilik 2026-11-08 (ORT opsional, registri MediaPipe selfie dan MODNet, mask beku, EMA temporal; hanya Linux x64) di [segmentasi-latar.md](segmentasi-latar.md); implementasi di [#88](https://github.com/ahliweb/awvd/issues/88) dan [#89](https://github.com/ahliweb/awvd/issues/89) | F5/04 (riset, selesai), F5/05 dan F5/06 |
 | Penyunting visual | belum (ada mode `?preview`; rancangan disetujui di [penyunting.md](penyunting.md), implementasi #54 dan #55) | F6 |
 
 ## Label dan milestone
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-08 - v1.19.0
+
+- Status F5 menjadi berjalan (F5/01 sampai F5/03 selesai, F5/04 riset selesai); paritas "Hapus latar tanpa layar hijau" merujuk `segmentasi-latar.md`, #88, dan #89 (belum ada kode).
 
 ### 2026-11-08 - v1.18.1
 

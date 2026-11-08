@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.22.0`
+- Version: `v2.23.0`
 - Last updated: `2026-11-08`
-- Changeset: `Indeks dokumentasi: versi docs/README.md v1.17.4, video-tertanam-audio.md v1.10.0, olah-klip.md v1.2.1, roadmap.md v1.18.1, log-keputusan.md v1.23.0; §Perintah utama: klip memuat --verifikasi dan --bersihkan (#46, sebagian). Sebelumnya: Indeks dokumentasi: versi timeline.md v1.3.1 dan video-tertanam-audio.md v1.9.1; §Perintah utama: R09 menolak kecepatan audio di luar 0,5..4x sejak timeline periksa (#84). Sebelumnya: Indeks dokumentasi: versi timeline.md v1.3.0 (dokumen penutup F2) dan roadmap.md v1.18.0 (F2 selesai).`
+- Changeset: `Indeks dokumentasi: mendaftarkan docs/segmentasi-latar.md v1.0.0; versi docs/README.md v1.17.5, lisensi-kepatuhan.md v1.6.0, roadmap.md v1.19.0, log-keputusan.md v1.24.0. Sebelumnya: Indeks dokumentasi: versi docs/README.md v1.17.4, video-tertanam-audio.md v1.10.0, olah-klip.md v1.2.1, roadmap.md v1.18.1, log-keputusan.md v1.23.0; §Perintah utama: klip memuat --verifikasi dan --bersihkan (#46, sebagian).`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -72,7 +72,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 
 | Dokumen | Isi | Versi |
 | --- | --- | --- |
-| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.4` |
+| [docs/README.md](docs/README.md) | Indeks dokumen, peta dokumen, aturan menambah dokumen | `v1.17.5` |
 | [docs/arsitektur.md](docs/arsitektur.md) | Alur render, konsep komposisi, protokol `window.video`, pemblokiran jaringan, determinisme, peran upstream | `v1.2.0` |
 | [docs/api-runtime.md](docs/api-runtime.md) | Referensi API `scripts/runtime.js` | `v1.6.1` |
 | [docs/cli.md](docs/cli.md) | Flag `render.mjs`, kode keluar, jaringan dan font, encode, kenyaringan | `v1.8.1` |
@@ -87,15 +87,16 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/transisi-animasi.md](docs/transisi-animasi.md) | Modul `scripts/transisi.js`: 21 transisi, 13 animasi elemen, `kurangiGerak`, biaya kompresi | `v1.1.0` |
 | [docs/aksesibilitas.md](docs/aksesibilitas.md) | Subtitle, kontras, kilatan, gerak, teks alternatif aset, peta fitur aksesibilitas | `v1.7.0` |
 | [docs/batasan.md](docs/batasan.md) | Batasan yang diketahui | `v1.8.1` |
-| [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab aset, matriks lisensi aset, video pihak ketiga | `v1.5.0` |
+| [docs/lisensi-kepatuhan.md](docs/lisensi-kepatuhan.md) | Lisensi, pihak ketiga, model TTS dan OpenRAIL-M, tanggung jawab aset, matriks lisensi aset, video pihak ketiga | `v1.6.0` |
 | [docs/pedoman-produksi.md](docs/pedoman-produksi.md) | Pedoman produksi berbasis riset dan checklist | `v1.1.0` |
-| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.18.1` |
-| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.23.0` |
+| [docs/roadmap.md](docs/roadmap.md) | Roadmap fase F1–F6, paritas fitur, label dan milestone | `v1.19.0` |
+| [docs/log-keputusan.md](docs/log-keputusan.md) | Log keputusan awvd (KP-001 dst.) | `v1.24.0` |
 | [docs/narasi-caption.md](docs/narasi-caption.md) | `bun run narasi`: `naskah.json`, estimasi berjangkar jeda, cue VTT/SRT dengan lint cps, rencana audio, mode dan posisi caption | `v1.3.0` |
 | [docs/ketukan.md](docs/ketukan.md) | `bun run ketukan`: onset fluks spektral, tempo autokorelasi, ketukan berselaras grid, `ketukan.json`, helper `window.Ketukan`, batas bukti | `v1.0.0` |
 | [docs/reframe.md](docs/reframe.md) | Reframe 16:9 ke 9:16: crop berkeyframe, `reframe.json`, `window.Reframe`, saran fokus opsional | `v1.0.0` |
 | [docs/timeline.md](docs/timeline.md) | `timeline.json` (skema 1), validator `bun run timeline periksa`, templat render generik, rencana audio | `v1.3.1` |
 | [docs/penyunting.md](docs/penyunting.md) | Rancangan penyunting pratinjau lokal F6 (disetujui, belum diimplementasikan) | `v1.0.0` |
+| [docs/segmentasi-latar.md](docs/segmentasi-latar.md) | Rancangan hapus latar lokal F5 (disetujui, belum diimplementasikan): model, lisensi, uji CPU sintetis, ORT opsional, efek `hapusLatar` | `v1.0.0` |
 | [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.9.0` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
 
@@ -158,6 +159,10 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 **Peringatan hukum: video pihak ketiga.** awvd tidak menyediakan dan tidak akan menyediakan pengunduh atau perekam video platform (YouTube, TikTok, Facebook, Instagram, X, dan sejenisnya); fitur sumber hanya menerima berkas yang sah Anda miliki, dengan manifest dan atribusi. Kutipan untuk video reaction dan ulasan diperiksa terhadap kebijakan internal yang terukur dan gerbang tinjauan hukum, bukan jaminan kutipan sah. Dokumentasi ini bukan nasihat hukum; rincian di [docs/pelajari-reaction.md](docs/pelajari-reaction.md).
 
 ## Changelog
+
+### 2026-11-08 - v2.23.0
+
+- Indeks dokumentasi: mendaftarkan `docs/segmentasi-latar.md` (v1.0.0, rancangan hapus latar lokal, #51); versi `docs/README.md` v1.17.5, `lisensi-kepatuhan.md` v1.6.0, `roadmap.md` v1.19.0, dan `log-keputusan.md` v1.24.0.
 
 ### 2026-11-08 - v2.22.0
 
