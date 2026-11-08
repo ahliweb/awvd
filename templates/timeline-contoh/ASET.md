@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
-- Last updated: `2026-11-07`
-- Changeset: `Baseline pencatatan aset: dua klip contoh dan dua audio contoh buatan proyek sendiri (ffmpeg lavfi), logo contoh disalin dari templat aset-contoh; tidak ada aset pihak ketiga.`
+- Version: `v1.0.1`
+- Last updated: `2026-11-08`
+- Changeset: `Rujukan templat render diperbarui: timeline dirender templat generik templates/timeline (#32).`
 
-Catatan sumber dan lisensi setiap aset yang dipakai templat ini (AGENTS.md §Lisensi dan Aset). Templat ini hanya berisi `timeline.json` contoh beserta manifest kecil yang dirujuknya; tidak ada komposisi `index.html` (templat render timeline menyusul di issue #32). Cara memakainya ada di [docs/timeline.md](../../docs/timeline.md).
+Catatan sumber dan lisensi setiap aset yang dipakai templat ini (AGENTS.md §Lisensi dan Aset). Templat ini hanya berisi `timeline.json` contoh beserta manifest kecil yang dirujuknya; komposisi render ada di templat generik `templates/timeline/` (#32). Cara memakainya ada di [docs/timeline.md](../../docs/timeline.md).
 
 | Aset | Sumber | Lisensi | Tanggal |
 | --- | --- | --- | --- |
@@ -36,6 +36,10 @@ ffmpeg -f lavfi -i "aevalsrc=0.1*sin(2*PI*220*t)+0.1*sin(2*PI*277.18*t)+0.1*sin(
 ```
 
 ## Changelog
+
+### 2026-11-08 - v1.0.1
+
+- Rujukan templat render diperbarui: timeline dirender templat generik `templates/timeline/` (#32), bukan lagi "menyusul".
 
 ### 2026-11-07 - v1.0.0
 
