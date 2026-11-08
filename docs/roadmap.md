@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.17.0`
+- Version: `v1.18.0`
 - Last updated: `2026-11-08`
-- Changeset: `Speed ramp dengan audio atempo (F3/05) selesai: paritas trim, speed, reverse, freeze mencakup audio speed konstan dan ramp; status F3 selesai. Sebelumnya: F6 berstatus berjalan: rancangan penyunting pratinjau (F6/01, #53) disetujui pemilik; paritas penyunting visual merujuk penyunting.md. Sebelumnya: Paritas timeline multitrack berstatus ada (templat render generik F2/03 dan rencana audio F2/05 selesai); status F2 berjalan.`
+- Changeset: `F2 selesai: dokumen penutup F2/07 (#36, docs/timeline.md v1.3.0) menutup semua sub-issue F2; status F2 menjadi selesai. Sebelumnya: Speed ramp dengan audio atempo (F3/05) selesai: paritas trim, speed, reverse, freeze mencakup audio speed konstan dan ramp; status F3 selesai. Sebelumnya: F6 berstatus berjalan: rancangan penyunting pratinjau (F6/01, #53) disetujui pemilik; paritas penyunting visual merujuk penyunting.md. Sebelumnya: Paritas timeline multitrack berstatus ada (templat render generik F2/03 dan rencana audio F2/05 selesai); status F2 berjalan.`
 
 ## Visi
 
@@ -43,7 +43,7 @@ Status memakai `rencana | berjalan | selesai | ditunda | dibatalkan`.
 | Fase | Milestone | Tujuan | Kriteria keluar | Status | Epik |
 | --- | --- | --- | --- | --- | --- |
 | F1 | F1 Fondasi produksi | Melengkapi alat produksi dasar | Pemeriksa visual, transisi, aset (P0–P1 dan helper runtime), reaction dan kutipan wajar, serta narasi (caption sinkron voice over, adaptor TTS opsional) ter-merge dengan uji dan dokumen; bug determinisme `--skala` diperbaiki | berjalan | [#17](https://github.com/ahliweb/awvd/issues/17) |
-| F2 | F2 Timeline deklaratif | Mengubah "tulis kode per video" menjadi "isi `timeline.json`" yang dirender templat generik | Format `timeline.json` (track video/audio/teks/overlay; klip in, out, speed, reverse, freeze; keyframe; transisi) tervalidasi dan dirender templat generik; contoh dan uji determinisme lolos | berjalan | [#29](https://github.com/ahliweb/awvd/issues/29) |
+| F2 | F2 Timeline deklaratif | Mengubah "tulis kode per video" menjadi "isi `timeline.json`" yang dirender templat generik | Format `timeline.json` (track video/audio/teks/overlay; klip in, out, speed, reverse, freeze; keyframe; transisi) tervalidasi dan dirender templat generik; contoh dan uji determinisme lolos | selesai | [#29](https://github.com/ahliweb/awvd/issues/29) |
 | F3 | F3 Pemrosesan klip | Olah klip di tahap ekstraksi dengan cache | `klip.mjs` mendukung LUT/filter warna, chroma key, stabilisasi, peredam bising, dan speed ramp; uji lolos | selesai | [#37](https://github.com/ahliweb/awvd/issues/37) |
 | F4 | F4 Kinerja render | Render footage panjang dalam waktu layak | Render lewat segmen dengan MP4 byte-identik untuk jumlah pekerja berapa pun dan tangkapan PNG per frame identik dengan tangkapan serial (KP-068); percepatan terukur dan didokumentasikan | berjalan | [#43](https://github.com/ahliweb/awvd/issues/43) |
 | F5 | F5 Fitur cerdas lokal | Fitur cerdas lokal yang opsional | ASR whisper.cpp opsional, deteksi ketukan, reframe, dan hapus latar opsional dengan model berlisensi permisif yang tidak dibundel; masing-masing beruji dan terdokumentasi | rencana | [#47](https://github.com/ahliweb/awvd/issues/47) |
@@ -82,7 +82,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Text-to-speech | ada sebagai adaptor opsional yang tidak dibundel ([narasi-caption.md](narasi-caption.md#tts-lokal-sherpa-onnx)); layanan daring dan suara kustom belum | F1/06C (selesai) |
 | Ducking, fade, kenyaringan | ada | — |
 | QC kenyaringan, kilatan, subtitle | ada ([pemeriksaan-mutu.md](pemeriksaan-mutu.md)) | — |
-| Timeline multitrack | ada: format `timeline.json`, validator `bun run timeline periksa`, templat render generik `templates/timeline/` (track video, overlay, teks, transisi), dan rencana audio turunan `bun run audio -- --timeline` ([timeline.md](timeline.md)) | F2/02, F2/03, F2/05 (selesai) |
+| Timeline multitrack | ada: format `timeline.json`, validator `bun run timeline periksa`, templat render generik `templates/timeline/` (track video, overlay, teks, transisi), dan rencana audio turunan `bun run audio -- --timeline` ([timeline.md](timeline.md)) | F2/02, F2/03, F2/05, F2/07 (selesai) |
 | Trim, speed, reverse, freeze | ada sebagai helper pemetaan frame ([api-runtime.md](api-runtime.md#pemetaan-waktu-klip); `petaWaktuKlip`, `frameSumber`, ramp kecepatan); audio speed konstan dan ramp diregangkan dengan `atempo` sinkron dengan frame (0,5 sampai 4x; [video-tertanam-audio.md](video-tertanam-audio.md#audio-klip-ber-speed-atempo)); reverse dan freeze tanpa audio (bisu); tanpa interpolasi gerak | F2/04, F3/05 (selesai) |
 | Keyframe generik | ada (`keyframe`) | F2/06 |
 | Filter dan LUT warna | ada ([olah-klip.md](olah-klip.md)) | F3/01 (selesai) |
@@ -112,6 +112,10 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-08 - v1.18.0
+
+- Status F2 menjadi selesai: dokumen penutup F2/07 (#36) selesai, sehingga F2/01 sampai F2/07 tertutup; paritas "Timeline multitrack" merujuk F2/07.
 
 ### 2026-11-08 - v1.17.0
 
