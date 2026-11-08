@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.13.0`
+- Version: `v1.14.0`
 - Last updated: `2026-11-08`
-- Changeset: `Paritas: timeline multitrack memuat rencana audio turunan (F2/05 selesai). Sebelumnya: Paritas: reframe 16:9 ke 9:16 berstatus sebagian (crop berkeyframe manual, saran heuristik; F5/03).`
+- Changeset: `F4: syarat keluar didefinisikan ulang (MP4 byte-identik antar jumlah pekerja, KP-068) dan paritas render cepat berstatus ada (render paralel per segmen). Sebelumnya: Paritas: timeline multitrack memuat rencana audio turunan (F2/05 selesai).`
 
 ## Visi
 
@@ -45,7 +45,7 @@ Status memakai `rencana | berjalan | selesai | ditunda | dibatalkan`.
 | F1 | F1 Fondasi produksi | Melengkapi alat produksi dasar | Pemeriksa visual, transisi, aset (P0–P1 dan helper runtime), reaction dan kutipan wajar, serta narasi (caption sinkron voice over, adaptor TTS opsional) ter-merge dengan uji dan dokumen; bug determinisme `--skala` diperbaiki | berjalan | [#17](https://github.com/ahliweb/awvd/issues/17) |
 | F2 | F2 Timeline deklaratif | Mengubah "tulis kode per video" menjadi "isi `timeline.json`" yang dirender templat generik | Format `timeline.json` (track video/audio/teks/overlay; klip in, out, speed, reverse, freeze; keyframe; transisi) tervalidasi dan dirender templat generik; contoh dan uji determinisme lolos | rencana | [#29](https://github.com/ahliweb/awvd/issues/29) |
 | F3 | F3 Pemrosesan klip | Olah klip di tahap ekstraksi dengan cache | `klip.mjs` mendukung LUT/filter warna, chroma key, stabilisasi, peredam bising, dan speed ramp; uji lolos | rencana | [#37](https://github.com/ahliweb/awvd/issues/37) |
-| F4 | F4 Kinerja render | Render footage panjang dalam waktu layak | Render paralel per rentang frame dengan framemd5 identik terhadap render serial; percepatan terukur dan didokumentasikan | rencana | [#43](https://github.com/ahliweb/awvd/issues/43) |
+| F4 | F4 Kinerja render | Render footage panjang dalam waktu layak | Render lewat segmen dengan MP4 byte-identik untuk jumlah pekerja berapa pun dan tangkapan PNG per frame identik dengan tangkapan serial (KP-068); percepatan terukur dan didokumentasikan | berjalan | [#43](https://github.com/ahliweb/awvd/issues/43) |
 | F5 | F5 Fitur cerdas lokal | Fitur cerdas lokal yang opsional | ASR whisper.cpp opsional, deteksi ketukan, reframe, dan hapus latar opsional dengan model berlisensi permisif yang tidak dibundel; masing-masing beruji dan terdokumentasi | rencana | [#47](https://github.com/ahliweb/awvd/issues/47) |
 | F6 | F6 Penyunting pratinjau | Alat bantu visual penyusun timeline | Halaman pratinjau lokal dengan scrubber dan daftar track yang mengekspor `timeline.json`; uji E2E Playwright lolos | rencana | [#52](https://github.com/ahliweb/awvd/issues/52) |
 
@@ -89,7 +89,7 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 | Chroma key | ada ([olah-klip.md](olah-klip.md); `kunciWarna`, keluaran PNG beralfa) | F3/02 (selesai) |
 | Stabilisasi | ada ([olah-klip.md](olah-klip.md); `stabil`: vidstab, cadangan deshake) | F3/03 (selesai) |
 | Peredam bising, pengubah suara | ada ([video-tertanam-audio.md](video-tertanam-audio.md#olah-suara-per-trek)); `arnndn` butuh model milik pengguna | F3/04 (selesai) |
-| Render cepat untuk footage panjang | belum (serial) | F4 |
+| Render cepat untuk footage panjang | ada: render paralel per segmen `--paralel N` (sekitar 2,6x dengan 4 pekerja pada klip 480 frame; [cli.md](cli.md#render-paralel-dan-segmen)); cache segmen hasil render belum | F4/01 (selesai), F4/02 (selesai), F4/03 |
 | Caption otomatis dari audio (ASR) | ada sebagai adaptor opsional yang tidak dibundel ([narasi-caption.md](narasi-caption.md#asr-lokal-whispercpp)): whisper.cpp lokal untuk caption dari audio tanpa naskah (wajib ditinjau manusia) dan stempel kata narasi; belum diuji pada suara manusia | F5/01 (selesai) |
 | Sinkron ketukan musik | sebagian: deteksi ketukan dan tempo tetap dari audio lokal ke `ketukan.json` dengan helper komposisi ada ([ketukan.md](ketukan.md)); diuji pada sinyal sintetis, musik nyata dan tempo berubah belum diuji | F5/02 (selesai) |
 | Reframe 16:9 ke 9:16 | sebagian: crop berkeyframe manual deterministik dengan validasi teks terpotong dan area aman 9:16 (`window.Reframe`, `bun run reframe`) dan saran fokus heuristik tanpa model ([reframe.md](reframe.md)); diuji pada video sintetis, pelacakan wajah atau objek belum | F5/03 (selesai) |
@@ -112,6 +112,11 @@ Peta kesiapan awvd terhadap kelompok fitur penyunting video konsumen. Status men
 - **Formulir issue** ada di [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/): tugas, bug, riset, dan epik.
 
 ## Changelog
+
+### 2026-11-08 - v1.14.0
+
+- Kriteria keluar F4 diganti: "framemd5 identik terhadap render serial" menjadi MP4 byte-identik untuk jumlah pekerja berapa pun dan tangkapan PNG per frame identik dengan tangkapan serial (keputusan pemilik KP-068); status F4 berjalan.
+- Paritas "Render cepat untuk footage panjang": ada (render paralel per segmen, F4/01 dan F4/02 selesai); cache segmen menyusul (F4/03).
 
 ### 2026-11-08 - v1.13.0
 
