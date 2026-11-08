@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.19.0`
+- Version: `v1.20.0`
 - Last updated: `2026-11-08`
-- Changeset: `Menambahkan KP-068 sampai KP-070 (keputusan pemilik dari riset #44: render lewat segmen, pemanasan 2 frame, --tangkap jpeg draf). Sebelumnya: Menambahkan KP-065 sampai KP-067 (rencana audio dari timeline lewat audio.mjs, musik sepanjang video, urutan gainDb).`
+- Changeset: `Menambahkan KP-071 sampai KP-073 (templat render timeline: dua lapis, siapkan.mjs, kurangiGerak). Sebelumnya: Menambahkan KP-068 sampai KP-070 (keputusan pemilik dari riset #44: render lewat segmen, pemanasan 2 frame, --tangkap jpeg draf).`
 
 Log ini mencatat keputusan awvd yang sudah berlaku beserta alasannya, supaya kontributor dan agent tidak perlu menebak mengapa sesuatu dibuat begitu. Ini log keputusan awvd sendiri; nomor `DL-0xx` di AGENTS.md merujuk ke pedoman internal AhliWeb dan bukan bagian log ini. Keputusan ditulis ulang bila berubah: ubah kolom Status, tambahkan keputusan pengganti, dan jangan hapus baris lama.
 
@@ -117,8 +117,15 @@ flowchart TD
 | KP-068 | Semua render video lewat jalur segmen (opsi A riset #44): serial adalah satu pekerja di jalur yang sama; segmen tetap `4 x round(fps/2)` frame dan `-threads 2` x264 per segmen. Syarat keluar F4 menjadi "MP4 byte-identik untuk jumlah pekerja berapa pun, dan tangkapan PNG per frame identik dengan tangkapan serial"; byte MP4 lama berubah satu kali. | 2026-11-08 | Berlaku | Riset #44: tangkapan CDP 90-95% waktu per frame; encode terbagi tidak dapat byte-identik dengan satu aliran x264 (kendali laju membawa keadaan lintas keyframe), sedangkan segmen tetap memberi keluaran identik untuk N berapa pun dan percepatan 2,6x (4 pekerja) sampai 3,4x (8 pekerja). Alternatif FFV1 dan encode akhir tunggal ditolak (sekitar 8 GB per 10 menit, percepatan turun ke 1,9x). Keputusan pemilik; rincian di [cli.md](cli.md#render-paralel-dan-segmen). | #44, #45 |
 | KP-069 | Pemanasan 2 frame (dirender lalu dibuang) sebelum setiap segmen di semua mode, termasuk serial dan `--still`. | 2026-11-08 | Berlaku | Riset #44: dua frame pertama proses Chromium dapat berbeda sampai 20 piksel (selisih maksimum 5/255) dari frame yang sama di tengah proses; pemanasan 2 frame menghilangkannya. Satu perilaku tangkapan untuk semua mode; konsekuensinya frame awal templat yang peka berubah beberapa piksel dibanding renderer lama. Keputusan pemilik. | #44, #45 |
 | KP-070 | `--tangkap jpeg` tersedia sebagai opsi pratinjau yang ditandai draf dan lossy; bawaan tetap PNG lossless. | 2026-11-08 | Berlaku | Riset #44: JPEG q95 6-38% lebih cepat dan deterministik, tetapi lossy (PSNR 42,6 dB terhadap PNG). Tidak dipakai untuk rilis. Keputusan pemilik. | #44, #45 |
+| KP-071 | Templat render timeline berlapis dua: `scripts/timeline.js` murni tanpa DOM (rencana, keadaan, sifat) dan `templates/timeline/index.html` hanya penempel DOM; tiap butir punya lapisan luar untuk transisi dan lapisan dalam untuk tata letak, properti keyframe, dan animasi. | 2026-11-08 | Berlaku | Satu sumber jadwal yang bisa diuji di Bun tanpa Chromium; transform transisi tidak bentrok dengan transform properti. Alternatif satu berkas browser ditolak karena tidak dapat diuji murni. Keputusan desain implementasi; rincian di [timeline.md](timeline.md#templat-render). | #32 |
+| KP-072 | Props templat timeline dirakit `templates/timeline/siapkan.mjs` dari CLI yang ada (klip, `timeline periksa --ketat`, aset), bukan dengan menambah `--gabung` di `timeline.mjs`. | 2026-11-08 | Berlaku | Validator tetap tidak berubah, dan timeline yang ditolak tidak pernah mencapai Chromium (fail-closed sebelum render). | #32 |
+| KP-073 | Profil `kurangiGerak` menahan Ken Burns di posisi awal; properti keyframe yang ditulis penulis timeline tidak diubah. | 2026-11-08 | Berlaku | Sejalan dengan pola "kamera mati" di `transisi.js`; keyframe adalah kehendak eksplisit penulis. Konsekuensinya penulis bertanggung jawab atas gerak keyframe untuk audiens peka gerak ([aksesibilitas.md](aksesibilitas.md)). | #32 |
 
 ## Changelog
+
+### 2026-11-08 - v1.20.0
+
+- Menambahkan KP-071 sampai KP-073 tentang templat render timeline generik.
 
 ### 2026-11-08 - v1.19.0
 
