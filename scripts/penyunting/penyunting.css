@@ -1,0 +1,165 @@
+/*
+ * awvd / penyunting.css — gaya halaman penyunting pratinjau (docs/penyunting.md).
+ * Tanpa animasi atau transisi (aturan repo dan prefers-reduced-motion). Token warna didefinisikan
+ * sekali di sini dan kontrasnya dihitung di scripts/uji-penyunting.mjs (kontras dari runtime.js):
+ * teks >= 4,5:1, komponen UI dan batas fokus >= 3:1, tema terang dan gelap.
+ */
+:root {
+  color-scheme: light dark;
+  --latar: #ffffff;
+  --teks: #1a1a1a;
+  --redup: #4a4a4a;
+  --panel: #f3f4f6;
+  --garis: #6b7280;
+  --fokus: #1d4ed8;
+  --aksen: #1d4ed8;
+  --tombol: #e5e7eb;
+  --butir-latar: #dbeafe;
+  --butir-teks: #0f172a;
+  --butir-garis: #1e40af;
+  --pilih: #000000;
+  --kepala: #b91c1c;
+  --galat: #b91c1c;
+  --peringatan: #92400e;
+  --lebar-kepala: 140px;
+  --tinggi-baris: 32px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --latar: #0f172a;
+    --teks: #e5e7eb;
+    --redup: #cbd5e1;
+    --panel: #1e293b;
+    --garis: #94a3b8;
+    --fokus: #93c5fd;
+    --aksen: #93c5fd;
+    --tombol: #334155;
+    --butir-latar: #1e3a5f;
+    --butir-teks: #f1f5f9;
+    --butir-garis: #93c5fd;
+    --pilih: #ffffff;
+    --kepala: #fca5a5;
+    --galat: #fca5a5;
+    --peringatan: #fcd34d;
+  }
+}
+
+* { box-sizing: border-box; animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+html { font-size: 100%; }
+body {
+  margin: 0; background: var(--latar); color: var(--teks);
+  font: 1rem/1.5 system-ui, "Segoe UI", Roboto, "DejaVu Sans", sans-serif;
+}
+h1, h2 { margin: 0 0 .5rem; line-height: 1.25; }
+h1 { font-size: 1.25rem; }
+h2 { font-size: 1rem; }
+p { margin: 0 0 .5rem; }
+.redup { color: var(--redup); }
+.kecil { font-size: .875rem; }
+
+a, button, input, select, summary, [tabindex] { scroll-margin: 3rem 1rem; }
+:focus-visible { outline: 3px solid var(--fokus); outline-offset: 2px; }
+.lewati { position: absolute; left: -999px; top: 0; background: var(--latar); color: var(--teks); padding: .5rem 1rem; z-index: 10; }
+.lewati:focus { left: 0; }
+
+button, input, select {
+  font: inherit; color: var(--teks); background: var(--tombol);
+  border: 1px solid var(--garis); border-radius: 4px; min-height: 28px; min-width: 28px; padding: .15rem .6rem;
+}
+input[type="number"] { width: 6.5rem; background: var(--latar); }
+select { max-width: 100%; }
+input[type="radio"] { min-width: 0; min-height: 0; accent-color: var(--aksen); }
+input[type="range"] { width: 100%; min-height: 28px; padding: 0; background: transparent; border: 0; accent-color: var(--aksen); }
+fieldset { border: 1px solid var(--garis); border-radius: 4px; margin: .5rem 0 0; padding: .25rem .75rem .5rem; }
+fieldset label { display: block; }
+legend { padding: 0 .25rem; }
+
+#bilah { padding: .75rem 1rem; background: var(--panel); border-bottom: 1px solid var(--garis); }
+#status { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+#berkas { margin: 0 0 .25rem; overflow-wrap: anywhere; }
+
+/* tata letak: pratinjau + posisi + track di kiri, properti di kanan, masalah di bawah */
+body {
+  display: grid; gap: 1rem; padding-bottom: 1rem;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  grid-template-areas: "bilah bilah" "utama properti" "masalah masalah";
+}
+#bilah { grid-area: bilah; }
+#utama { grid-area: utama; display: grid; gap: 1rem; min-width: 0; padding-left: 1rem; }
+#properti { grid-area: properti; padding-right: 1rem; min-width: 0; }
+#masalah { grid-area: masalah; padding: 0 1rem; min-width: 0; }
+@media (max-width: 720px) {
+  body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "bilah" "utama" "properti" "masalah"; }
+  #utama { padding-right: 1rem; }
+  #properti { padding-left: 1rem; }
+  :root { --lebar-kepala: 96px; }
+}
+section, aside { min-width: 0; }
+
+.baris-kontrol { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .5rem; }
+#waktu { min-width: 9rem; font-variant-numeric: tabular-nums; }
+
+/* pratinjau: iframe komposisi pada ukuran sebenarnya; area ini yang bergulir, bukan halaman */
+#gulir-pratinjau { overflow: auto; max-width: 100%; border: 1px solid var(--garis); background: #000; }
+#bingkai { position: relative; }
+/* will-change: opacity menaruh iframe di lapisan komposit sendiri tanpa transformasi. Tanpa ini Chromium memakai
+   antialiasing teks dan dithering gradien yang berbeda dari halaman komposisi yang dibuka sendirian (render.mjs),
+   sehingga frame tanpa kanvas klip berbeda beberapa tingkat warna; dengan ini piksel identik (diuji di uji-penyunting.mjs). */
+#komposisi { display: block; border: 0; background: #000; position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: opacity; }
+#galat-pratinjau { color: var(--galat); font-weight: 600; margin-top: .5rem; }
+
+/* track */
+#gulir-track { overflow: auto; max-width: 100%; max-height: 60vh; border: 1px solid var(--garis); background: var(--panel); }
+#kanvas { position: relative; }
+#penggaris { position: relative; height: 24px; margin-left: var(--lebar-kepala); border-bottom: 1px solid var(--garis); cursor: pointer; }
+.tik { position: absolute; top: 0; height: 100%; border-left: 1px solid var(--garis); padding-left: 3px; font-size: .75rem; line-height: 24px; color: var(--redup); white-space: nowrap; pointer-events: none; }
+.tanda { position: absolute; top: 12px; width: 0; height: 0; margin-left: -5px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 10px solid var(--aksen); pointer-events: none; }
+#grid { position: relative; }
+.baris { display: flex; border-bottom: 1px solid var(--garis); }
+.kepala {
+  position: sticky; left: 0; z-index: 2; flex: 0 0 var(--lebar-kepala); width: var(--lebar-kepala);
+  padding: .15rem .5rem; background: var(--panel); border-right: 1px solid var(--garis); font-size: .875rem; overflow-wrap: anywhere;
+}
+.kepala .jenis-track { display: block; color: var(--redup); font-size: .75rem; }
+.jalur { position: relative; flex: 0 0 auto; }
+.butir {
+  position: absolute; min-width: 24px; height: calc(var(--tinggi-baris) - 4px); margin-top: 2px; padding: 0 .4rem 0 0;
+  display: flex; align-items: center; gap: .25rem; overflow: hidden; white-space: nowrap; cursor: pointer;
+  background: var(--butir-latar); color: var(--butir-teks); border: 2px solid var(--butir-garis); border-radius: 3px; font-size: .8125rem;
+}
+.butir[data-jenis="gambar"] { border-style: dashed; }
+.butir[data-jenis="warna"] { border-style: dotted; }
+.butir[data-jenis="teks"], .butir[data-jenis="kredit"] { border-style: double; }
+.butir[data-jenis="audio"] { border-style: groove; }
+.butir[aria-selected="true"] { outline: 3px solid var(--pilih); outline-offset: 0; font-weight: 700; }
+.butir:focus-visible { outline: 3px solid var(--fokus); outline-offset: 2px; }
+.butir[aria-selected="true"]:focus-visible { outline-color: var(--fokus); box-shadow: 0 0 0 2px var(--pilih); }
+.glif { flex: 0 0 auto; min-width: 1.25rem; text-align: center; font-weight: 700; background: var(--butir-garis); color: var(--latar); }
+.tumpang { position: absolute; left: 0; top: 0; height: 100%; pointer-events: none; background: repeating-linear-gradient(135deg, var(--butir-garis) 0 3px, transparent 3px 6px); opacity: .6; }
+.nonaktif { text-decoration: line-through; }
+#playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--kepala); pointer-events: none; z-index: 3; }
+
+/* properti */
+#properti dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .15rem .75rem; margin: 0 0 .5rem; }
+#properti dt { color: var(--redup); }
+#properti dd { margin: 0; overflow-wrap: anywhere; }
+details { flex: 1 1 100%; }
+details table { border-collapse: collapse; margin-top: .5rem; font-size: .875rem; }
+details th, details td { border: 1px solid var(--garis); padding: .15rem .5rem; text-align: left; }
+caption { text-align: left; margin-bottom: .25rem; }
+
+/* masalah */
+#daftar-masalah { list-style: none; margin: 0; padding: 0; display: grid; gap: .25rem; }
+#daftar-masalah li { border: 1px solid var(--garis); border-radius: 4px; background: var(--panel); }
+#daftar-masalah li > button, #daftar-masalah li > .isi { display: block; width: 100%; text-align: left; padding: .35rem .6rem; border: 0; background: transparent; overflow-wrap: anywhere; border-radius: 4px; }
+.sev-galat { color: var(--galat); font-weight: 700; }
+.sev-peringatan { color: var(--peringatan); font-weight: 700; }
+
+@media (forced-colors: active) {
+  .butir { border-color: CanvasText; background: Canvas; color: CanvasText; }
+  .butir[aria-selected="true"] { outline: 3px solid Highlight; }
+  .glif { background: CanvasText; color: Canvas; }
+  #playhead { background: Highlight; }
+  .tumpang { background: repeating-linear-gradient(135deg, CanvasText 0 3px, transparent 3px 6px); }
+  :focus-visible { outline: 3px solid Highlight; }
+}

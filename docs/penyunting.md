@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-08`
-- Changeset: `Dokumen baru: rancangan penyunting pratinjau lokal F6 (issue #53): tujuan dan non-tujuan, arsitektur server lokal Bun.serve dengan validator timeline.mjs sebagai sumber tunggal, UI dan wireframe, aksesibilitas WCAG 2.2 AA, pemecahan issue #54 dan #55, serta tiga keputusan yang disetujui pemilik pada 2026-11-08.`
+- Changeset: `Issue #54 diimplementasikan: bagian Kondisi nyata (#54) mendokumentasikan perintah bun run penyunting, server Bun.serve berpengerasan, halaman baca-saja (scrubber, grid track, properti, masalah), hasil uji piksel identik dengan render --still, aksesibilitas yang diterapkan, dan sembilan penyimpangan dari rancangan beserta alasannya. Sebelumnya: dokumen baru rancangan penyunting pratinjau lokal F6 (issue #53).`
 
-> **Status: rancangan disetujui, belum diimplementasikan.** Dokumen ini adalah hasil riset issue #53; pemilik menyetujui ketiga rekomendasi di [Risiko dan keputusan](#risiko-dan-keputusan-untuk-pemilik) pada 2026-11-08. Tidak ada kode penyunting di repo; yang sudah ada hanyalah mode `?preview` di `scripts/runtime.js` dan validator `bun run timeline periksa` ([timeline.md](timeline.md)). Setelah implementasi, bagian "Rancangan" diubah menjadi dokumentasi kondisi nyata.
+> **Status: #54 (tampilan baca-saja) sudah diimplementasikan; #55 (penyuntingan dan ekspor) belum.** Bagian [Kondisi nyata (#54)](#kondisi-nyata-54) menggambarkan kode yang ada di repo. Bagian lain (arsitektur, antarmuka, alur penyuntingan, #55) tetap rancangan yang disetujui pemilik pada 2026-11-08 (issue #53); penyimpangan #54 dari rancangan dicatat di [Penyimpangan dari rancangan (#54)](#penyimpangan-dari-rancangan-54).
 
 Dasar rancangan ini adalah [timeline.md](timeline.md) (format dan validator), [arsitektur.md](arsitektur.md#protokol-windowvideo-dan-renderframe) (protokol `window.video` dan `renderFrame`), [api-runtime.md](api-runtime.md#mode-url) (mode URL), dan [aksesibilitas.md](aksesibilitas.md). Ketergantungan: templat render `templates/timeline/` dan penjadwal `scripts/timeline.js` (issue #32) harus sudah di `main` sebelum #54 dimulai.
 
@@ -203,6 +203,124 @@ Pintasan dalam widget track (pola grid APG: baris = track, sel = butir, tabindex
 
 **Bahasa dan pesan.** `lang="id"`; pesan galat memuat apa yang salah, lokasinya, dan cara memperbaikinya bila validator memberi tahu (SC 3.3.1, 3.3.3).
 
+## Kondisi nyata (#54)
+
+Tampilan baca-saja: scrubber, daftar track, panel properti dan masalah, serta frame pratinjau yang sama dengan hasil render. Tidak ada penyuntingan dan tidak ada penulisan berkas (kecuali cache klip dan aset); semua metode selain `GET` ditolak dengan 405. Penyuntingan dan ekspor adalah #55.
+
+### Perintah
+
+```bash
+bun run penyunting templates/timeline-contoh/timeline.json [--port N] [--buka] [--draf] [--cache DIR]
+```
+
+| Opsi | Arti |
+| --- | --- |
+| `<timeline.json>` | wajib, tepat satu |
+| `--port N` | port tetap; bawaan `0` (acak) |
+| `--buka` | membuka URL di peramban bawaan (`xdg-open`, `open`, atau `start`) |
+| `--draf` | seperti `timeline periksa --draf`; diteruskan juga ke `klip.mjs` |
+| `--cache DIR` | folder cache frame klip dan props aset; bawaan `.cache/awvd/penyunting` (di `.gitignore`) |
+| `--help` | pemakaian |
+
+Keluaran: ringkasan (`N track, M butir, F frame @ fps`), status validator, lalu `penyunting: http://127.0.0.1:<port>/?token=<32 heksadesimal>`. Kode keluar: `0` berhenti normal (`Ctrl+C` atau `SIGTERM`); `2` berkas hilang, lebih dari 5 MB, bukan JSON, argumen atau port tidak valid; `1` galat tak terduga. Timeline yang hanya ditolak validator tetap dibuka (galat tampil di panel masalah); kegagalan langkah klip atau aset dicatat sebagai masalah muat (`MUAT`) dan tidak menghentikan server.
+
+Implementasi: `scripts/penyunting.mjs` (CLI dan server; fungsi `muatSesi` dan `mulaiServer`), `scripts/penyunting/index.html`, `penyunting.js`, `penyunting.css`, dan `scripts/uji-penyunting.mjs`. Tanpa dependensi baru.
+
+### Pemuatan
+
+```mermaid
+flowchart LR
+    TL[(timeline.json)] --> K[klip.mjs<br/>ekstraksi frame ke cache]
+    TL --> V[periksaTimeline<br/>di proses server]
+    K --> V
+    TL --> A[aset.mjs periksa<br/>aset-props.json]
+    K --> P[props: timeline, klip, aset]
+    A --> P
+    V --> API["GET /api/sesi<br/>timeline + hasil validator"]
+    P --> PR["GET /__props.js<br/>window.videoProps"]
+    PR --> IF[iframe /komposisi.html<br/>templat timeline apa adanya]
+    API --> UI[halaman penyunting]
+    UI -- "video.renderFrame(n)" --> IF
+```
+
+Langkah klip dan aset sama dengan `templates/timeline/siapkan.mjs` (proses terpisah, tanpa Chromium); validasi memanggil `periksaTimeline` (satu-satunya validator) langsung di proses server. Hasil props disimpan di memori. Jalur media di props dipetakan dari `file://` ke `/media/klip` dan `/media/aset` (relatif terhadap satu asal), sehingga templat dilayani **tanpa diubah**: server hanya menyisipkan satu tag `<script src="/__props.js?v=<hash>">` setelah `<head>`.
+
+### Rute dan pengerasan
+
+Urutan pemeriksaan tiap permintaan: `Host` (hanya `127.0.0.1:<port>` dan `localhost:<port>`), `Sec-Fetch-Site` (tolak `cross-site`), `Origin` (harus sama), token, metode, lalu rute. Gagal di tiga pertama atau token: 403; metode bukan `GET`: 405; rute atau media tak dikenal: 404.
+
+| Rute | Isi |
+| --- | --- |
+| `/` | `scripts/penyunting/index.html`; juga memasang cookie sesi |
+| `/penyunting.js`, `/penyunting.css` | berkas halaman |
+| `/scripts/runtime.js`, `transisi.js`, `timeline.js` | skrip yang dimuat templat |
+| `/komposisi.html` | `templates/timeline/index.html` ditambah satu tag props |
+| `/__props.js` | `window.videoProps = { timeline, klip, aset, akarAset }` |
+| `/api/sesi` | `{ versi, berkas, draf, timeline, validasi, masalahMuat }` |
+| `/media/aset/<jalur>` | hanya `jalur` yang tercantum di `aset-props.json` (bukan audio) |
+| `/media/klip/<folder>/<nomor>.jpg` atau `.png` | hanya folder klip hasil ekstraksi sesi ini |
+
+- **Token.** 128 bit acak per sesi (`randomBytes(16)`), dibandingkan dengan `timingSafeEqual`. Diterima lewat header `X-Awvd-Token`, parameter `?token=`, atau cookie `awvd_token` (`HttpOnly; SameSite=Strict`) yang dipasang oleh halaman pertama supaya subsumber iframe (skrip dan gambar, yang tidak bisa membawa header) tetap terotentikasi.
+- **Media.** Segmen jalur didekode per segmen; segmen `..`, `.`, kosong, atau berisi garis miring, garis miring terbalik, atau NUL ditolak. Berkas harus ada di daftar putih, berupa berkas reguler, dan hasil `realpath` harus tetap di dalam folder dasarnya (tautan simbolik keluar folder ditolak, 404). Respons media memakai `Content-Security-Policy: default-src 'none'; sandbox`.
+- **CSP.** Halaman penyunting: `default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'; object-src 'none'` (tanpa `script-src` longgar). Komposisi: sama, ditambah `script-src 'self'` dan hash `sha256` setiap `<script>` inline templat (dihitung dari berkas templat), tanpa `unsafe-inline` untuk skrip. Semua respons: `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy: same-origin` (respons media: CSP `sandbox`).
+- Hanya mendengarkan `127.0.0.1` (`hostname` eksplisit); diuji lewat `/proc/net/tcp` dan percobaan sambung ke alamat antarmuka non-loopback.
+- Cookie tidak terisolasi per port: proses lain di `127.0.0.1` pada port berbeda ikut menerimanya bila peramban mengirimnya. Risiko ini diterima untuk alat lokal satu pengguna; token hanya melindungi satu server dan satu sesi.
+
+### Halaman
+
+| Bagian | Perilaku |
+| --- | --- |
+| Pratinjau | iframe `/komposisi.html` pada ukuran komposisi (mode **100%**, identik dengan render) atau diskalakan `transform: scale()` (mode **Muat ke panel**, hanya tampilan). Area pratinjau bergulir sendiri dan dapat difokuskan. Permintaan frame yang menumpuk digabung: hanya yang terbaru dijalankan. Setelah `renderFrame(n)` selesai, font yang belum termuat ditunggu (jaring pengaman yang sama dengan `ambil` di `render-sesi.mjs`); baru kemudian atribut `data-frame-tampil` iframe diisi `n`. |
+| Scrubber | `input type="range"` natif berlabel "Posisi frame" (`min` 0, `max` durasi-1, `step` 1, `aria-valuetext` "frame 75, 2,50 detik"); panah, `Home`, `End` bawaan peramban; `PageUp`/`PageDown` = 10 frame; `Spasi` = putar/jeda; kolom angka "Frame" (nilai luar jangkauan dijepit dan diumumkan); tombol Awal, Mundur 1, Maju 1, Akhir; pemilih penanda dari `timeline.penanda`. |
+| Pemutaran | `requestAnimationFrame` dan `performance.now` hanya di kerangka halaman; bawaan jeda; berhenti di frame terakhir. Bila validator memberi W06 (kilatan), tombol Putar pertama hanya mengumumkan peringatan; tekan lagi untuk tetap memutar. Tanpa audio. |
+| Track | `role="grid"`: satu baris per track (indeks terbesar di atas), `rowheader` berisi nama, jenis, dan "(nonaktif)"; sel butir `role="gridcell"` dengan posisi dan lebar sebanding frame (minimum 24 px), glif jenis (V G W T K A) dan gaya garis berbeda per jenis; butir yang bertumpuk dipisah ke sublajur dan irisan transisi diarsir. Penggaris waktu, penanda, playhead, zum 100% sampai 3200% (klik penggaris menaruh playhead). |
+| Properti | Hanya baca: id, jenis, track, mulai, durasi, akhir, transisi, klip/aset/warna/isi, jumlah masalah terkait, tombol "Ke awal butir". |
+| Masalah | Galat, masalah muat, dan peringatan dengan kode, lokasi JSON pointer, dan pesan (paling banyak 200 baris); baris yang menunjuk ke butir berupa tombol yang menaruh fokus ke butir itu. Jumlah ada di judul. |
+| Status | Satu `aria-live="polite"`: hasil validator saat dibuka, pengumuman jepit, penanda, zum, jeda; `role="alert"` bila sesi tidak dapat dimuat. Galat pratinjau memakai `role="alert"`. |
+
+Timeline yang ditolak validator tetap digambar defensif (bentuk salah diabaikan, bukan melempar). Bila templat menolaknya (mis. transisi tak sesuai tumpang tindih), iframe tidak punya `window.video`: halaman menampilkan "Pratinjau tidak tersedia" dan galat berlokasi tetap tampil di panel masalah.
+
+Pintasan papan ketik di widget track (tanpa mode sunting):
+
+| Tombol | Fungsi |
+| --- | --- |
+| Kiri, Kanan | Butir sebelumnya atau berikutnya di track yang sama (menurut waktu mulai) |
+| Atas, Bawah | Track di atas atau di bawah (melewati track kosong), butir yang waktu mulainya paling dekat |
+| `Home`, `End` | Butir pertama atau terakhir di track |
+| `Enter` | Pilih butir dan pindahkan playhead ke awal butir (diumumkan) |
+
+Fokus menyeleksi butir (`aria-selected`) dan memperbarui panel properti. Tepat satu sel punya `tabindex="0"` (roving). `F2`, `S`, dan `Alt`+panah adalah mode sunting di #55.
+
+### Frame sama dengan render
+
+Definisi: pada mode 100%, tangkapan elemen iframe untuk frame N sama **piksel demi piksel** dengan `bun scripts/render.mjs templates/timeline/index.html --props-file <props siapkan> --still N`, dengan peramban, viewport halaman 1920 x 1300, dan skala 1 yang sama. Uji `(j)` memeriksa tujuh frame (82 dan 147 di dalam transisi `pudarMelalui` dan `celup`, 260 di tepi butir `pip-beku`, 350 tanpa kanvas klip, 390 awal kredit, 420 teks kredit penuh, 449 frame terakhir), dengan pemanasan dua frame sebelumnya seperti `JUMLAH_PEMANASAN` di `render-sesi.mjs`, dan membandingkan MD5 piksel hasil dekode ffmpeg. Hasil: semua identik. Cadangan `outerHTML` **tidak dipakai** karena raster terbukti identik.
+
+Temuan penting: tanpa CSS khusus, iframe **tidak** identik. Frame tanpa kanvas klip (350 ke atas) berbeda 1 tingkat warna pada gradien logo (sekitar 2.000 piksel) dan sampai 45 tingkat pada tepi huruf teks kredit (antialiasing berbeda), sedangkan frame berkanvas identik. Dugaan penyebabnya adalah perbedaan penempatan lapisan komposit antara dokumen yang dibuka sendirian dan subframe. `will-change: opacity` pada `#komposisi` (lapisan sendiri tanpa transformasi) membuat semua frame uji identik; `will-change: transform` dan `translateZ(0)` tidak cukup. Kestabilan ini bergantung pada versi Chromium, sehingga uji `(j)` adalah penjaganya: bila gagal setelah pembaruan Chromium, perbaiki CSS iframe, jangan melonggarkan uji.
+
+### Aksesibilitas yang diterapkan
+
+Sasaran WCAG 2.2 AA untuk kerangka penyunting (bukan isi video). Yang dilaksanakan dan diuji otomatis di `scripts/uji-penyunting.mjs`: nama aksesibel semua kontrol interaktif (pohon aksesibilitas CDP), landmark `banner`, `main`, `complementary`, `region`, dan `status`, `lang="id"`, scrubber dan grid sesuai tabel di atas, urutan tab (pratinjau, scrubber, track; grid satu perhentian), tanpa pintasan karakter global (SC 2.1.4), sasaran minimal 24 px (SC 2.5.8), kontras token terang dan gelap dihitung dengan `kontras` runtime (teks minimal 4,5:1; komponen UI, batas, dan fokus minimal 3:1; SC 1.4.3 dan 1.4.11), jenis butir tidak hanya lewat warna (glif dan gaya garis, SC 1.4.1), reflow 320 px tanpa gulir horizontal halaman dengan area track dan pratinjau yang bergulir sendiri dan dapat difokuskan (SC 1.4.10), tanpa animasi atau transisi CSS, dan `forced-colors` ditangani di CSS (belum diuji otomatis). **Belum dilakukan:** uji manual dengan pembaca layar, uji zum teks 200% di peramban sebenarnya (hanya dicakup uji lebar 160 px), dan jalur non-seret untuk penyuntingan (SC 2.5.7; relevan di #55). Tidak ada klaim kepatuhan atau sertifikasi.
+
+### Pengujian
+
+`bun run uji:penyunting` (juga bagian `bun run uji` dan CI) menjalankan 17 uji dalam sekitar 15 detik: CLI dan kode keluar; pengerasan server (tanpa token, token salah, `Host`/`Origin`/`Sec-Fetch-Site` asing lewat soket mentah, metode, rute, `..`, tautan simbolik keluar folder untuk frame klip dan aset); header CSP; kesesuaian DOM dengan `Timeline.rencana`; scrubber dan papan ketik; pemutaran dan zum; widget track; pohon aksesibilitas; tujuh frame piksel identik dengan `render.mjs --still`; timeline ditolak validator (galat berlokasi, klik masalah memfokuskan butir); `--draf`; timeline sintetis 500 butir (dibuka sekitar 100 ms); reflow 320 px; kontras token dan tema gelap; larangan animasi CSS, `Date.now`, dan `Math.random`; serta, selama seluruh sesi, tidak ada permintaan jaringan non-lokal dan tidak ada galat konsol atau halaman. Memakai `playwright-core` dan `cariBrowser` yang sudah ada.
+
+### Penyimpangan dari rancangan (#54)
+
+| # | Rancangan | Kenyataan | Alasan |
+| --- | --- | --- | --- |
+| 1 | Token di URL dan header | Ditambah cookie sesi `HttpOnly; SameSite=Strict` dan pemeriksaan `Sec-Fetch-Site` | Subsumber iframe (skrip templat, gambar klip, font) tidak dapat membawa header atau parameter token |
+| 2 | CSP `default-src 'self'` untuk semua | Komposisi memakai `script-src 'self'` plus hash sha256 skrip inline templat | Templat (tidak diubah) memakai `<script>` inline; hash lebih ketat daripada `unsafe-inline` |
+| 3 | `/media/aset` melayani isi folder manifest | Hanya berkas yang tercantum di `aset-props.json` (bukan audio) | Lebih sempit; folder manifest berisi `timeline.json`, `sumber.json`, dan klip mentah |
+| 4 | `akarAset` berawalan `http://127.0.0.1:<port>/media/...` | Awalan relatif `/media/aset` dan `/media/klip` | Satu asal, tanpa menyuntik port; `jalurFrameKlip`, `asetGambar`, dan `pasangFont` bekerja tanpa mengubah templat (diverifikasi, uji `(c)` dan `(j)`) |
+| 5 | Iframe identik dengan render | Identik hanya dengan `will-change: opacity` pada iframe | Lihat [Frame sama dengan render](#frame-sama-dengan-render) |
+| 6 | Hanya butir dalam jendela terlihat dibuat di DOM | Semua butir dibuat; tanpa virtualisasi | Roving tabindex dan navigasi papan ketik butuh sel ada; 500 butir dibuka sekitar 100 ms. Batas skema (64 track x 2000 butir) tetap tidak dijanjikan. |
+| 7 | Konteks validasi di-cache | `periksaTimeline` dipanggil sekali di awal tanpa cache konteks | Tidak ada penyuntingan di #54; cache diperlukan di #55 |
+| 8 | Urutan track "menurut urutan di JSON" | Indeks terbesar di atas (lapisan atas di atas); wireframe di atas hanya ilustrasi | Sesuai kalimat "lapisan atas ditampilkan di atas" |
+| 9 | `Enter` atau `F2` masuk mode sunting | `Enter` memindahkan playhead ke awal butir; `F2` belum dipakai | Mode sunting adalah #55 |
+
+Opsi CLI `--cache` dan `--help` ditambahkan (tidak ada di rancangan). Butir yang sangat pendek (di bawah 24 px) saling menumpuk secara visual pada zum 100% sehingga klik penunjuk bisa mengenai tetangganya; papan ketik dan zum tidak terdampak.
+
 ## Pemecahan pekerjaan
 
 Urutan: **#53 (dokumen ini) -> #54 -> #55**, berurutan (tidak paralel: keduanya menyentuh `scripts/penyunting*` dan dokumen yang sama). Bila #54 membesar, pecah server dan halaman menjadi dua PR tanpa mengubah AC akhir.
@@ -214,7 +332,9 @@ flowchart LR
     T32[#32 templat timeline di main] --> S54
 ```
 
-### #54 scrubber dan daftar track (M)
+### #54 scrubber dan daftar track (M) - selesai
+
+Status: selesai; kondisi nyatanya di [Kondisi nyata (#54)](#kondisi-nyata-54). Teks di bawah adalah rancangan asli (daftar Acceptance Criteria dipertahankan sebagai jejak; keduanya dipenuhi oleh uji `(a)` sampai `(z)` di `scripts/uji-penyunting.mjs`, dengan penyimpangan yang tercatat).
 
 Isi: `scripts/penyunting.mjs` (CLI `bun run penyunting <timeline.json> [--port N] [--buka] [--draf]`, server, token, daftar putih rute, pemuatan seperti siapkan), `scripts/penyunting/` (halaman `index.html`, `penyunting.js`, `penyunting.css`), skrip `penyunting` di `package.json`, dan `scripts/uji-penyunting.mjs` ditambahkan ke `bun run uji` dan CI. Tanpa penyuntingan: hanya baca, plus panel masalah dari validator.
 
@@ -263,11 +383,15 @@ Tiga keputusan, semuanya **disetujui pemilik sesuai rekomendasi pada 2026-11-08*
 
 ## Batasan rancangan
 
-- Dokumen ini belum diverifikasi dengan prototipe; perilaku `jalurFrameKlip` terhadap awalan `http:` dan kestabilan raster antarproses diuji di #54.
+- Bagian rancangan #55 belum diverifikasi dengan prototipe. Untuk #54: perilaku `jalurFrameKlip` dan raster iframe sudah diuji (lihat [Kondisi nyata (#54)](#kondisi-nyata-54)); kestabilan raster bergantung pada versi Chromium.
 - Kepatuhan WCAG 2.2 AA adalah sasaran; penerapan penuh butuh uji manual dengan pembaca layar yang tidak tercakup uji otomatis repo.
 - Pemutaran di penyunting tidak menyertakan audio dan kecepatannya bergantung pada kinerja perangkat; ia bukan pengganti hasil render.
 
 ## Changelog
+
+### 2026-11-08 - v1.1.0
+
+- #54 diimplementasikan: bagian Kondisi nyata (perintah, pemuatan, rute dan pengerasan, halaman, frame sama dengan render, aksesibilitas yang diterapkan, pengujian) dan tabel sembilan penyimpangan dari rancangan; status dokumen diperbarui.
 
 ### 2026-11-08 - v1.0.0
 
