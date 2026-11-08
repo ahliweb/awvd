@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- Version: `v1.0.0`
+- Version: `v1.1.0`
 - Last updated: `2026-11-08`
-- Changeset: `Dokumen baru: hasil riset issue #51 (model hapus latar lokal berlisensi permisif) dan rancangan yang disetujui pemilik: inventaris kandidat dengan lisensi kode dan bobot, uji CPU sintetis beserta batas buktinya, rekomendasi, rancangan efek klip hapusLatar, keamanan, data pribadi, dan empat keputusan pemilik 2026-11-08.`
+- Changeset: `Modul segmentasi diimplementasikan (#88): bagian Modul segmentasi-lib.js (API, registri, env, galat dan kode keluar, pra/pasca-proses bilangan bulat, EMA, uji dan hasil uji lokal dengan ORT), sha256 kanonik registri dengan sumber dan tanggal, status dokumen berubah; integrasi efek klip hapusLatar (#89) tetap rancangan. Sebelumnya: dokumen baru hasil riset #51 dan rancangan yang disetujui pemilik.`
 
-> **Status: rancangan disetujui, belum diimplementasikan ([#88](https://github.com/ahliweb/awvd/issues/88), [#89](https://github.com/ahliweb/awvd/issues/89)).** Dokumen ini hasil riset issue #51. Pemilik menyetujui rekomendasinya pada 2026-11-08. Tidak ada kode segmentasi di repo: `scripts/klip.mjs` belum memiliki efek `hapusLatar`, dan `onnxruntime-node` belum menjadi dependensi. Bagian "Rancangan integrasi" adalah rencana, bukan perilaku saat ini; ia diubah menjadi dokumentasi kondisi nyata setelah #88 dan #89 selesai. Ini bukan nasihat hukum.
+> **Status: modul segmentasi sudah ada ([#88](https://github.com/ahliweb/awvd/issues/88)); efek klip `hapusLatar` belum ([#89](https://github.com/ahliweb/awvd/issues/89)).** Dokumen ini berasal dari riset issue #51, yang rekomendasinya disetujui pemilik pada 2026-11-08. Yang nyata di repo: `scripts/segmentasi-lib.js`, registri `data/model-segmentasi.json`, pemeriksa `bun run segmentasi`, dan uji `bun run uji:segmentasi`; bagian [Modul `segmentasi-lib.js`](#modul-segmentasi-libjs) menjelaskannya. Yang masih rencana: bagian "Rancangan integrasi `hapusLatar`" (`scripts/klip.mjs` belum memiliki efek `hapusLatar`). `onnxruntime-node` bukan dependensi repo. Ini bukan nasihat hukum.
 
 Tujuan: menghapus latar dari klip tertanam (subjek orang di depan kamera) tanpa layar hijau, sepenuhnya lokal, dengan model berlisensi permisif yang **tidak dibundel**. Fitur ini mengisi baris "Hapus latar tanpa layar hijau" di [roadmap.md](roadmap.md) (F5/04 riset, F5/05 dan F5/06 implementasi). Dasarnya [olah-klip.md](olah-klip.md) (efek klip, kunci cache), [video-tertanam-audio.md](video-tertanam-audio.md) (klip), dan [lisensi-kepatuhan.md](lisensi-kepatuhan.md).
 
@@ -93,9 +93,57 @@ Skor kriteria AGENTS.md aturan 8 untuk opsi ini:
 | Jangka panjang | Registri memudahkan penggantian model; risiko perubahan lisensi bobot dicatat dengan tanggal dan sha256 |
 | SEO, UI/UX | Tidak berlaku |
 
+## Modul `segmentasi-lib.js`
+
+Kondisi nyata setelah #88. Modul untuk tahap pembuatan aset beku; render tidak memanggilnya. Integrasi ke klip belum ada (#89).
+
+```mermaid
+flowchart LR
+    R[data/model-segmentasi.json<br/>+ registri kustom] --> V[verifikasiBobot<br/>ukuran + sha256]
+    W[AWVD_MODEL_DIR<br/>bobot .onnx] --> V
+    E[AWVD_ORT] --> O[pastikanOrt]
+    V -->|byte terverifikasi| S[InferenceSession]
+    O --> S
+    F[bingkai rgb24] --> P[praProses<br/>bilinear bulat + tensor]
+    P --> S --> Q[pascaProses<br/>8 bit + ubah ukuran]
+    Q --> L[ambang smoothstep<br/>LUT] --> M[EMA berurutan] --> K[mask Uint8Array]
+```
+
+**Konfigurasi runtime** (lewat env atau argumen, bukan manifest):
+
+| Env | Arti |
+| --- | --- |
+| `AWVD_ORT` | Jalur folder paket `onnxruntime-node` (atau berkas masuknya). Dimuat dinamis dengan `createRequire`; **kode di jalur itu dijalankan**, jadi tunjuk hanya paket yang Anda pasang sendiri. Tanpa itu `GalatSegmentasi` berpesan jelas dan tidak ada keluaran. |
+| `AWVD_MODEL_DIR` | Folder bobot; berkas dicari dengan nama `berkas` dari registri (`selfie-segmentation.onnx`, `modnet.onnx`). Argumen `jalur` eksplisit di API menang atas env ini. |
+| `AWVD_REGISTRI_SEGMENTASI` | Jalur registri kustom pemakai (opsional). |
+
+**Memasang ORT dan bobot (manual, di luar repo).** Pasang `onnxruntime-node` di folder terpisah (`bun add onnxruntime-node`; peringatan "Blocked 1 postinstall" aman diabaikan untuk CPU), lalu `export AWVD_ORT=<folder>/node_modules/onnxruntime-node`. Unduh bobot dari tautan di tabel sha256 di atas (atau lihat tautan dan hash lewat `bun run segmentasi daftar`), simpan dengan nama berkas registri di satu folder, lalu `export AWVD_MODEL_DIR=<folder>`. Awvd tidak mengunduh dan tidak membundel apa pun. `bun run segmentasi periksa --model modnet` memastikan ORT termuat, ukuran dan sha256 cocok, dan sesi dapat dibuat.
+
+**Registri** `data/model-segmentasi.json` (skema 1, ketat; kunci tak dikenal ditolak): `selfie` dan `modnet`, masing-masing dengan `sha256`, `ukuranByte`, `tanggalSha256`, `lisensiKode` dan `lisensiBobot` (Apache-2.0, dari sumber asli penulis, bukan label mirror), `sumberAsli`, `dasarLisensi`, `unduh` (URL konversi komunitas terkunci ke revisi commit; `labelLisensiMirror` hanya catatan), `masukan` (`tetap: [w, h]` untuk selfie; `dinamis` untuk MODNet: kelipatan 32, 64 sampai 2048, sisi panjang bawaan 512; `bagi` dan `kurang` untuk normalisasi `nilai / bagi - kurang`), dan nama tensor. Pemvalidasi menolak model registri tanpa sha256 atau ukuran, lisensi di luar daftar permisif (`Apache-2.0`, `MIT`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`), URL non-https, dan nama berkas dengan pemisah jalur. Registri kustom memakai skema yang sama dengan sha256, ukuran, dan sumber tidak wajib (peringatan), tidak boleh memakai id bawaan, dan lisensi non-permisif hanya diperingatkan.
+
+**Kebijakan sha256.**
+
+| Kasus | Hasil |
+| --- | --- |
+| Model registri bawaan: ukuran atau sha256 salah, atau berkas tidak ada | Ditolak (fail-closed); bobot tidak pernah sampai ke ORT. Kode `ukuran-salah` atau `sha256-salah` (keluar 2), `bobot-tidak-ada` (keluar 1). |
+| Model kustom tanpa sha256 | Berjalan dengan **peringatan** (hash terhitung dicantumkan agar dapat dikunci). |
+| Model kustom dengan sha256 terdeklarasi yang tidak cocok | **Ditolak.** Sedikit lebih ketat dari "hanya peringatan": hash yang dideklarasikan tetapi tidak cocok berarti berkas bukan yang dimaksud pemakai. |
+
+Berkas dibaca sekali ke memori, di-hash, lalu byte yang sama diberikan ke ORT (tidak ada celah antara pemeriksaan dan pemakaian). Batas ukuran bobot 512 MiB.
+
+**Pra-proses dan pasca-proses.** Semua perubahan ukuran memakai interpolasi bilinear titik-tengah-piksel dengan bobot titik tetap 16 bit dan aritmetika bilangan bulat (tepat dalam double), jadi identik di semua mesin. Pra-proses: rgb24 diperkecil ke ukuran masukan model, lalu tensor float32 planar NCHW dengan `nilai / bagi - kurang` (selfie `/255`; MODNet `/127,5 - 1`). Ukuran masukan MODNet bawaan mengikuti rasio bingkai dengan sisi panjang 512 (1280x720 menjadi 512x288); `ukuranInput` dapat berupa `[w, h]` atau sisi panjang. Pasca-proses: keluaran probabilitas 0..1 dijepit dan dikuantisasi ke 8 bit di resolusi model (NaN dan tak hingga menjadi 0; bila semuanya tak hingga, ditolak), lalu diperbesar ke ukuran bingkai dengan fungsi bilinear yang sama.
+
+**Ambang dan EMA.** `ambang: [rendah, tinggi]` menerapkan smoothstep lewat tabel 256 entri (hanya `+ - * /`); bawaan identitas. `ema` adalah bobot bingkai baru (0 sampai 1; bawaan 1 = tanpa pelicinan): keadaan disimpan sebagai bilangan bulat dengan pecahan 8 bit sehingga konvergen tepat ke 0 dan 255 dan identik di semua mesin. Urutan per bingkai: mentah, ambang, EMA. Mask bingkai n bergantung pada bingkai 0..n-1: berikan **berurutan dari satu proses**, panggil `ulangEma()` pada pergantian adegan, dan jangan paralelkan antar-bingkai (paralel antar-klip atau antar-segmen yang masing-masing berawal dari bingkai pertama aman). Erosi, feather, dan mode "tahan" dari rancangan belum diimplementasikan.
+
+**API ringkas** (`scripts/segmentasi-lib.js`): `buatSegmenter({ model, jalur?, env?, registriKustom?, thread?, ukuranInput?, ambang?, ema?, peringatan? })` mengembalikan `{ info, segmentasi(rgb, lebar, tinggi), mentah(...), ulangEma(), tutup() }`; `info` memuat `model`, `sha256`, `versiOrt`, `lisensiKode`, `lisensiBobot`, `thread`, `ema`, dan `lokal: true` (bahan kunci cache dan `laporan.json` di #89). Fungsi pendukung yang diekspor: `muatRegistri`, `validasiRegistri`, `cariBobot`, `verifikasiBobot`, `pastikanOrt`, `ukuranMasukan`, `praProses`, `pascaProses`, `ubahUkuran`, `buatLut`, `buatEma`. Galat berupa `GalatSegmentasi` dengan `kode` stabil dan `keluar` (1 = lingkungan: ORT atau bobot tidak ada, ORT gagal; 2 = validasi: registri, sha256, ukuran, opsi, model tak cocok). `bun run segmentasi periksa|daftar` membungkusnya untuk pemakai (kode keluar 0, 1, 2; tanpa keluaran standar saat gagal).
+
+**Uji** (`bun run uji:segmentasi`, ikut `bun run uji` dan CI tanpa ORT): skema registri dan penolakan registri cacat; fail-closed (ORT tidak ada, bobot tidak ada, ukuran atau sha256 salah, kustom); ORT palsu (modul CJS kecil) yang membuktikan bobot yang ditolak tidak pernah sampai ke `InferenceSession.create` dan menguji jalur sesi; ubah ukuran, pra/pasca-proses, ambang, dan EMA dengan nilai acuan; CLI (kode keluar). Bila `AWVD_ORT` diset, uji tambahan memakai model ONNX mini buatan skrip uji (ReduceMean, protobuf ditulis tangan tanpa dependensi) sebagai model kustom: nilai mask dibandingkan dengan acuan JS dan hasilnya identik antar-run dan antar-thread (1 dan 4), termasuk urutan EMA; bila `AWVD_MODEL_DIR` memuat bobot registri, selfie dan modnet ikut diuji (sha256 diverifikasi, mask tidak seragam, identik antar-run dan antar-thread). Selain itu uji tersebut dilewati dengan pesan `LEWATI`. Semua data sintetis.
+
+**Hasil uji lokal dengan ORT sungguhan (2026-11-08; satu mesin, Linux x64, Bun 1.4.4, `onnxruntime-node` 1.31.1, CPU 20 inti logis, bobot registri terverifikasi sha256).** Bingkai sintetis 1280x720 (gradasi, elips, derau bersemai), 5 bingkai, `ema` 0.6 dan `ambang` [0.1, 0.9]; hash SHA-256 seluruh mask: `selfie` `8993d16cebec4483` dan `modnet` `54d2d7ea0b6ab6a6` (16 heksa pertama) **identik** pada thread bawaan, 1, dan 4, dan antar dua proses terpisah. Waktu per bingkai termasuk pra/pasca-proses JS pada beban rendah: selfie sekitar 12 sampai 19 ms; MODNet 512x288 sekitar 71 ms (thread bawaan), 222 sampai 226 ms (1 thread), 79 sampai 85 ms (4 thread). Batas bukti tidak berubah dari [Batas bukti](#batas-bukti): bingkai sintetis, satu mesin, tidak diuji antar-CPU, antar-versi ORT, antar-OS, dan int8/fp16, dan **kualitas mask pada orang nyata tidak diukur**.
+
 ## Rancangan integrasi `hapusLatar`
 
-Rencana ini dikerjakan di [#88](https://github.com/ahliweb/awvd/issues/88) (modul segmentasi dan registri) dan [#89](https://github.com/ahliweb/awvd/issues/89) (efek klip). Belum ada kodenya.
+Modul segmentasi dan registri ([#88](https://github.com/ahliweb/awvd/issues/88)) sudah ada (lihat [Modul `segmentasi-lib.js`](#modul-segmentasi-libjs)); yang di bawah ini, yaitu efek klip ([#89](https://github.com/ahliweb/awvd/issues/89)), **belum diimplementasikan** dan tetap rencana. Butir 4 (konfigurasi runtime) sebagian sudah terwujud di modul: `AWVD_ORT` dan `AWVD_MODEL_DIR`; flag `--model-segmentasi` belum ada.
 
 ```mermaid
 flowchart TD
@@ -126,13 +174,14 @@ flowchart TD
 - **Model sebagai data tak tepercaya.** Berkas `.onnx` adalah grafik, bukan kode, tetapi parser ORT pernah memiliki CVE. ORT berjalan di proses `klip` yang sama dengan akses sistem berkas, jadi sha256 yang dikunci dan jalur absolut yang diverifikasi wajib.
 - **sha256 wajib dan fail-closed untuk model registri**: bobot yang hash-nya tidak cocok dengan registri ditolak sebelum dimuat ke ORT. Untuk model kustom (registri buatan pemakai) hash hanya menghasilkan peringatan, dan tanggung jawab lisensi serta keamanannya di pemakai.
 - **Sumber bobot.** Dokumentasi boleh menunjuk mirror ONNX komunitas Hugging Face, yaitu `Xenova/modnet` dan `onnx-community/mediapipe_selfie_segmentation`, sebagai konversi komunitas (bukan rilis resmi penulis). Lisensi model **dicatat dari sumber asli penulis**, bukan dari label mirror: contoh nyata, satu mirror RVM berlabel `apache-2.0` padahal kodenya GPL-3.0. Registri awvd harus membaca lisensi dari sumber asli.
-- **Hash yang diuji** (2026-11-08, pada berkas yang diunduh dari mirror di atas). Ini catatan "hash yang diuji", **bukan nilai kanonik**: hash tidak diverifikasi terhadap rilis resmi penulis (bobot asli MODNet ada di Google Drive dan tidak dapat diverifikasi otomatis). Nilai kanonik registri ditetapkan di #88.
+- **sha256 kanonik registri** (dihitung sendiri pada 2026-11-08). Bobot diunduh dari URL mirror yang terkunci ke revisi commit (tabel di bawah) ke folder kosong khusus, diperlakukan sebagai data tak tepercaya, lalu sha256-nya dihitung dengan `sha256sum`; berkas **tidak** di-commit ke repo. Ini hash **berkas konversi komunitas**, bukan hash rilis resmi penulis: bobot asli MODNet ada di Google Drive dan tidak dapat diverifikasi otomatis, dan MediaPipe merilis `.tflite`, bukan ONNX. Hash ini yang dikunci di `data/model-segmentasi.json`; berkas dan hash yang sama dengan hasil uji riset #51 menunjukkan unduhan konsisten antar-sesi.
 
-  | Berkas | sha256 yang diuji |
-  | --- | --- |
-  | `Xenova/modnet` `onnx/model.onnx` (fp32) | `07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9` |
-  | `onnx-community/mediapipe_selfie_segmentation` `onnx/model.onnx` | `3241ac4ad8aa35bdaf33946776db29f7c283a413aa0b0dacb9483594b4531aad` |
-  | `onnx-community/mediapipe_selfie_segmentation_landscape` `onnx/model.onnx` | `7a0adcfdb1715d3b0ff0f61486d8a181c33f4a208343a5abfccbc6540e872d24` |
+  | Model registri | Berkas (`AWVD_MODEL_DIR`) | Ukuran (byte) | sha256 | Sumber unduh (revisi terkunci) |
+  | --- | --- | --- | --- | --- |
+  | `selfie` | `selfie-segmentation.onnx` | 462352 | `3241ac4ad8aa35bdaf33946776db29f7c283a413aa0b0dacb9483594b4531aad` | `onnx-community/mediapipe_selfie_segmentation` `onnx/model.onnx` @ `be49485c8e027524be38591817fc5cd31bd9d00e` |
+  | `modnet` | `modnet.onnx` | 25888640 | `07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9` | `Xenova/modnet` `onnx/model.onnx` @ `fa2fa546052fba4c08921230a26cc69a333fca12` |
+
+  Varian `onnx-community/mediapipe_selfie_segmentation_landscape` (sha256 uji riset `7a0adcfdb1715d3b0ff0f61486d8a181c33f4a208343a5abfccbc6540e872d24`) **tidak** masuk registri bawaan; pemakai yang menginginkannya memakai registri kustom.
 
 - **Lokal penuh.** Bingkai sumber tidak keluar dari mesin, sehingga aturan 5 AGENTS.md (TTS daring hanya untuk konten publik) tidak berlaku dan fitur boleh dipakai untuk konten internal. Mengunduh bobot adalah langkah manual pemakai.
 
@@ -160,12 +209,16 @@ Disetujui pemilik pada 2026-11-08; rincinya di [log-keputusan.md](log-keputusan.
 | Issue | Isi | Status |
 | --- | --- | --- |
 | [#51](https://github.com/ahliweb/awvd/issues/51) | Riset (dokumen ini) | selesai dengan PR dokumen ini |
-| [#88](https://github.com/ahliweb/awvd/issues/88) | F5/05: modul segmentasi (`scripts/segmentasi-lib.js`, registri model bersha256, EMA) | belum |
-| [#89](https://github.com/ahliweb/awvd/issues/89) | F5/06: efek klip `hapusLatar` (skema, masukan tambahan, pra-ekstraksi, cache, `alphamerge`) | belum, bergantung pada #88 |
+| [#88](https://github.com/ahliweb/awvd/issues/88) | F5/05: modul segmentasi (`scripts/segmentasi-lib.js`, registri model bersha256, EMA) | selesai dengan PR modul ini |
+| [#89](https://github.com/ahliweb/awvd/issues/89) | F5/06: efek klip `hapusLatar` (skema, masukan tambahan, pra-ekstraksi, cache, `alphamerge`) | belum (modul #88 sudah tersedia) |
 
 Bukti kualitas pada footage berizin dikerjakan di repo proyek, bukan di awvd.
 
 ## Changelog
+
+### 2026-11-08 - v1.1.0
+
+- Modul segmentasi diimplementasikan (#88): bagian Modul `segmentasi-lib.js`, sha256 kanonik registri dengan sumber dan tanggal (menggantikan "hash yang diuji"), status dokumen, dan pemecahan pekerjaan diperbarui; efek klip `hapusLatar` (#89) tetap rancangan.
 
 ### 2026-11-08 - v1.0.0
 

@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.9.0`
+- Version: `v1.10.0`
 - Last updated: `2026-11-08`
-- Changeset: `Batasan cache segmen: opt-in, hanya video-saja, bergantung pada determinisme komposisi, mesin dan lingkungan yang sama, tak disimpan untuk iframe/video/audio/worker, belum diuji pada komposisi klip nyata dan lintas mesin. Sebelumnya: Menghapus batasan -shortest.`
+- Changeset: `Bagian Segmentasi latar lokal: hanya Linux x64 yang diuji dan dijamin, ORT dan bobot bukan dependensi, bukti hanya sintetis pada satu mesin dan satu versi ORT, mask berurutan karena EMA, hash bobot milik konversi komunitas. Sebelumnya: batasan cache segmen.`
 
 Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat bagian akhir).
 
@@ -37,8 +37,23 @@ Batasan lintas fitur. Batasan khusus tiap fitur ada di dokumen fiturnya (lihat b
 | Deteksi ketukan musik (hanya sinyal sintetis yang diuji, tempo tetap) | [ketukan.md](ketukan.md#batasan) |
 | Timeline deklaratif (`timeline.json`, validator; render menyusul) | [timeline.md](timeline.md#batasan) |
 | Mempelajari gaya video dan kutipan wajar | [pelajari-reaction.md](pelajari-reaction.md#batasan) |
+| Segmentasi latar lokal (hanya Linux x64; bukti hanya sintetis; ORT opsional) | [segmentasi-latar.md](segmentasi-latar.md#batas-bukti) dan [bagian ini](#segmentasi-latar-lokal) |
+
+## Segmentasi latar lokal
+
+Modul `scripts/segmentasi-lib.js` ([segmentasi-latar.md](segmentasi-latar.md#modul-segmentasi-libjs)) bersifat opsional dan belum terhubung ke klip (#89).
+
+- **Hanya Linux x64** yang diuji dan dijamin. macOS, Windows, dan ARM tidak diuji (paket `onnxruntime-node` memuat biner untuk platform itu, tetapi awvd tidak menjalankannya di sana).
+- **Bukan dependensi.** `onnxruntime-node` dan bobot model tidak dibundel dan tidak ada di `package.json`: pemakai memasangnya sendiri (`AWVD_ORT`, `AWVD_MODEL_DIR`). Tanpa itu fitur gagal tertutup (kode keluar 1, tanpa keluaran); CI tidak memasangnya sehingga uji inferensi nyata hanya jalan secara lokal.
+- **Bukti hanya sintetis.** Uji dan angka di repo memakai bingkai sintetis pada satu mesin dan satu versi ORT (1.31.1). Determinisme antar-run, antar-proses, dan antar-jumlah thread (1, 4, bawaan) terbukti di sana; antar-CPU (AVX2 vs AVX-512), antar-versi ORT, antar-OS, dan model int8 atau fp16 belum diuji. **Kualitas mask pada orang nyata (tepi rambut, tangan, banyak orang, cahaya buruk, kedip antar-bingkai) belum diukur**; manfaat EMA pada footage nyata belum dibuktikan.
+- Mask bergantung pada urutan bingkai (EMA): tidak dapat dihitung paralel antar-bingkai dalam satu klip.
+- Hash bobot yang dikunci adalah hash berkas konversi komunitas, bukan rilis resmi penulis; erosi, feather, dan mode "tahan" belum ada.
 
 ## Changelog
+
+### 2026-11-08 - v1.10.0
+
+- Menambahkan bagian Segmentasi latar lokal (#88): hanya Linux x64, bukan dependensi, bukti hanya sintetis, EMA berurutan, hash bobot konversi komunitas.
 
 ### 2026-11-08 - v1.9.0
 
