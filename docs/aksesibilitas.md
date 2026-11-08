@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v1.9.1`
+- Version: `v1.9.2`
 - Last updated: `2026-11-08`
-- Changeset: `Baris antarmuka penyunting: sasaran butir 24 px kini tidak saling menumpuk bahkan untuk butir 1 frame pada zum 100% (#94, SC 2.5.8). Sebelumnya: baris penyunting diperbarui untuk penyuntingan (#55).`
+- Changeset: `Baris antarmuka penyunting: tombol Unduh cadangan (#98) dapat dioperasikan papan ketik tanpa pintasan karakter global, hasil dan peringatan validator diumumkan di region aria-live. Sebelumnya: sasaran butir 24 px tidak saling menumpuk (#94, SC 2.5.8).`
 
 Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 
@@ -36,7 +36,7 @@ Aksesibilitas video yang dihasilkan awvd dan antarmuka pratinjaunya.
 | Gerak dan kilatan pada transisi dan animasi | `kurangiGerak` (mengganti jenis gerak besar dan berkilat dengan `pudar`; kamera, paralaks, getar mati), profil `lansia`/`anak`, durasi minimum jenis berkilat, `periksaKilatan` tingkat rencana. `kurangiGerak` adalah praktik terbaik, bukan klaim kepatuhan WCAG 2.3.3. Dipilih lewat props, termasuk dari `konsep.json` (`kurangiGerak: true` atau `audiens.profil`) | [transisi-animasi.md](transisi-animasi.md#aksesibilitas) |
 | Teks alternatif gambar, logo, dan SVG | Bidang `teksAlternatif` wajib di `aset.json` kecuali `peran: "dekoratif"` (WCAG 1.1.1); teks di dalam gambar hanya untuk logotype (WCAG 1.4.5); `aset-props.json` meneruskannya ke komposisi; helper runtime `asetGambar`, `logo`, dan `ikon` melempar galat untuk aset informatif tanpa teks dan memasang `alt=""` plus `aria-hidden` pada aset dekoratif | [aset.md](aset.md) |
 | Ketajaman aset | Pemeriksa resolusi menolak aset yang akan di-upscale (buram) pada skala render yang dipakai | [aset.md](aset.md) |
-| Antarmuka penyunting pratinjau (kerangka, bukan isi video): scrubber natif berlabel dengan `aria-valuetext`, widget track `role="grid"` dengan roving tabindex dan navigasi panah, status `aria-live`, kontras token >= 4,5:1 (teks) dan >= 3:1 (komponen) tema terang dan gelap, sasaran >= 24 px tanpa tumpang antarbutir (butir 1 frame dipisah ke sublajur sehingga klik di pusat selalu mengenai butirnya; SC 2.5.8), reflow 320 px, tanpa animasi CSS. Penyuntingan (#55): setiap operasi (pindah, ubah durasi, potong, urungkan, ulangi, ekspor) tersedia tanpa seret lewat kolom angka, tombol, dan papan ketik (SC 2.5.7; alur E2E diuji hanya dengan papan ketik); pintasan karakter tunggal (`S`, `F2`, panah) hanya aktif di dalam widget track dan pintasan global memakai Ctrl (SC 2.1.4); hasil operasi, urungkan, validasi, dan ekspor diumumkan di region `aria-live`, galat yang memblokir ekspor lewat `role="alert"` (SC 4.1.3); tombol yang tak boleh dipakai `aria-disabled` dengan alasan tertulis yang terhubung (`aria-describedby`); mode sunting ditandai teks, bukan hanya warna. Sasaran WCAG 2.2 AA; hanya yang diuji otomatis yang diklaim (belum diuji dengan pembaca layar; bukan sertifikasi) | `bun run penyunting`, `bun run uji:penyunting` | [penyunting.md](penyunting.md#aksesibilitas-yang-diterapkan-55) |
+| Antarmuka penyunting pratinjau (kerangka, bukan isi video): scrubber natif berlabel dengan `aria-valuetext`, widget track `role="grid"` dengan roving tabindex dan navigasi panah, status `aria-live`, kontras token >= 4,5:1 (teks) dan >= 3:1 (komponen) tema terang dan gelap, sasaran >= 24 px tanpa tumpang antarbutir (butir 1 frame dipisah ke sublajur sehingga klik di pusat selalu mengenai butirnya; SC 2.5.8), reflow 320 px, tanpa animasi CSS. Penyuntingan (#55): setiap operasi (pindah, ubah durasi, potong, urungkan, ulangi, ekspor, unduh cadangan) tersedia tanpa seret lewat kolom angka, tombol, dan papan ketik (SC 2.5.7; alur E2E diuji hanya dengan papan ketik); pintasan karakter tunggal (`S`, `F2`, panah) hanya aktif di dalam widget track dan pintasan global memakai Ctrl (SC 2.1.4); hasil operasi, urungkan, validasi, dan ekspor diumumkan di region `aria-live`, galat yang memblokir ekspor lewat `role="alert"` (SC 4.1.3); tombol yang tak boleh dipakai `aria-disabled` dengan alasan tertulis yang terhubung (`aria-describedby`); mode sunting ditandai teks, bukan hanya warna. Sasaran WCAG 2.2 AA; hanya yang diuji otomatis yang diklaim (belum diuji dengan pembaca layar; bukan sertifikasi) | `bun run penyunting`, `bun run uji:penyunting` | [penyunting.md](penyunting.md#aksesibilitas-yang-diterapkan-55) |
 | Penonton tanpa suara | Field `audiens.tanpaSuara` dan `caption.burnIn` di `konsep.json` | [konsep-jenis-alur.md](konsep-jenis-alur.md) |
 
 Caption yang dibuat ASR tidak boleh dianggap setara caption akurat tanpa tinjauan: ASR dapat salah dengar, melewatkan kata, atau mengarang kata, dan nama diri, istilah, serta angka paling rawan. Standar caption (misalnya WCAG SC 1.2.2) menuntut caption yang setara dengan ucapan; awvd tidak memeriksa tinjauan itu, jadi menyuntingnya dan menandainya selesai adalah tanggung jawab proyek. Penerapan standar itu pada caption otomatis belum diverifikasi dari sumber primer.
@@ -44,6 +44,10 @@ Caption yang dibuat ASR tidak boleh dianggap setara caption akurat tanpa tinjaua
 PDF SOP bertag (outline, bahasa `id`, tabel `th scope`) tetapi **tidak** mengklaim PDF/UA; lihat [sop.md](sop.md).
 
 ## Changelog
+
+### 2026-11-08 - v1.9.2
+
+- Penyunting: tombol Unduh cadangan (#98) beralasan tertulis, bisa lewat papan ketik tanpa pintasan karakter global, hasil dan peringatan validator diumumkan.
 
 ### 2026-11-08 - v1.9.1
 

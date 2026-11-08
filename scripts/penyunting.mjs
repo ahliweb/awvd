@@ -37,9 +37,11 @@ import { parseArgs } from "node:util";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { BATAS_BERKAS_BYTE, muatKonteks, periksaTimeline, validasiSkema } from "./timeline.mjs";
 
+const { serialisasi } = createRequire(import.meta.url)("./penyunting/model.js"); // model.js dipakai bersama halaman: satu serialisasi
 const akar = join(dirname(fileURLToPath(import.meta.url)), "..");
 const dirHalaman = join(akar, "scripts", "penyunting");
 const berkasTemplat = join(akar, "templates", "timeline", "index.html");
@@ -341,7 +343,7 @@ export function mulaiServer(sesi, { port = 0, token = randomBytes(16).toString("
       const ketat = isi.ketat === true;
       const h = ketat ? await periksaDraf(sesi, t, { ketat }) : await periksaDanSimpan(t);
       if (!h.lolos) return json(422, { galat: `ekspor ditolak: validator menemukan ${h.galat.length} galat${ketat ? " (ekspor ketat)" : ""}; tidak ada berkas yang ditulis`, validasi: h });
-      const teks = `${JSON.stringify(t, null, 2)}\n`;
+      const teks = serialisasi(t);
       const byte = Buffer.byteLength(teks);
       if (byte > BATAS_BERKAS_BYTE) throw { status: 413, pesan: `hasil ekspor ${(byte / 1e6).toFixed(1)} MB melebihi batas ${BATAS_BERKAS_BYTE / 1e6} MB yang diterima validator` };
       try { tulisAtomik(sesi.keluaran, teks); } catch (e) { throw { status: 500, pesan: `gagal menulis ${sesi.keluaranTampil}: ${e.code ?? e.message}` }; }
@@ -400,7 +402,7 @@ export function mulaiServer(sesi, { port = 0, token = randomBytes(16).toString("
     }
     if (seg.length === 2 && a === "api" && b === "sesi") {
       const { validasi, masalahMuat, timeline, tampil, draf, keluaranTampil, timpa } = sesi;
-      return kirim(JSON.stringify({ versi: 2, berkas: tampil, draf, timeline, validasi, masalahMuat, ekspor: { berkas: keluaranTampil, timpa } }), TIPE[".json"], CSP_HALAMAN);
+      return kirim(JSON.stringify({ versi: 2, berkas: tampil, draf, timeline, validasi, masalahMuat, ekspor: { berkas: keluaranTampil, timpa, unduh: `${basename(sesi.berkas).replace(/\.json$/i, "")}.sunting.json` } }), TIPE[".json"], CSP_HALAMAN);
     }
     if (a === "media" && b === "aset" && seg.length >= 3) {
       const rel = seg.slice(2).join("/");

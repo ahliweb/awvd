@@ -1434,6 +1434,72 @@ daftar("(za) butir sangat pendek (#94): dua butir 1 frame berdampingan pada zum 
   } finally { await c.close(); await s.henti(); }
 });
 
+daftar("(zb) unduh cadangan (#98): papan ketik saja, berkas identik byte demi byte dengan ekspor server, nama <nama>.sunting.json, timeline ditolak validator tetap bisa diunduh dengan peringatan yang diumumkan; serialisasi dibagi dengan server", async () => {
+  await pastikanUtama();
+  const dir = salinFixture("unduh");
+  const keluaran = join(dir, "timeline.sunting.json");
+  const s = await mulaiPenyunting(join(dir, "timeline.json"), "--cache", j("cache-unduh"));
+  const { c, p, asing, galat } = await bukaHalaman(s);
+  try {
+    // satu serialisasi: model.js (halaman) dan server memakai fungsi yang sama
+    const src = readFileSync(join(akar, "scripts", "penyunting.mjs"), "utf8");
+    tegas(/serialisasi\(t\)/.test(src) && !/JSON\.stringify\(t, null, 2\)/.test(src), "server memakai serialisasi dari model.js, bukan salinan format");
+    tegas(MD.serialisasi({ a: [1] }) === '{\n  "a": [\n    1\n  ]\n}\n', "format: indentasi 2 dan baris baru akhir");
+    // tombol bernama, bisa difokus dan ditekan dengan papan ketik, bukan pintasan karakter global
+    const tombol = p.getByRole("button", { name: "Unduh cadangan" });
+    tegas((await tombol.getAttribute("aria-describedby")) === "alasan-unduh" && (await tombol.getAttribute("aria-disabled")) === null, "tombol Unduh cadangan aktif dan beralasan");
+    let nomor = 0;
+    const unduhDenganKetik = async () => {
+      await tombol.focus();
+      const [d] = await Promise.all([p.waitForEvent("download", { timeout: 15000 }), p.keyboard.press("Enter")]);
+      const jalur = join(tmp, `unduh-${++nomor}.json`);
+      await d.saveAs(jalur);
+      return { nama: d.suggestedFilename(), isi: readFileSync(jalur) };
+    };
+    // 1. suntingan sah: ubah durasi lewat kolom angka, tunggu lolos, ekspor (server) dan unduh (peramban)
+    await p.locator(sel("judul")).click();
+    await p.fill("#f-durasi", "100");
+    await p.press("#f-durasi", "Enter");
+    await tungguStatus(p, /^Lolos validator/);
+    await p.waitForFunction(() => document.getElementById("ekspor").getAttribute("aria-disabled") === "false", null, { timeout: 15000 }).catch(async (e) => { throw new Error(`${e.message} status=${await statusTeks(p)} alasan=${await p.locator("#alasan-ekspor").textContent()}`); });
+    await p.locator("#ekspor").focus();
+    await p.keyboard.press("Enter");
+    await tungguStatus(p, /^Diekspor ke /);
+    const u1 = await unduhDenganKetik();
+    tegas(u1.nama === "timeline.sunting.json", `nama unduhan: ${u1.nama}`);
+    tegas(Buffer.compare(u1.isi, readFileSync(keluaran)) === 0, "unduhan identik byte demi byte dengan ekspor server");
+    tegas(u1.isi.at(-1) === 0x0a && u1.isi.toString("utf8").startsWith('{\n  "'), "indentasi 2 dan baris baru di akhir");
+    tegas(/^Cadangan diunduh: timeline\.sunting\.json \(\d+ byte\)\. Lolos validator/.test(await statusTeks(p)), `pengumuman lolos: ${await statusTeks(p)}`);
+    // 2. pelanggaran (kredit tumpang tindih tanpa transisi): ekspor ditolak, unduhan tetap bisa dengan peringatan
+    await p.locator(sel("kredit")).click();
+    await p.fill("#f-mulai", "100");
+    await p.press("#f-mulai", "Enter");
+    await tungguStatus(p, /^Ditolak validator/);
+    tegas((await p.locator("#ekspor").getAttribute("aria-disabled")) === "true", "Ekspor nonaktif");
+    const sebelum = readFileSync(keluaran);
+    const u2 = await unduhDenganKetik();
+    tegas(/^Cadangan diunduh: .*Peringatan: timeline ini DITOLAK validator \([1-9]\d* galat/.test(await statusTeks(p)), `peringatan ditolak diumumkan: ${await statusTeks(p)}`);
+    tegas(Buffer.compare(readFileSync(keluaran), sebelum) === 0, "unduhan tidak menulis berkas server");
+    const kerja = JSON.parse(u2.isi.toString("utf8"));
+    const kredit = kerja.track.flatMap((t) => t.butir).find((b) => b.id === "kredit");
+    tegas(kredit.mulai === 100, "isi unduhan = keadaan terkini (bukan keadaan ekspor terakhir)");
+    tegas(Buffer.compare(u2.isi, Buffer.from(MD.serialisasi(kerja))) === 0, "unduhan = serialisasi keadaan terkini");
+    const r = await kirimPost(s, "/api/ekspor", { timeline: kerja });
+    tegas(r.status === 422, `ekspor server menolak timeline yang sama: ${r.status}`);
+    // 3. urungkan lalu unduh lagi: identik dengan ekspor sebelumnya
+    await p.locator("#h-pratinjau").click();
+    await p.keyboard.press("Control+z");
+    await tungguStatus(p, /^Lolos validator/);
+    const u3 = await unduhDenganKetik();
+    tegas(Buffer.compare(u3.isi, readFileSync(keluaran)) === 0, "setelah urungkan, unduhan kembali identik dengan ekspor");
+    // CSP halaman tidak dilonggarkan: unduhan lewat blob: tanpa direktif baru
+    const csp = (await dapat(s, "/")).headers.get("content-security-policy");
+    tegas(csp.includes("img-src 'self' data: blob:") && csp.includes("connect-src 'self'") && !/navigate-to|script-src[^;]*blob:|default-src[^;]*blob:/.test(csp), `CSP: ${csp}`);
+    const galatLain = galat.filter((g) => !/bertumpuk .* tanpa transisi/.test(g)); // galat komposisi yang diharapkan dari timeline yang sengaja dirusak
+    tegas(asing.length === 0 && galatLain.length === 0, `jaringan non-lokal: ${asing.join(",")}; galat: ${galatLain.join(" | ")}`);
+  } finally { await c.close(); await s.henti(); }
+});
+
 daftar("(z) selama seluruh sesi: tidak ada permintaan jaringan non-lokal, tidak ada galat konsol, tidak ada galat halaman", async () => {
   await pastikanUtama();
   tegas(permintaanAsing.length === 0, `permintaan non-lokal: ${permintaanAsing.join(", ")}`);

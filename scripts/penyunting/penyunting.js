@@ -147,7 +147,7 @@
     angka: $("frame-angka"), waktu: $("waktu"), penanda: $("penanda"), scrubber: $("scrubber"), zumKurang: $("zum-kurang"), zumLebih: $("zum-lebih"),
     zum: $("zum"), gulirTrack: $("gulir-track"), kanvas: $("kanvas"), penggaris: $("penggaris"), grid: $("grid"), playhead: $("playhead"),
     properti: $("isi-properti"), masalah: $("daftar-masalah"), hMasalah: $("h-masalah"),
-    urungkan: $("urungkan"), ulangi: $("ulangi"), ekspor: $("ekspor"), eksporKetat: $("ekspor-ketat"), alasanEkspor: $("alasan-ekspor"), galatEkspor: $("galat-ekspor"),
+    urungkan: $("urungkan"), ulangi: $("ulangi"), ekspor: $("ekspor"), eksporKetat: $("ekspor-ketat"), unduh: $("unduh"), alasanEkspor: $("alasan-ekspor"), galatEkspor: $("galat-ekspor"),
     sunting: $("sunting"), modeSunting: $("mode-sunting"), fMulai: $("f-mulai"), fDurasi: $("f-durasi"), fSisi: $("f-sisi"), alasanSisi: $("alasan-sisi"),
     geserMin: $("geser-min"), geserPlus: $("geser-plus"), durasiMin: $("durasi-min"), durasiPlus: $("durasi-plus"), potong: $("potong"), alasanPotong: $("alasan-potong"),
   };
@@ -754,6 +754,31 @@
     });
   }
 
+  /**
+   * Unduhan cadangan: teks dari `Mod.serialisasi` (sama dengan yang ditulis server saat ekspor), tanpa lewat server.
+   * Tidak diblokir validator; hasil validasi terakhir (atau ketiadaannya) diumumkan sebagai peringatan.
+   */
+  function unduhCadangan() {
+    komitKolomAktif();
+    var teks = Mod.serialisasi(S.T);
+    var byte = new Blob([teks]).size;
+    var nama = (S.ekspor && S.ekspor.unduh) || "timeline.sunting.json";
+    var url = URL.createObjectURL(new Blob([teks], { type: "application/json" }));
+    var a = document.createElement("a");
+    a.href = url; a.download = nama; a.hidden = true;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+    var v = S.valid, segar = S.revValid === S.rev && S.timer === null && !S.terbang;
+    var pesan = "Cadangan diunduh: " + nama + " (" + byte + " byte). ";
+    if (!segar) pesan += "Peringatan: perubahan terakhir belum diperiksa validator; berkas ini belum tentu lolos.";
+    else if (!v.lolos) pesan += "Peringatan: timeline ini DITOLAK validator (" + v.galat.length + " galat, lihat panel Masalah); berkas ini tidak akan lolos bun run timeline periksa.";
+    else pesan += "Lolos validator (" + v.galat.length + " galat, " + v.peringatan.length + " peringatan).";
+    if (byte > 5000000) pesan += " Peringatan: melebihi batas 5 MB yang diterima validator.";
+    umumkan(pesan);
+  }
+
   function pasangSunting() {
     var aksi = function (tombol, fn) {
       tombol.addEventListener("click", function () {
@@ -768,6 +793,7 @@
     aksi(el.ulangi, ulangi);
     aksi(el.ekspor, function () { eksporSekarang(false); });
     aksi(el.eksporKetat, function () { eksporSekarang(true); });
+    el.unduh.addEventListener("click", unduhCadangan);
     aksi(el.potong, potongDiPlayhead);
     el.geserMin.addEventListener("click", function () { geserButir(-1); });
     el.geserPlus.addEventListener("click", function () { geserButir(1); });
