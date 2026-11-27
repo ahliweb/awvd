@@ -2,9 +2,9 @@
 
 ## Metadata
 
-- Version: `v2.30.1`
-- Last updated: `2026-11-08`
-- Changeset: `Indeks dokumentasi: versi roadmap.md v1.26.1 dan docs/README.md v1.17.13. Sebelumnya: §Perintah utama: penyunting memuat tombol Unduh cadangan (#98); §Struktur repo: model.js memuat serialisasi bersama server; indeks dokumentasi: penyunting.md v2.2.0, aksesibilitas.md v1.9.2, roadmap.md v1.26.0, docs/README.md v1.17.12.`
+- Version: `v2.30.2`
+- Last updated: `2026-11-27`
+- Changeset: `Indeks: AGENTS.md v1.10.0 dan subagent pelaksana-kritis di §Struktur repo. Sebelumnya: indeks dokumentasi roadmap.md v1.26.1 dan docs/README.md v1.17.13.`
 
 Video MP4 dari kode web (HTML/CSS/JS) yang digambar per nomor frame, untuk dibuat dan dirawat oleh manusia maupun AI agent. awvd adalah renderer sendiri berbasis Chromium headless dan ffmpeg: sebuah komposisi adalah halaman web yang menggambar ulang dirinya untuk setiap nomor frame, sehingga hasilnya deterministik dan bisa ditinjau sebagai kode.
 
@@ -99,7 +99,7 @@ Dokumentasi rinci ada di folder [`docs/`](docs/README.md); tabel di bawah menyal
 | [docs/timeline.md](docs/timeline.md) | `timeline.json` (skema 1), validator `bun run timeline periksa`, templat render generik, rencana audio | `v1.4.0` |
 | [docs/penyunting.md](docs/penyunting.md) | Penyunting pratinjau lokal F6: `bun run penyunting` (server `Bun.serve` berpengerasan, scrubber, grid track, frame identik piksel dengan render; penyuntingan dasar pindah, potong, ubah durasi, urungkan; ekspor `<nama>.sunting.json` hanya bila validator lolos; jalur tanpa seret; aksesibilitas yang diterapkan; penyimpangan dari rancangan) | `v2.2.0` |
 | [docs/segmentasi-latar.md](docs/segmentasi-latar.md) | Hapus latar lokal F5: modul segmentasi dan registri (#88) dan efek klip `hapusLatar` (#89), model, lisensi, uji CPU sintetis, ORT opsional | `v1.2.0` |
-| [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.9.2` |
+| [AGENTS.md](AGENTS.md) | Aturan kerja AI agent, git, rilis, dokumentasi | `v1.10.0` |
 | [CHANGELOG.md](CHANGELOG.md) | Riwayat perubahan software | - |
 
 ## Struktur repo
@@ -141,7 +141,7 @@ templates/<nama>/       komposisi contoh generik + ASET.md (catatan aset pihak k
                         reframe-contoh (reframe 16:9 ke 9:16: reframe.json, data fiktif)
 docs/                   dokumentasi rinci (indeks: docs/README.md)
 .github/                workflow CI uji dan template pull request
-.claude/agents/         subagent pelaksana (kompleks, sederhana) untuk orchestrator
+.claude/agents/         subagent pelaksana (kritis, kompleks, sederhana) untuk orchestrator
 AGENTS.md  CLAUDE.md    aturan kerja AI agent (CLAUDE.md hanya merujuk AGENTS.md)
 CHANGELOG.md  LICENSE   riwayat software dan lisensi MIT
 .cache/ out/            cache klip dan hasil render; diabaikan git
@@ -164,6 +164,10 @@ awvd berlisensi [MIT](LICENSE). Kode ditulis sendiri tanpa menyalin Remotion mau
 **Peringatan hukum: video pihak ketiga.** awvd tidak menyediakan dan tidak akan menyediakan pengunduh atau perekam video platform (YouTube, TikTok, Facebook, Instagram, X, dan sejenisnya); fitur sumber hanya menerima berkas yang sah Anda miliki, dengan manifest dan atribusi. Kutipan untuk video reaction dan ulasan diperiksa terhadap kebijakan internal yang terukur dan gerbang tinjauan hukum, bukan jaminan kutipan sah. Dokumentasi ini bukan nasihat hukum; rincian di [docs/pelajari-reaction.md](docs/pelajari-reaction.md).
 
 ## Changelog
+
+### 2026-11-27 - v2.30.2
+
+- Indeks dokumentasi memperbarui versi `AGENTS.md` v1.10.0; §Struktur repo menyebut subagent `pelaksana-kritis`.
 
 ### 2026-11-08 - v2.30.1
 
